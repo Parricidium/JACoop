@@ -269,6 +269,7 @@ void G_SoundOnEnt( gentity_t *ent, soundChannel_t channel, const char *soundPath
 		return;
 	}
 
+	G_CoopForwardSound( ent->s.number, channel, index, soundPath, -1 );	// coop: remote clients
 	cgi_S_UpdateEntityPosition( ent->s.number, ent->currentOrigin );
 	if ( cgs.sound_precache[ index ] )
 	{
@@ -287,6 +288,7 @@ void G_SoundIndexOnEnt( gentity_t *ent, soundChannel_t channel, int index )
 		return;
 	}
 
+	G_CoopForwardSound( ent->s.number, channel, index, NULL, -1 );	// coop: remote clients
 	cgi_S_UpdateEntityPosition( ent->s.number, ent->currentOrigin );
 	if ( cgs.sound_precache[ index ] )
 	{
@@ -310,41 +312,41 @@ void G_SpeechEvent( gentity_t *self, int event )
 	case EV_ANGER1:	//Say when acquire an enemy when didn't have one before
 	case EV_ANGER2:
 	case EV_ANGER3:
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, va("*anger%i.wav", event - EV_ANGER1 + 1), CS_COMBAT );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, va("*anger%i.wav", event - EV_ANGER1 + 1), CS_COMBAT );
 		break;
 	case EV_VICTORY1:	//Say when killed an enemy
 	case EV_VICTORY2:
 	case EV_VICTORY3:
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, va("*victory%i.wav", event - EV_VICTORY1 + 1), CS_COMBAT );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, va("*victory%i.wav", event - EV_VICTORY1 + 1), CS_COMBAT );
 		break;
 	case EV_CONFUSE1:	//Say when confused
 	case EV_CONFUSE2:
 	case EV_CONFUSE3:
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, va("*confuse%i.wav", event - EV_CONFUSE1 + 1), CS_COMBAT );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, va("*confuse%i.wav", event - EV_CONFUSE1 + 1), CS_COMBAT );
 		break;
 	case EV_PUSHED1:	//Say when pushed
 	case EV_PUSHED2:
 	case EV_PUSHED3:
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, va("*pushed%i.wav", event - EV_PUSHED1 + 1), CS_COMBAT );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, va("*pushed%i.wav", event - EV_PUSHED1 + 1), CS_COMBAT );
 		break;
 	case EV_CHOKE1:	//Say when choking
 	case EV_CHOKE2:
 	case EV_CHOKE3:
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, va("*choke%i.wav", event - EV_CHOKE1 + 1), CS_COMBAT );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, va("*choke%i.wav", event - EV_CHOKE1 + 1), CS_COMBAT );
 		break;
 	case EV_FFWARN:	//Warn ally to stop shooting you
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, "*ffwarn.wav", CS_COMBAT );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, "*ffwarn.wav", CS_COMBAT );
 		break;
 	case EV_FFTURN:	//Turn on ally after being shot by them
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, "*ffturn.wav", CS_COMBAT );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, "*ffturn.wav", CS_COMBAT );
 		break;
 	//extra sounds for ST
 	case EV_CHASE1:
 	case EV_CHASE2:
 	case EV_CHASE3:
-		if ( !CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, va("*chase%i.wav", event - EV_CHASE1 + 1), CS_EXTRA ) )
+		if ( !G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, va("*chase%i.wav", event - EV_CHASE1 + 1), CS_EXTRA ) )
 		{
-			CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, va("*anger%i.wav", Q_irand(1,3)), CS_COMBAT );
+			G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, va("*anger%i.wav", Q_irand(1,3)), CS_COMBAT );
 		}
 		break;
 	case EV_COVER1:
@@ -352,92 +354,92 @@ void G_SpeechEvent( gentity_t *self, int event )
 	case EV_COVER3:
 	case EV_COVER4:
 	case EV_COVER5:
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, va("*cover%i.wav", event - EV_COVER1 + 1), CS_EXTRA );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, va("*cover%i.wav", event - EV_COVER1 + 1), CS_EXTRA );
 		break;
 	case EV_DETECTED1:
 	case EV_DETECTED2:
 	case EV_DETECTED3:
 	case EV_DETECTED4:
 	case EV_DETECTED5:
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, va("*detected%i.wav", event - EV_DETECTED1 + 1), CS_EXTRA );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, va("*detected%i.wav", event - EV_DETECTED1 + 1), CS_EXTRA );
 		break;
 	case EV_GIVEUP1:
 	case EV_GIVEUP2:
 	case EV_GIVEUP3:
 	case EV_GIVEUP4:
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, va("*giveup%i.wav", event - EV_GIVEUP1 + 1), CS_EXTRA );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, va("*giveup%i.wav", event - EV_GIVEUP1 + 1), CS_EXTRA );
 		break;
 	case EV_LOOK1:
 	case EV_LOOK2:
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, va("*look%i.wav", event - EV_LOOK1 + 1), CS_EXTRA );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, va("*look%i.wav", event - EV_LOOK1 + 1), CS_EXTRA );
 		break;
 	case EV_LOST1:
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, "*lost1.wav", CS_EXTRA );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, "*lost1.wav", CS_EXTRA );
 		break;
 	case EV_OUTFLANK1:
 	case EV_OUTFLANK2:
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, va("*outflank%i.wav", event - EV_OUTFLANK1 + 1), CS_EXTRA );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, va("*outflank%i.wav", event - EV_OUTFLANK1 + 1), CS_EXTRA );
 		break;
 	case EV_ESCAPING1:
 	case EV_ESCAPING2:
 	case EV_ESCAPING3:
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, va("*escaping%i.wav", event - EV_ESCAPING1 + 1), CS_EXTRA );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, va("*escaping%i.wav", event - EV_ESCAPING1 + 1), CS_EXTRA );
 		break;
 	case EV_SIGHT1:
 	case EV_SIGHT2:
 	case EV_SIGHT3:
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, va("*sight%i.wav", event - EV_SIGHT1 + 1), CS_EXTRA );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, va("*sight%i.wav", event - EV_SIGHT1 + 1), CS_EXTRA );
 		break;
 	case EV_SOUND1:
 	case EV_SOUND2:
 	case EV_SOUND3:
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, va("*sound%i.wav", event - EV_SOUND1 + 1), CS_EXTRA );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, va("*sound%i.wav", event - EV_SOUND1 + 1), CS_EXTRA );
 		break;
 	case EV_SUSPICIOUS1:
 	case EV_SUSPICIOUS2:
 	case EV_SUSPICIOUS3:
 	case EV_SUSPICIOUS4:
 	case EV_SUSPICIOUS5:
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, va("*suspicious%i.wav", event - EV_SUSPICIOUS1 + 1), CS_EXTRA );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, va("*suspicious%i.wav", event - EV_SUSPICIOUS1 + 1), CS_EXTRA );
 		break;
 	//extra sounds for Jedi
 	case EV_COMBAT1:
 	case EV_COMBAT2:
 	case EV_COMBAT3:
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, va("*combat%i.wav", event - EV_COMBAT1 + 1), CS_JEDI );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, va("*combat%i.wav", event - EV_COMBAT1 + 1), CS_JEDI );
 		break;
 	case EV_JDETECTED1:
 	case EV_JDETECTED2:
 	case EV_JDETECTED3:
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, va("*jdetected%i.wav", event - EV_JDETECTED1 + 1), CS_JEDI );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, va("*jdetected%i.wav", event - EV_JDETECTED1 + 1), CS_JEDI );
 		break;
 	case EV_TAUNT1:
 	case EV_TAUNT2:
 	case EV_TAUNT3:
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, va("*taunt%i.wav", event - EV_TAUNT1 + 1), CS_JEDI );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, va("*taunt%i.wav", event - EV_TAUNT1 + 1), CS_JEDI );
 		break;
 	case EV_JCHASE1:
 	case EV_JCHASE2:
 	case EV_JCHASE3:
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, va("*jchase%i.wav", event - EV_JCHASE1 + 1), CS_JEDI );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, va("*jchase%i.wav", event - EV_JCHASE1 + 1), CS_JEDI );
 		break;
 	case EV_JLOST1:
 	case EV_JLOST2:
 	case EV_JLOST3:
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, va("*jlost%i.wav", event - EV_JLOST1 + 1), CS_JEDI );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, va("*jlost%i.wav", event - EV_JLOST1 + 1), CS_JEDI );
 		break;
 	case EV_DEFLECT1:
 	case EV_DEFLECT2:
 	case EV_DEFLECT3:
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, va("*deflect%i.wav", event - EV_DEFLECT1 + 1), CS_JEDI );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, va("*deflect%i.wav", event - EV_DEFLECT1 + 1), CS_JEDI );
 		break;
 	case EV_GLOAT1:
 	case EV_GLOAT2:
 	case EV_GLOAT3:
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, va("*gloat%i.wav", event - EV_GLOAT1 + 1), CS_JEDI );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, va("*gloat%i.wav", event - EV_GLOAT1 + 1), CS_JEDI );
 		break;
 	case EV_PUSHFAIL:
-		CG_TryPlayCustomSound( NULL, self->s.number, CHAN_VOICE, "*pushfail.wav", CS_JEDI );
+		G_CoopCustomSound( NULL, self->s.number, CHAN_VOICE, "*pushfail.wav", CS_JEDI );
 		break;
 	}
 }

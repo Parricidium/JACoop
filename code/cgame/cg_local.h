@@ -564,6 +564,9 @@ void CG_CoopSyncEntity( centity_t *cent );
 void CG_CoopSyncCharacter( centity_t *cent );
 void CG_CoopSyncLocalPlayer( void );
 void CG_CoopSyncCamera( void );
+void CG_CoopSpawnStaticModels( void );
+void CG_CoopFixLocalEntityState( centity_t *cent );
+void CG_CoopSound_f( void );
 // entity slot of the local player: 0 on the host (vanilla), the assigned slot on a remote client
 extern int cg_localEntNum;
 extern	centity_t		cg_entities[MAX_GENTITIES];

@@ -297,8 +297,7 @@ defaultoffsetposition:
 		//check for eType and play the sound
 		if (ent->s.eType == ET_MOVER)
 		{
-			objectID = cgi_S_RegisterSound(argument);
-			cgi_S_StartSound(ent->s.pos.trBase, ent->s.number, CHAN_BODY, objectID);
+			G_CoopSoundPath(ent->s.pos.trBase, ent->s.number, CHAN_BODY, argument);	// coop: also to remote clients
 		}
 		else
 		{

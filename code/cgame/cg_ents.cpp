@@ -2498,6 +2498,7 @@ void CG_AddPacketEntities( qboolean isPortal ) {
 	// generate and add the entity from the playerstate
 	ps = &cg.predicted_player_state;
 	PlayerStateToEntityState( ps, &cg_entities[ ps->clientNum ].currentState );
+	CG_CoopFixLocalEntityState( &cg_entities[ ps->clientNum ] );	// coop: keep the server-only fields
 //	cent = &cg_entities[ ps->clientNum ];	// not needed now that player is in the snap packet
 //	CG_AddCEntity( cent );					//
 

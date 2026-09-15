@@ -1712,6 +1712,7 @@ Ghoul2 Insert End
 	}
 
 	CG_LoadingString( "static models" );
+	CG_CoopSpawnStaticModels();	// coop: remote client reads misc_model_static from the entity string
 	CG_CreateMiscEnts();
 
 	cg.loadLCARSStage = 9;
@@ -1992,6 +1993,25 @@ typedef struct cgMiscEntData_s
 static cgMiscEntData_t	MiscEnts[MAX_MISC_ENTS]; //statically allocated for now.
 static int				NumMiscEnts=0;
 
+// coop: split out of CG_CreateMiscEntFromGent so a remote client can queue a static
+// model straight from the entity string (a stack gentity_t is not an option: it
+// owns C++ members and cannot be memset)
+void CG_CreateMiscEnt( const char *model, const vec3_t origin, const vec3_t angles, const vec3_t scale, float zOff )
+{
+	if (NumMiscEnts == MAX_MISC_ENTS)
+	{
+		Com_Error(ERR_DROP,"Maximum misc_model_static reached (%d)\n",MAX_MISC_ENTS);
+		return;
+	}
+	cgMiscEntData_t	*MiscEnt = &MiscEnts[NumMiscEnts++];
+	memset(MiscEnt, 0, sizeof(*MiscEnt));
+	Q_strncpyz(MiscEnt->model, model, sizeof(MiscEnt->model));
+	VectorCopy(angles,	MiscEnt->angles);
+	VectorCopy(scale,	MiscEnt->scale);
+	VectorCopy(origin,	MiscEnt->origin);
+	MiscEnt->zOffset = zOff;
+}
+
 void CG_CreateMiscEntFromGent(gentity_t *ent, const vec3_t scale, float zOff)
 { //store the model data
 	if (NumMiscEnts == MAX_MISC_ENTS)
@@ -2011,14 +2031,7 @@ void CG_CreateMiscEntFromGent(gentity_t *ent, const vec3_t scale, float zOff)
 		Com_Error(ERR_DROP, "misc_model_static model(%s) is not an md3.",ent->model);
 		return;
 	}
-	cgMiscEntData_t	*MiscEnt = &MiscEnts[NumMiscEnts++];
-	memset(MiscEnt, 0, sizeof(*MiscEnt));
-
-	strcpy(MiscEnt->model, ent->model);
-	VectorCopy(ent->s.angles,	MiscEnt->angles);
-	VectorCopy(scale,			MiscEnt->scale);
-	VectorCopy(ent->s.origin,	MiscEnt->origin);
-	MiscEnt->zOffset = zOff;
+	CG_CreateMiscEnt( ent->model, ent->s.origin, ent->s.angles, scale, zOff );
 }
 
 #define VectorScaleVector(a,b,c)		(((c)[0]=(a)[0]*(b)[0]),((c)[1]=(a)[1]*(b)[1]),((c)[2]=(a)[2]*(b)[2]))

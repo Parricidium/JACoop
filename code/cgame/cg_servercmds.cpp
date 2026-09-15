@@ -217,6 +217,7 @@ static serverCommand_t	commands[] = {
 	{ "cts",				CG_CaptionTextStop },
 	{ "lt",					CG_LCARSText_f },
 	{ "print",				CG_Print_f },
+	{ "snd",				CG_CoopSound_f },	// coop: host-side sound forwarded to remote clients
 	{ "st",					CG_ScrollText_f },
 };
 

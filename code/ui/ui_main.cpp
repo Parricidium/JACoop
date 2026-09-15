@@ -1074,6 +1074,15 @@ static qboolean UI_RunMenuScript ( const char **args )
 		else if (Q_stricmp(name, "startgame") == 0)
 		{
 			Menus_CloseAll();
+			// coop: a joiner goes through the same character screens, then connects
+			// instead of starting its own game (the launcher sets ui_coopJoin to the host address)
+			char coopJoin[128];
+			Cvar_VariableStringBuffer( "ui_coopJoin", coopJoin, sizeof( coopJoin ) );
+			if ( coopJoin[0] )
+			{
+				ui.Cmd_ExecuteText( EXEC_APPEND, va( "connect %s\n", coopJoin ) );
+				return qtrue;
+			}
 #ifdef JK2_MODE
 			ui.Cmd_ExecuteText( EXEC_APPEND, "map kejim_post\n" );
 #else

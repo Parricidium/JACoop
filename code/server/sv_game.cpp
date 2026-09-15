@@ -1046,6 +1046,7 @@ void SV_InitGameProgs (void) {
 	import.WE_GetChanceOfSaberFizz = SV_WE_GetChanceOfSaberFizz;
 	import.WE_IsShaking = SV_WE_IsShaking;
 	import.WE_AddWeatherZone = SV_WE_AddWeatherZone;
+	import.CoopEntityString = CM_EntityString;
 	import.WE_SetTempGlobalFogColor = SV_WE_SetTempGlobalFogColor;
 
 #ifdef JK2_MODE

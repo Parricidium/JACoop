@@ -192,7 +192,11 @@ void QDECL Com_Printf( const char *fmt, ... ) {
 		// logfile
 		if ( com_logfile && com_logfile->integer ) {
 			if ( !logfile && FS_Initialized() ) {
-				logfile = FS_FOpenFileWrite( "qconsole.log" );
+				// the log is reopened after a filesystem restart (level change, shutdown);
+				// append then, so the first session's lines survive
+				static qboolean opened = qfalse;
+				logfile = opened ? FS_FOpenFileAppend( "qconsole.log" ) : FS_FOpenFileWrite( "qconsole.log" );
+				opened = qtrue;
 				if ( com_logfile->integer > 1 ) {
 					// force it to not buffer so we get valid
 					// data even if we are crashing

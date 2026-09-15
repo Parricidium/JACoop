@@ -877,7 +877,7 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 	{//SIGH... with timescale on, you lose events left and right
 extern void CG_ItemPickup( int itemNum, qboolean bHadItem );
 		// but we're SP so we'll cheat
-		cgi_S_StartSound( NULL, other->s.number, CHAN_AUTO,	cgi_S_RegisterSound( ent->item->pickup_sound ) );
+		G_CoopSoundPath( NULL, other->s.number, CHAN_AUTO, ent->item->pickup_sound );	// coop: the picking player may be remote
 		// show icon and name on status bar
 		CG_ItemPickup( ent->s.modelindex, bHadWeapon );
 	}

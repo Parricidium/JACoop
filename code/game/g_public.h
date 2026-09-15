@@ -377,6 +377,10 @@ Ghoul2 Insert Start
 	void		(*WE_AddWeatherZone)(vec3_t mins, vec3_t maxs);
 	bool		(*WE_SetTempGlobalFogColor)(vec3_t color);
 
+	// coop: the map's entity string, so a remote client can spawn the client-only
+	// entities (misc_model_static) the host pushes into its cgame at spawn time
+	char		*(*CoopEntityString)(void);
+
 
 /*
 Ghoul2 Insert End

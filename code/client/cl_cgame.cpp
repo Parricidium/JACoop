@@ -317,6 +317,7 @@ static void CL_BuildCGameImport( game_import_t &import ) {
 	import.WE_GetChanceOfSaberFizz = re.GetChanceOfSaberFizz;
 	import.WE_IsShaking = re.IsShaking;
 	import.WE_AddWeatherZone = re.AddWeatherZone;
+	import.CoopEntityString = CM_EntityString;
 	import.WE_SetTempGlobalFogColor = re.SetTempGlobalFogColor;
 }
 /*

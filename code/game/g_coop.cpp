@@ -511,3 +511,43 @@ void G_CoopUpdateObjectives( void )
 		gi.SetConfigstring( CS_COOP_OBJECTIVES, now );
 	}
 }
+
+/*
+==============================================================================
+Sounds played straight into the host's sound system
+
+"Bypass network for sounds on specific channels" (g_utils.cpp): dialogue,
+NPC voices and a few others never become entity events, so a remote client
+would stay silent (and its lips still, since facial animation follows the
+voice volume). Forward them as a "snd" server command to every remote client.
+==============================================================================
+*/
+extern qboolean CG_TryPlayCustomSound( vec3_t origin, int entityNum, soundChannel_t channel, const char *soundName, int customSoundSet );
+
+void G_CoopForwardSound( int entNum, int channel, int index, const char *path, int customSet )
+{
+	for ( int i = 1; i < MAX_CLIENTS; i++ )
+	{
+		const gentity_t *cl = &g_entities[i];
+		if ( cl->inuse && cl->client && cl->client->pers.connected == CON_CONNECTED )
+		{
+			gi.SendServerCommand( i, "snd %i %i %i %i \"%s\"", entNum, channel, index, customSet, path ? path : "" );
+		}
+	}
+}
+
+// CG_TryPlayCustomSound for the host, forwarded to remote clients
+qboolean G_CoopCustomSound( vec3_t origin, int entityNum, soundChannel_t channel, const char *soundName, int customSoundSet )
+{
+	G_CoopForwardSound( entityNum, channel, -1, soundName, customSoundSet );
+	return CG_TryPlayCustomSound( origin, entityNum, channel, soundName, customSoundSet );
+}
+
+// cgi_S_StartSound by path for the host, forwarded to remote clients
+extern void cgi_S_StartSound( const vec3_t origin, int entityNum, int entchannel, sfxHandle_t sfx );
+extern sfxHandle_t cgi_S_RegisterSound( const char *sample );
+void G_CoopSoundPath( const vec3_t origin, int entityNum, int channel, const char *path )
+{
+	G_CoopForwardSound( entityNum, channel, -1, path, -1 );
+	cgi_S_StartSound( origin, entityNum, channel, cgi_S_RegisterSound( path ) );
+}

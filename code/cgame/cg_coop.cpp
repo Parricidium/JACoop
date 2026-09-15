@@ -528,3 +528,149 @@ void CG_CoopSyncCamera( void )
 	VectorCopy( cam->currentState.angles2, client_camera.fade_color );
 	client_camera.fade_color[3] = cam->currentState.origin2[2];
 }
+
+/*
+==============================================================================
+Client-only map entities
+
+SP_misc_model_static "cheats since this is SP": the host pushes the model
+straight into its cgame (CG_CreateMiscEntFromGent) and frees the entity, so
+nothing ever reaches the wire. A remote client re-reads them from the map's
+entity string itself, before CG_CreateMiscEnts registers the queue.
+==============================================================================
+*/
+extern void CG_CreateMiscEnt( const char *model, const vec3_t origin, const vec3_t angles, const vec3_t scale, float zOff );
+
+void CG_CoopSpawnStaticModels( void )
+{
+	if ( !cg_remoteClient || !gi.CoopEntityString )
+	{
+		return;
+	}
+	const char *p = gi.CoopEntityString();
+	int count = 0;
+
+	COM_BeginParseSession();
+
+	while ( p && *p )
+	{
+		const char *token = COM_Parse( &p );
+		if ( !token[0] || token[0] != '{' )
+		{
+			break;
+		}
+
+		char	classname[64] = "", model[MAX_QPATH] = "";
+		vec3_t	origin = { 0, 0, 0 }, angles = { 0, 0, 0 }, scale = { 1, 1, 1 };
+		float	zOff = 0;
+
+		while ( 1 )
+		{
+			char key[MAX_TOKEN_CHARS];
+			token = COM_Parse( &p );
+			if ( !token[0] || token[0] == '}' )
+			{
+				break;
+			}
+			Q_strncpyz( key, token, sizeof( key ) );
+			token = COM_Parse( &p );
+			if ( !token[0] )
+			{
+				break;
+			}
+			if ( !Q_stricmp( key, "classname" ) )		Q_strncpyz( classname, token, sizeof( classname ) );
+			else if ( !Q_stricmp( key, "model" ) )		Q_strncpyz( model, token, sizeof( model ) );
+			else if ( !Q_stricmp( key, "origin" ) )		sscanf( token, "%f %f %f", &origin[0], &origin[1], &origin[2] );
+			else if ( !Q_stricmp( key, "angles" ) )		sscanf( token, "%f %f %f", &angles[0], &angles[1], &angles[2] );
+			else if ( !Q_stricmp( key, "angle" ) )		angles[YAW] = atof( token );
+			else if ( !Q_stricmp( key, "modelscale_vec" ) )	sscanf( token, "%f %f %f", &scale[0], &scale[1], &scale[2] );
+			else if ( !Q_stricmp( key, "modelscale" ) )	{ const float s = atof( token ); if ( s != 0.0f ) { scale[0] = scale[1] = scale[2] = s; } }
+			else if ( !Q_stricmp( key, "zoffset" ) )	zOff = atof( token );
+		}
+
+		if ( !Q_stricmp( classname, "misc_model_static" ) && model[0] )
+		{
+			CG_CreateMiscEnt( model, origin, angles, scale, zOff );
+			count++;
+		}
+	}
+	COM_EndParseSession();
+	if ( cg_developer.integer )
+	{
+		Com_Printf( "coop: %i misc_model_static spawned from the entity string\n", count );
+	}
+}
+
+/*
+================
+CG_CoopFixLocalEntityState
+
+CG_AddPacketEntities rebuilds the local player's entityState from the
+playerState every frame (PlayerStateToEntityState). Fields the playerState
+does not carry over the wire — saber ignition, the appearance spec, anim
+timers — end up zeroed, so the joiner's own blade and model spec vanish.
+The server also sends our own entity in the snapshot; take those fields back
+from it.
+================
+*/
+void CG_CoopFixLocalEntityState( centity_t *cent )
+{
+	if ( !cg_remoteClient || !cg.snap )
+	{
+		return;
+	}
+	for ( int i = 0; i < cg.snap->numEntities; i++ )
+	{
+		const entityState_t *es = &cg.snap->entities[i];
+		if ( es->number != cent->currentState.number )
+		{
+			continue;
+		}
+		cent->currentState.saberActive = es->saberActive;
+		cent->currentState.saberInFlight = es->saberInFlight;
+		cent->currentState.modelindex3 = es->modelindex3;
+		cent->currentState.legsAnimTimer = es->legsAnimTimer;
+		cent->currentState.torsoAnimTimer = es->torsoAnimTimer;
+		return;
+	}
+}
+
+/*
+================
+CG_CoopSound_f
+
+"snd <ent> <channel> <index> <customSet> <path>" from the host: a sound the
+host played straight into its own sound system (G_SoundOnEnt & co).
+================
+*/
+extern qboolean CG_TryPlayCustomSound( vec3_t origin, int entityNum, soundChannel_t channel, const char *soundName, int customSoundSet );
+
+void CG_CoopSound_f( void )
+{
+	const int	entNum = atoi( CG_Argv( 1 ) );
+	const int	channel = atoi( CG_Argv( 2 ) );
+	const int	index = atoi( CG_Argv( 3 ) );
+	const int	customSet = atoi( CG_Argv( 4 ) );
+	const char	*path = CG_Argv( 5 );
+
+	if ( entNum < 0 || entNum >= MAX_GENTITIES )
+	{
+		return;
+	}
+	cgi_S_UpdateEntityPosition( entNum, cg_entities[entNum].lerpOrigin );
+	if ( index > 0 && index < MAX_SOUNDS && cgs.sound_precache[index] )
+	{
+		cgi_S_StartSound( NULL, entNum, channel, cgs.sound_precache[index] );
+	}
+	else if ( path[0] )
+	{
+		if ( customSet >= 0 )
+		{
+			CG_TryPlayCustomSound( NULL, entNum, (soundChannel_t)channel, path, customSet );
+		}
+		else
+		{
+			cgi_S_StartSound( NULL, entNum, channel, cgi_S_RegisterSound( path ) );
+		}
+	}
+}
