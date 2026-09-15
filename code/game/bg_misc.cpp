@@ -517,7 +517,7 @@ void EvaluateTrajectory( const trajectory_t *tr, int atTime, vec3_t result ) {
 	case TR_GRAVITY:
 		deltaTime = ( atTime - tr->trTime ) * 0.001F;	// milliseconds to seconds
 		VectorMA( tr->trBase, deltaTime, tr->trDelta, result );
-		result[2] -= 0.5F * g_gravity->value * deltaTime * deltaTime;//DEFAULT_GRAVITY
+		result[2] -= 0.5F * ( g_gravity ? g_gravity->value : (float)DEFAULT_GRAVITY ) * deltaTime * deltaTime;	// coop: g_gravity is null on a remote client
 		break;
 	default:
 		Com_Error( ERR_DROP, "EvaluateTrajectory: unknown trType: %i", tr->trTime );
@@ -570,7 +570,7 @@ void EvaluateTrajectoryDelta( const trajectory_t *tr, int atTime, vec3_t result 
 	case TR_GRAVITY:
 		deltaTime = ( atTime - tr->trTime ) * 0.001F;	// milliseconds to seconds
 		VectorCopy( tr->trDelta, result );
-		result[2] -= g_gravity->value * deltaTime;		// DEFAULT_GRAVITY
+		result[2] -= ( g_gravity ? g_gravity->value : (float)DEFAULT_GRAVITY ) * deltaTime;	// coop: g_gravity is null on a remote client
 		break;
 	default:
 		Com_Error( ERR_DROP, "EvaluateTrajectoryDelta: unknown trType: %i", tr->trTime );

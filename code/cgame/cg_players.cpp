@@ -6838,6 +6838,9 @@ void CG_Player( centity_t *cent ) {
 		return;
 	}
 
+	// coop: remote client feeds the placeholder gentity from the network
+	CG_CoopSyncCharacter( cent );
+
 	if( cent->gent->s.number == 0 && cg.weaponSelect == WP_NONE && cg.zoomMode == 1 )
 	{
 		// HACK

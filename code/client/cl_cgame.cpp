@@ -1718,6 +1718,10 @@ void CL_InitCGame( void ) {
 	if ( !cgvm.entryPoint ) {
 		Com_Printf( "^5dual-load: initialising cgame on remote client\n" );	// A3 probe (temporary)
 
+		// tell the dual-loaded cgame it is a serverless remote client (read in
+		// GetCGameAPI and CG_Init). The host never enters this branch.
+		Cvar_Set( "cg_remoteClient", "1" );
+
 #ifdef JK2_MODE
 		const char *gamename = "jospgame";
 #else

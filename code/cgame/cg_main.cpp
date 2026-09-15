@@ -219,6 +219,11 @@ Ghoul2 Insert End
 
 cg_t				cg;
 cgs_t				cgs;
+// coop: true when this cgame runs on a serverless remote client (dual-loaded,
+// no local server gentities). Set from the cg_remoteClient cvar in CG_Init.
+// Render/HUD guards use this rather than client-pointer nullness, because the
+// remote client allocates its own zeroed client structures for rendering.
+qboolean			cg_remoteClient = qfalse;
 centity_t			cg_entities[MAX_GENTITIES];
 
 centity_t			*cg_permanents[MAX_GENTITIES];
@@ -242,6 +247,7 @@ vmCvar_t	cg_bobup;
 vmCvar_t	cg_bobpitch;
 vmCvar_t	cg_bobroll;
 vmCvar_t	cg_shadows;
+vmCvar_t	cg_remoteClientCvar;	// coop: mirrors the engine cg_remoteClient cvar
 vmCvar_t	cg_renderToTextureFX;
 vmCvar_t	cg_shadowCullDistance;
 vmCvar_t	cg_footsteps;
@@ -449,6 +455,8 @@ static cvarTable_t cvarTable[] = {
 	{ &cg_smoothPlayerPos, "cg_smoothPlayerPos", "0.5", 0},
 	{ &cg_smoothPlayerPlat, "cg_smoothPlayerPlat", "0.75", 0},
 	{ &cg_smoothPlayerPlatAccel, "cg_smoothPlayerPlatAccel", "3.25", 0},
+	// coop: set to 1 by CL_InitCGame's dual-load branch on the remote client; 0 on the host
+	{ &cg_remoteClientCvar, "cg_remoteClient", "0", CVAR_ROM },
 	{ &cg_g2Marks, "cg_g2Marks", "1", CVAR_ARCHIVE },
 	{ &fx_expensivePhysics, "fx_expensivePhysics", "1", CVAR_ARCHIVE },
 	{ &cg_debugHealthBars,	"cg_debugHealthBars",	"0", CVAR_CHEAT },
@@ -660,16 +668,19 @@ static inline void CG_AS_Register(void)
 {
 	CG_LoadingString( "ambient sound sets" );
 
-	assert(as_preCacheMap);
-
 	//Load the ambient sets
 
 	cgi_AS_AddPrecacheEntry( "#clear" );	// ;-)
-	//FIXME: Don't ask... I had to get around a really nasty MS error in the templates with this...
-	namePrecache_m::iterator	pi;
-	STL_ITERATE( pi, (*as_preCacheMap) )
+	// coop: as_preCacheMap is filled by the server game while spawning entities;
+	// a serverless remote client spawns nothing locally, so it is null there.
+	if ( as_preCacheMap )
 	{
-		cgi_AS_AddPrecacheEntry( ((*pi).first).c_str() );
+		//FIXME: Don't ask... I had to get around a really nasty MS error in the templates with this...
+		namePrecache_m::iterator	pi;
+		STL_ITERATE( pi, (*as_preCacheMap) )
+		{
+			cgi_AS_AddPrecacheEntry( ((*pi).first).c_str() );
+		}
 	}
 
 	cgi_AS_ParseSets();
@@ -1690,7 +1701,7 @@ Ghoul2 Insert End
 
 	extern	cvar_t	*com_buildScript;
 
-	if (com_buildScript->integer) {
+	if (com_buildScript && com_buildScript->integer) {	// coop: null on a remote client (InitGame never ran)
 		cgi_R_RegisterShader( "gfx/misc/nav_cpoint" );
 		cgi_R_RegisterShader( "gfx/misc/nav_line" );
 		cgi_R_RegisterShader( "gfx/misc/nav_arrow" );
@@ -2091,6 +2102,9 @@ void CG_PreInit() {
 	iCGResetCount = 0;
 
 	CG_RegisterCvars();
+
+	// coop: latch the remote-client flag from the cvar the engine set in the dual-load branch
+	cg_remoteClient = (qboolean)( cg_remoteClientCvar.integer != 0 );
 
 //moved from CG_GameStateReceived because it's loaded sooner now
 	CG_InitLocalEntities();

@@ -2363,6 +2363,9 @@ static void CG_AddCEntity( centity_t *cent )
 	// calculate the current origin
 	CG_CalcEntityLerpPositions( cent );
 
+	// coop: on a remote client, (re)build this character from the networked spec
+	CG_CoopSyncEntity( cent );
+
 	// add automatic effects
 	CG_EntityEffects( cent );
 

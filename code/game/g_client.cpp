@@ -281,6 +281,101 @@ gentity_t *SelectRandomDeathmatchSpawnPoint( team_t team ) {
 
 /*
 ===========
+G_SpawnOriginIsFree
+
+True when a player-sized box at org overlaps no live client and rests on solid
+ground. Used to find somewhere to put a second player, since campaign maps
+provide exactly one spawn point.
+============
+*/
+static qboolean G_SpawnOriginIsFree( vec3_t org )
+{
+	int			i, num;
+	gentity_t	*touch[MAX_GENTITIES], *hit;
+	vec3_t		mins, maxs, below;
+	trace_t		tr;
+
+	// must not be inside world geometry
+	gi.trace( &tr, org, playerMins, playerMaxs, org, ENTITYNUM_NONE, MASK_PLAYERSOLID, (EG2_Collision)0, 0 );
+	if ( tr.allsolid || tr.startsolid )
+	{
+		return qfalse;
+	}
+
+	// must have ground within a short drop, so we do not place anyone in mid-air
+	VectorCopy( org, below );
+	below[2] -= 64;
+	gi.trace( &tr, org, playerMins, playerMaxs, below, ENTITYNUM_NONE, MASK_PLAYERSOLID, (EG2_Collision)0, 0 );
+	if ( tr.fraction == 1.0f )
+	{
+		return qfalse;
+	}
+
+	// must not overlap a living client
+	VectorAdd( org, playerMins, mins );
+	VectorAdd( org, playerMaxs, maxs );
+	num = gi.EntitiesInBox( mins, maxs, touch, MAX_GENTITIES );
+	for ( i = 0; i < num; i++ )
+	{
+		hit = touch[i];
+		if ( hit->client && hit->client->ps.stats[STAT_HEALTH] > 0 && (hit->contents & CONTENTS_BODY) )
+		{
+			return qfalse;
+		}
+	}
+
+	return qtrue;
+}
+
+/*
+============
+G_DisplaceSpawnOrigin
+
+Campaign maps have a single info_player_start. With more than one client every
+player spawns inside every other and none of them can move. If the chosen origin
+is already occupied, walk outward in a ring until a free spot is found. Leaves
+the origin untouched when it is clear, which is the single-player case.
+============
+*/
+static void G_DisplaceSpawnOrigin( vec3_t origin )
+{
+	static const float	angles[8] = { 0, 45, 90, 135, 180, 225, 270, 315 };
+	vec3_t				candidate;
+	float				radius;
+	int					i;
+
+	if ( G_SpawnOriginIsFree( origin ) )
+	{
+		return;
+	}
+
+	for ( radius = 48.0f; radius <= 192.0f; radius += 48.0f )
+	{
+		for ( i = 0; i < 8; i++ )
+		{
+			const float rad = angles[i] * (M_PI / 180.0f);
+
+			VectorCopy( origin, candidate );
+			candidate[0] += cos( rad ) * radius;
+			candidate[1] += sin( rad ) * radius;
+
+			if ( G_SpawnOriginIsFree( candidate ) )
+			{
+				VectorCopy( candidate, origin );
+				return;
+			}
+		}
+	}
+
+	// Nowhere clear. Spawning on top of someone is bad, but refusing to spawn is
+	// worse, so fall through with the original origin.
+	Com_Printf( "G_DisplaceSpawnOrigin: no free spot near spawn point\n" );
+}
+
+/*
+
+/*
+===========
 SelectSpawnPoint
 
 Chooses a player start, deathmatch start, etc
@@ -333,6 +428,13 @@ gentity_t *SelectSpawnPoint ( vec3_t avoidPoint, team_t team, vec3_t origin, vec
 	}
 
 	origin[2] += 9;
+
+	// Campaign maps carry a single info_player_start, so with more than one
+	// client every player lands inside every other. Displace to a nearby free
+	// position rather than stacking. Must run after the lift above, or the
+	// player-sized box is still intersecting the floor. Does nothing when the
+	// spot is clear, which is always the case for a lone player.
+	G_DisplaceSpawnOrigin( origin );
 	VectorCopy (spot->s.angles, angles);
 
 	return spot;
@@ -1793,6 +1895,10 @@ void G_SetG2PlayerModel( gentity_t * const ent, const char *modelName, const cha
 	{//couldn't set g2 info, fall back to a mouse md3
 		NPC_ParseParms( "mouse", ent );
 		Com_Printf( S_COLOR_RED"couldn't load playerModel %s!\n", va("models/players/%s/model.glm", modelName) );
+	}
+	else
+	{
+		G_CoopRecordModel( ent, modelName, customSkin, surfOff, surfOn );	// coop: describe this appearance for remote clients
 	}
 }
 /*

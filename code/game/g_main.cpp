@@ -765,12 +765,16 @@ void InitGame(  const char *mapname, const char *spawntarget, int checkSum, cons
 	globals.gentities = g_entities;
 	ClearAllInUse();
 	// initialize all clients for this game
-	level.maxclients = 1;
+	level.maxclients = MAX_CLIENTS;
 	level.clients = (gclient_t*) G_Alloc( level.maxclients * sizeof(level.clients[0]) );
 	memset(level.clients, 0, level.maxclients * sizeof(level.clients[0]));
 
-	// set client fields on player
-	g_entities[0].client = level.clients;
+	// set client fields on the player entities; entity slots [0, MAX_CLIENTS)
+	// are reserved for clients, so these indices line up by construction
+	for ( int i = 0; i < level.maxclients; i++ )
+	{
+		g_entities[i].client = level.clients + i;
+	}
 
 	// always leave room for the max number of clients,
 	// even if they aren't all used, so numbers inside that
@@ -924,6 +928,66 @@ extern "C" Q_EXPORT game_export_t* QDECL GetGameAPI( game_import_t *import ) {
 	GI_Init( &gameinfo_import );
 
 	return &globals;
+}
+
+/*
+=================
+GetCGameAPI
+
+Client-side entry point for the dual-load remote client. A serverless
+client loads this same library a second time and calls this instead of
+GetGameAPI: it populates gi from the client-safe import table and runs
+GI_Init (weapon/item parms the cgame needs), but wires no globals export
+table — the client never runs the server-side game entry points.
+=================
+*/
+extern "C" Q_EXPORT void QDECL GetCGameAPI( game_import_t *import ) {
+	gameinfo_import_t	gameinfo_import;
+
+	gi = *import;
+
+	gameinfo_import.FS_FOpenFile = gi.FS_FOpenFile;
+	gameinfo_import.FS_Read = gi.FS_Read;
+	gameinfo_import.FS_FCloseFile = gi.FS_FCloseFile;
+	gameinfo_import.Cvar_Set = gi.cvar_set;
+	gameinfo_import.Cvar_VariableStringBuffer = gi.Cvar_VariableStringBuffer;
+	gameinfo_import.Cvar_Create = G_Cvar_Create;
+
+	GI_Init( &gameinfo_import );
+
+	// The cgame resolves weapons and items against bg_itemlist, which InitGame
+	// fills from ext_data/items.dat. A dual-loaded client never runs InitGame,
+	// so load the item parms here too (client-safe: pure FS read + parse, no
+	// server state). G_InitMemory must run first — the parser allocates strings
+	// through G_Alloc, which reads the g_debugalloc cvar it registers.
+	G_InitMemory();
+	IT_LoadItemParms();
+
+	// Remote-client rendering: the dual-loaded cgame renders players and NPCs
+	// out of g_entities[]/level.clients, which InitGame allocates on the host. A
+	// serverless remote client never runs InitGame, so allocate and wire the
+	// client array here (zeroed; filled per entity from the network by
+	// cg_coop.cpp). cg_remoteClient is set by CL_InitCGame's dual-load branch
+	// and stays 0 on the host, where this block is a no-op.
+	if ( gi.cvar( "cg_remoteClient", "0", 0 )->integer )
+	{
+		memset( g_entities, 0, MAX_GENTITIES * sizeof(g_entities[0]) );
+		globals.gentities = g_entities;
+		level.maxclients = MAX_CLIENTS;
+		level.clients = (gclient_t *) G_Alloc( level.maxclients * sizeof(level.clients[0]) );
+		memset( level.clients, 0, level.maxclients * sizeof(level.clients[0]) );
+		for ( int i = 0; i < level.maxclients; i++ )
+		{
+			g_entities[i].client = level.clients + i;
+		}
+
+		// The remote copy of the gamecode runs shared code paths that read the
+		// game cvars (PM_SetAnimFinal -> g_timescale, trajectories -> g_gravity,
+		// ...) and parse sabers.cfg (character rebuild). Both are client-safe:
+		// cvar registration and file reads only.
+		G_InitCvars();
+		WP_SaberLoadParms();
+	}
 }
 
 void QDECL G_Error( const char *fmt, ... ) {
@@ -1972,6 +2036,11 @@ void G_RunFrame( int levelTime ) {
 		G_CheckTasksCompleted(ent);
 
 		G_Roff( ent );
+
+		if ( ent->client )
+		{
+			G_CoopUpdateAppearance( ent );	// coop: publish model/skin/saber spec for remote clients
+		}
 
 		if( !ent->client )
 		{

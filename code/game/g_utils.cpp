@@ -864,6 +864,7 @@ Marks the entity as free
 */
 void G_FreeEntity( gentity_t *ed ) {
 	gi.unlinkentity (ed);		// unlink from world
+	G_CoopClearAppearance( ed );	// coop
 
 	// Free the Game Element (the entity) and delete the Icarus ID.
 	Quake3Game()->FreeEntity( ed );

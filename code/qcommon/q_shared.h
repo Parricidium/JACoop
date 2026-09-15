@@ -660,7 +660,7 @@ Ghoul2 Insert End
 #ifdef JK2_MODE
 #define MAX_CONFIGSTRINGS (1024)
 #else
-#define	MAX_CONFIGSTRINGS	1300//1024 //rww - I had to up this for terrains
+#define	MAX_CONFIGSTRINGS	1500//1300 //coop - room for CS_COOP_MODELSPECS //1024 //rww - I had to up this for terrains
 #endif // JK2_MODE
 
 // these are the only configstrings that the system reserves, all the
@@ -721,7 +721,12 @@ Ghoul2 Insert End
 */
 #define CS_DYNAMIC_MUSIC_STATE	(CS_CHARSKINS + MAX_CHARSKINS)
 #define CS_WORLD_FX				(CS_DYNAMIC_MUSIC_STATE + 1)
-#define CS_MAX					(CS_WORLD_FX + MAX_WORLD_FX)
+// coop: per-appearance model specs ("model|skin|surfOff|surfOn|saber1|saber2|colors")
+// registered by the host in G_SetG2PlayerModel and carried in s.modelindex3 so a
+// serverless remote client can rebuild the same ghoul2 for players and NPCs.
+#define MAX_COOP_MODELSPECS		128
+#define CS_COOP_MODELSPECS		(CS_WORLD_FX + MAX_WORLD_FX)
+#define CS_MAX					(CS_COOP_MODELSPECS + MAX_COOP_MODELSPECS)
 
 #if (CS_MAX) > MAX_CONFIGSTRINGS
 #error overflow: (CS_MAX) > MAX_CONFIGSTRINGS

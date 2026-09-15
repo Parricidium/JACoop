@@ -135,7 +135,9 @@ static void CG_DrawForcePower(const centity_t *cent,const int xPos,const int yPo
 	vec4_t		calcColor;
 	float		value,extra=0,inc,percent;
 
-	if ( !cent->gent->client->ps.forcePowersKnown )
+	const playerState_t *ps = CG_LocalPS( cent );	// coop: host reads the gentity, remote client the snapshot
+
+	if ( !ps->forcePowersKnown )
 	{
 		return;
 	}
@@ -171,12 +173,12 @@ static void CG_DrawForcePower(const centity_t *cent,const int xPos,const int yPo
 //		return;
 //	}
 
-	inc = (float)  cent->gent->client->ps.forcePowerMax / MAX_HUD_TICS;
-	value = cent->gent->client->ps.forcePower;
-	if ( value > cent->gent->client->ps.forcePowerMax )
+	inc = (float)  ps->forcePowerMax / MAX_HUD_TICS;
+	value = ps->forcePower;
+	if ( value > ps->forcePowerMax )
 	{//supercharged with force
-		extra = value - cent->gent->client->ps.forcePowerMax;
-		value = cent->gent->client->ps.forcePowerMax;
+		extra = value - ps->forcePowerMax;
+		value = ps->forcePowerMax;
 	}
 
 	for (i=MAX_HUD_TICS-1;i>=0;i--)
@@ -184,7 +186,7 @@ static void CG_DrawForcePower(const centity_t *cent,const int xPos,const int yPo
 		if ( extra )
 		{//supercharged
 			memcpy(calcColor, colorTable[CT_WHITE], sizeof(vec4_t));
-			percent = 0.75f + (sin( cg.time * 0.005f )*((extra/cent->gent->client->ps.forcePowerMax)*0.25f));
+			percent = 0.75f + (sin( cg.time * 0.005f )*((extra/ps->forcePowerMax)*0.25f));
 			calcColor[0] *= percent;
 			calcColor[1] *= percent;
 			calcColor[2] *= percent;
@@ -243,7 +245,7 @@ static void CG_DrawForcePower(const centity_t *cent,const int xPos,const int yPo
 		otherHUDBits[OHB_FORCEAMOUNT].xPos,
 		otherHUDBits[OHB_FORCEAMOUNT].yPos,
 		3,
-		cent->gent->client->ps.forcePower,
+		ps->forcePower,
 		otherHUDBits[OHB_FORCEAMOUNT].width,
 		otherHUDBits[OHB_FORCEAMOUNT].height,
 		NUM_FONT_SMALL,
@@ -276,7 +278,7 @@ static void CG_DrawSaberStyle(const centity_t	*cent,const int xPos,const int yPo
 
 	if ( !cg.saberAnimLevelPending && cent->gent->client )
 	{//uninitialized after a loadgame, cheat across and get it
-		cg.saberAnimLevelPending = cent->gent->client->ps.saberAnimLevel;
+		cg.saberAnimLevelPending = CG_LocalPS( cent )->saberAnimLevel;
 	}
 
 	// don't need to draw ammo, but we will draw the current saber style in this window
@@ -1779,7 +1781,8 @@ static void CG_DrawSimpleForcePower( const centity_t *cent )
 	char		num[16] = { 0 };
 	qboolean	flash = qfalse;
 
-	if ( !cent->gent || !cent->gent->client->ps.forcePowersKnown )
+	const playerState_t *ps = cent->gent ? CG_LocalPS( cent ) : NULL;	// coop
+	if ( !ps || !ps->forcePowersKnown )
 	{
 		return;
 	}
@@ -1812,7 +1815,7 @@ static void CG_DrawSimpleForcePower( const centity_t *cent )
 	// Determine the color of the numeric field
 	calcColor = flash ? CT_RED : CT_ICON_BLUE;
 
-	Com_sprintf( num, sizeof( num ), "%i", cent->gent->client->ps.forcePower );
+	Com_sprintf( num, sizeof( num ), "%i", ps->forcePower );
 
 	SimpleHud_DrawString( SCREEN_WIDTH - (16 + 32), (SCREEN_HEIGHT - 80) + 40 + 14, num, colorTable[calcColor] );
 }
@@ -1900,7 +1903,7 @@ static void CG_DrawHUD( centity_t *cent )
 				value = cg.snap->ps.ammo[weaponData[cent->currentState.weapon].ammoIndex];
 				CG_DrawSmallStringColor(sectionXPos, sectionYPos - 60,va("Ammo:%d",value), colorTable[CT_HUD_GREEN] );
 			}
-			CG_DrawSmallStringColor(sectionXPos, sectionYPos - 40,va("Force:%d",cent->gent->client->ps.forcePower), colorTable[CT_HUD_GREEN] );
+			CG_DrawSmallStringColor(sectionXPos, sectionYPos - 40,va("Force:%d",CG_LocalPS( cent )->forcePower), colorTable[CT_HUD_GREEN] );
 		}
 
 		// Print scanline
@@ -2287,7 +2290,7 @@ static void CG_DrawZoomMask( void )
 
 			CG_DrawPic( 570, 140, 12, 160, cgs.media.laGogglesSideBit );
 
-			float light = (128-cent->gent->lightLevel) * 0.5f;
+			float light = (128-( cent->gent ? cent->gent->lightLevel : 0 )) * 0.5f;	// coop: no server lightLevel on a remote client
 
 			if ( light < -81 ) // saber can really jack up local light levels....?magic number??
 			{
@@ -2933,7 +2936,7 @@ static void CG_ScanForCrosshairEntity( qboolean scanAll )
 	//FIXME: debounce this to about 10fps?
 
 	cg_forceCrosshair = qfalse;
-	if ( cg_entities[0].gent && cg_entities[0].gent->client ) // <-Mike said it should always do this   //if (cg_crosshairForceHint.integer &&
+	if ( !cg_remoteClient && cg_entities[0].gent && cg_entities[0].gent->client ) // coop: remote client has no server eyePoint // <-Mike said it should always do this   //if (cg_crosshairForceHint.integer &&
 	{//try to check for force-affectable stuff first
 		vec3_t d_f, d_rt, d_up;
 
@@ -3033,7 +3036,7 @@ static void CG_ScanForCrosshairEntity( qboolean scanAll )
 	}
 	if ( !cg_forceCrosshair )
 	{
-		if ( cg_dynamicCrosshair.integer )
+		if ( cg_dynamicCrosshair.integer && !cg_remoteClient )	// coop: the 100% accurate path needs the server gentity
 		{//100% accurate
 			vec3_t d_f, d_rt, d_up;
 			// If you're riding a vehicle and not being drawn.

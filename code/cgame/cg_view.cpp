@@ -2035,14 +2035,18 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 
 	// let the client system know what our weapon and zoom settings are
 	//FIXME: should really send forcePowersActive over network onto cg.snap->ps...
-	const int fpActive = cg_entities[0].gent->client->ps.forcePowersActive;
+	// coop: on a remote client the local player's gentity client is a zeroed placeholder;
+	// the real values arrive in the snapshot playerstate. The host keeps its gentity path.
+	const centity_t *localCent = &cg_entities[cg.snap->ps.clientNum];
+	const int fpActive = CG_LocalPS( localCent )->forcePowersActive;
+	const int localEFlags = ( !cg_remoteClient && localCent->gent ) ? localCent->gent->s.eFlags : cg.snap->ps.eFlags;
 	const bool matrixMode = !!(fpActive & ((1 << FP_SPEED) | (1 << FP_RAGE)));
 	float speed = cg.refdef.fov_y / 75.0 * (matrixMode ? 1.0f : Q_min(cg_timescale.value, 1.0f));
 
 //FIXME: junk code, BUG:168
 
 	static bool wasForceSpeed=false;
-	bool isForceSpeed=cg_entities[0].gent->client->ps.forcePowersActive&(1<<FP_SPEED)?true:false;
+	bool isForceSpeed=fpActive&(1<<FP_SPEED)?true:false;
 	if (isForceSpeed&&!wasForceSpeed)
 	{
 		CGCam_Smooth(0.75f,5000);
@@ -2053,16 +2057,16 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 
 	float mPitchOverride = 0.0f;
 	float mYawOverride = 0.0f;
-	if ( cg.snap->ps.clientNum == 0 && cg_scaleVehicleSensitivity.integer )
-	{//pointless check, but..
-		if ( cg_entities[0].gent->s.eFlags & EF_LOCKED_TO_WEAPON )
+	if ( cg_scaleVehicleSensitivity.integer )
+	{
+		if ( localEFlags & EF_LOCKED_TO_WEAPON )
 		{
 			speed *= 0.25f;
 		}
 		Vehicle_t *pVeh = NULL;
 
 		// Mouse turns slower.
-		if ( ( pVeh = G_IsRidingVehicle( &g_entities[0] ) ) != NULL )
+		if ( !cg_remoteClient && ( pVeh = G_IsRidingVehicle( &g_entities[cg.snap->ps.clientNum] ) ) != NULL )	// coop: vehicle info lives server-side
 		{
 			if ( pVeh->m_pVehicleInfo->mousePitch )
 			{

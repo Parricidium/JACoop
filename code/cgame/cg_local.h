@@ -552,6 +552,16 @@ typedef struct
 
 
 extern	cg_t			cg;
+extern	qboolean		cg_remoteClient;	// coop: serverless remote client (dual-loaded cgame)
+extern	vmCvar_t		cg_remoteClientCvar;
+// coop: the local player's playerState for HUD/view reads: the gentity's on the host,
+// the received snapshot's on a remote client (whose gentity client stays zeroed).
+static inline const playerState_t *CG_LocalPS( const centity_t *cent ) {
+	return ( !cg_remoteClient && cent->gent && cent->gent->client ) ? &cent->gent->client->ps : &cg.snap->ps;
+}
+// cg_coop.cpp: remote-client character rebuild/sync (no-ops on the host)
+void CG_CoopSyncEntity( centity_t *cent );
+void CG_CoopSyncCharacter( centity_t *cent );
 extern	centity_t		cg_entities[MAX_GENTITIES];
 
 extern	centity_t		*cg_permanents[MAX_GENTITIES];
