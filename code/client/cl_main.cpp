@@ -1514,6 +1514,20 @@ void CL_Init( void ) {
 	Cvar_Get ("snd", "jaden_fmle", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART );//UI_SetSexandSoundForModel changes to match sounds.cfg for model
 	Cvar_Get ("handicap", "100", CVAR_USERINFO | CVAR_SAVEGAME | CVAR_NORESTART);
 #endif
+	// coop: the character/saber choices ride in the userinfo so a joiner spawns on
+	// the host with its own look (same defaults as G_InitCvars)
+	Cvar_Get ("g_char_model", "jedi_tf", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART );
+	Cvar_Get ("g_char_skin_head", "head_a1", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART );
+	Cvar_Get ("g_char_skin_torso", "torso_a1", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART );
+	Cvar_Get ("g_char_skin_legs", "lower_a1", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART );
+	Cvar_Get ("g_char_color_red", "255", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART );
+	Cvar_Get ("g_char_color_green", "255", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART );
+	Cvar_Get ("g_char_color_blue", "255", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART );
+	Cvar_Get ("g_saber", "single_1", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART );
+	Cvar_Get ("g_saber2", "", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART );
+	Cvar_Get ("g_saber_color", "yellow", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART );
+	Cvar_Get ("g_saber2_color", "yellow", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART );
+	Cvar_Get ("g_fighting_style", "0", CVAR_USERINFO | CVAR_ARCHIVE );
 
 	//
 	// register our commands

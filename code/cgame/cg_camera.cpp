@@ -158,7 +158,7 @@ void CGCam_Disable( void )
 		}
 	}
 
-	gi.SendServerCommand( 0, "cts");
+	gi.SendServerCommand( -1, "cts");
 
 	//if ( cg_skippingcin.integer )
 	{//We're skipping the cinematic and it's over now

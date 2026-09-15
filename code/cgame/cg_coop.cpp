@@ -51,6 +51,7 @@ typedef struct coopCharState_s {
 	int		weapon;			// s.weapon the attached weapon models match
 	int		legsTimer;		// last networked timers, to detect a restarted anim
 	int		torsoTimer;
+	int		lastDebugTime;
 } coopCharState_t;
 
 static coopCharState_t	coopChar[MAX_GENTITIES];
@@ -269,6 +270,14 @@ static void CG_CoopDriveAnim( centity_t *cent )
 	{
 		const int torsoFlags = flags | ( ( s->torsoAnimTimer > st->torsoTimer && s->torsoAnim == ps->torsoAnim ) ? SETANIM_FLAG_RESTART : 0 );
 		PM_SetAnimFinal( &ps->torsoAnim, &ps->legsAnim, SETANIM_TORSO, s->torsoAnim, torsoFlags, &ps->torsoAnimTimer, &ps->legsAnimTimer, gent );
+	}
+	if ( cg_developer.integer > 1 && cent->currentState.number < MAX_CLIENTS && ( cg.time / 1000 ) != ( st->lastDebugTime / 1000 ) )
+	{
+		float cur = 0, spd = 0; int sf = 0, ef = 0, fl = 0;
+		const qboolean playing = gi.G2API_GetBoneAnimIndex( &gent->ghoul2[gent->playerModel], gent->rootBone, cg.time, &cur, &sf, &ef, &fl, &spd, NULL );
+		const animation_t *anims = level.knownAnimFileSets[gent->client->clientInfo.animFileIndex].animations;
+		Com_Printf( "coop: ent %i anim net %i/%i ps %i/%i root bone %i playing %i frames %i-%i animFile %i glaOffset %i animGla %i numFrames %i\n", cent->currentState.number, s->legsAnim, s->torsoAnim, ps->legsAnim, ps->torsoAnim, gent->rootBone, playing, sf, ef, gent->client->clientInfo.animFileIndex, gi.G2API_GetAnimIndex( &gent->ghoul2[gent->playerModel] ), anims[s->legsAnim].glaIndex, anims[s->legsAnim].numFrames );
+		st->lastDebugTime = cg.time;
 	}
 	st->legsTimer = s->legsAnimTimer;
 	st->torsoTimer = s->torsoAnimTimer;

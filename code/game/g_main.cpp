@@ -683,17 +683,18 @@ void G_InitCvars( void ) {
 
 	g_speederControlScheme = gi.cvar( "g_speederControlScheme", "2", CVAR_ARCHIVE );//2 is default, 1 is alternate
 
-	g_char_model = gi.cvar( "g_char_model", "jedi_tf", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
-	g_char_skin_head = gi.cvar( "g_char_skin_head", "head_a1", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
-	g_char_skin_torso = gi.cvar( "g_char_skin_torso", "torso_a1", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
-	g_char_skin_legs = gi.cvar( "g_char_skin_legs", "lower_a1", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
-	g_char_color_red = gi.cvar( "g_char_color_red", "255", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
-	g_char_color_green = gi.cvar( "g_char_color_green", "255", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
-	g_char_color_blue = gi.cvar( "g_char_color_blue", "255", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
-	g_saber = gi.cvar( "g_saber", "single_1", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
-	g_saber2 = gi.cvar( "g_saber2", "", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
-	g_saber_color = gi.cvar( "g_saber_color", "yellow", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
-	g_saber2_color = gi.cvar( "g_saber2_color", "yellow", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
+	g_char_model = gi.cvar( "g_char_model", "jedi_tf", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART|CVAR_USERINFO );	// coop: travels in the joiner's userinfo
+	g_char_skin_head = gi.cvar( "g_char_skin_head", "head_a1", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART|CVAR_USERINFO );	// coop: travels in the joiner's userinfo
+	g_char_skin_torso = gi.cvar( "g_char_skin_torso", "torso_a1", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART|CVAR_USERINFO );	// coop: travels in the joiner's userinfo
+	g_char_skin_legs = gi.cvar( "g_char_skin_legs", "lower_a1", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART|CVAR_USERINFO );	// coop: travels in the joiner's userinfo
+	g_char_color_red = gi.cvar( "g_char_color_red", "255", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART|CVAR_USERINFO );	// coop: travels in the joiner's userinfo
+	g_char_color_green = gi.cvar( "g_char_color_green", "255", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART|CVAR_USERINFO );	// coop: travels in the joiner's userinfo
+	g_char_color_blue = gi.cvar( "g_char_color_blue", "255", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART|CVAR_USERINFO );	// coop: travels in the joiner's userinfo
+	g_saber = gi.cvar( "g_saber", "single_1", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART|CVAR_USERINFO );	// coop: travels in the joiner's userinfo
+	g_saber2 = gi.cvar( "g_saber2", "", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART|CVAR_USERINFO );	// coop: travels in the joiner's userinfo
+	g_saber_color = gi.cvar( "g_saber_color", "yellow", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART|CVAR_USERINFO );	// coop: travels in the joiner's userinfo
+	g_saber2_color = gi.cvar( "g_saber2_color", "yellow", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART|CVAR_USERINFO );	// coop: travels in the joiner's userinfo
+	gi.cvar( "g_fighting_style", "0", CVAR_ARCHIVE|CVAR_USERINFO );	// coop: chosen saber style travels in the joiner's userinfo
 	g_saberDarkSideSaberColor = gi.cvar( "g_saberDarkSideSaberColor", "0", CVAR_ARCHIVE );	//when you turn evil, it turns your saber red!
 
 	g_broadsword = gi.cvar( "broadsword", "1", 0);

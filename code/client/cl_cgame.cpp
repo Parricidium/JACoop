@@ -1814,6 +1814,12 @@ void CL_CGameRendering( stereoFrame_t stereo ) {
 	{
 		timei-=0;
 	}
+	// coop: ghoul2 evaluates animations against the server time base (G2API_GetTime
+	// drops the client base once it runs 200ms ahead of it). A remote client has no
+	// server ticking that base, so feed it ours or every skeleton sits at time 0.
+	if ( !com_sv_running->integer ) {
+		re.G2API_SetTime(cl.serverTime,G2T_SV_TIME);
+	}
 	re.G2API_SetTime(cl.serverTime,G2T_CG_TIME);
 	VM_Call( CG_DRAW_ACTIVE_FRAME,timei, stereo, qfalse );
 //	VM_Debug( 0 );

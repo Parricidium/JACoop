@@ -918,7 +918,7 @@ Prints a message in the center of the screen
 */
 static void Q3_ScrollText ( const char *id)
 {
-	gi.SendServerCommand( 0, "st \"%s\"", id);
+	gi.SendServerCommand( -1, "st \"%s\"", id);
 
 	return;
 }
@@ -932,7 +932,7 @@ Prints a message in the center of the screen giving it an LCARS frame around it
 */
 static void Q3_LCARSText ( const char *id)
 {
-	gi.SendServerCommand( 0, "lt \"%s\"", id);
+	gi.SendServerCommand( -1, "lt \"%s\"", id);
 
 	return;
 }
@@ -4025,7 +4025,7 @@ static void Q3_GiveSecurityKey( int entID, char *keyname )
 	other->client->ps.stats[STAT_ITEMS] |= (1<<INV_SECURITY_KEY);
 
 	//give the key
-	gi.SendServerCommand( 0, "cp @SP_INGAME_YOU_TOOK_SECURITY_KEY" );
+	gi.SendServerCommand( -1, "cp @SP_INGAME_YOU_TOOK_SECURITY_KEY" );
 	INV_SecurityKeyGive( other, keyname );
 	// Got a security key
 
@@ -7849,11 +7849,11 @@ void	CQuake3GameInterface::CenterPrint( const char *format, ... )
 	{
 		if( text[0] == '!')
 		{
-			gi.SendServerCommand( 0, "cp \"%s\"", (text+1) );
+			gi.SendServerCommand( -1, "cp \"%s\"", (text+1) );
 			return;
 		}
 
-		gi.SendServerCommand( 0, "cp \"%s\"", text );
+		gi.SendServerCommand( -1, "cp \"%s\"", text );
 	}
 
 	DebugPrint( WL_VERBOSE, "%s\n", text); 	// Just a developers note
@@ -7974,7 +7974,7 @@ int 	CQuake3GameInterface::PlayIcarusSound( int taskID, int entID, const char *n
 		{
 			if ( in_camera)	// Cinematic
 			{
-				gi.SendServerCommand( 0, "ct \"%s\" %i", finalName, soundHandle );
+				gi.SendServerCommand( -1, "ct \"%s\" %i", finalName, soundHandle );
 			}
 			else //if (precacheWav[i].speaker==SP_NONE)	//  lower screen text
 			{
@@ -7983,7 +7983,7 @@ int 	CQuake3GameInterface::PlayIcarusSound( int taskID, int entID, const char *n
 				//
 				if (bBroadcast || (DistanceSquared(ent->currentOrigin, ent2->currentOrigin) < ((voice_chan == CHAN_VOICE_ATTEN)?(350 * 350):(1200 * 1200)) ) )
 				{
-					gi.SendServerCommand( 0, "ct \"%s\" %i", finalName, soundHandle );
+					gi.SendServerCommand( -1, "ct \"%s\" %i", finalName, soundHandle );
 				}
 			}
 		}
@@ -7992,7 +7992,7 @@ int 	CQuake3GameInterface::PlayIcarusSound( int taskID, int entID, const char *n
 		{
 			if ( in_camera)	// Cinematic text
 			{
-				gi.SendServerCommand( 0, "ct \"%s\" %i", finalName, soundHandle);
+				gi.SendServerCommand( -1, "ct \"%s\" %i", finalName, soundHandle);
 			}
 		}
 	}

@@ -418,3 +418,64 @@ void G_CoopResetCamera( void )
 {
 	coopCameraEnt = NULL;
 }
+
+/*
+==============================================================================
+Per-player character settings
+
+Single player builds the player from the host's cvars (g_char_*, g_saber*).
+A joiner sends the same cvars in its userinfo (they are CVAR_USERINFO in
+G_InitCvars), and the spawn code reads them through here so every player
+gets the look and sabers they chose. Slot 0 keeps reading the cvars.
+==============================================================================
+*/
+const char *G_CoopPlayerVar( const gentity_t *ent, const char *key, const cvar_t *hostCvar )
+{
+	static char	buffers[8][MAX_QPATH];
+	static int	next = 0;
+
+	if ( ent && ent->s.number > 0 && ent->s.number < MAX_CLIENTS && ent->client )
+	{
+		char userinfo[MAX_INFO_STRING];
+		gi.GetUserinfo( ent->s.number, userinfo, sizeof( userinfo ) );
+		const char *v = Info_ValueForKey( userinfo, key );
+		if ( v && v[0] )
+		{
+			char *buf = buffers[next++ & 7];
+			Q_strncpyz( buf, v, MAX_QPATH );
+			return buf;
+		}
+	}
+	return hostCvar ? hostCvar->string : "";
+}
+
+// Rebuild a joiner's model/sabers when the character keys in its userinfo change
+// after it spawned (the flags may only reach the client after connect).
+void G_CoopCheckCharacterChange( gentity_t *ent )
+{
+	static char	lastKeys[MAX_CLIENTS][MAX_INFO_STRING];
+	static const char *keys[] = { "g_char_model", "g_char_skin_head", "g_char_skin_torso", "g_char_skin_legs",
+		"g_char_color_red", "g_char_color_green", "g_char_color_blue", "g_saber", "g_saber2", "g_saber_color", "g_saber2_color", "snd" };
+
+	if ( !ent || ent->s.number <= 0 || ent->s.number >= MAX_CLIENTS || !ent->client )
+	{
+		return;
+	}
+	char userinfo[MAX_INFO_STRING], now[MAX_INFO_STRING] = "";
+	gi.GetUserinfo( ent->s.number, userinfo, sizeof( userinfo ) );
+	for ( size_t i = 0; i < ARRAY_LEN( keys ); i++ )
+	{
+		Q_strcat( now, sizeof( now ), Info_ValueForKey( userinfo, keys[i] ) );
+		Q_strcat( now, sizeof( now ), "|" );
+	}
+	if ( !strcmp( now, lastKeys[ent->s.number] ) )
+	{
+		return;
+	}
+	const qboolean hadKeys = (qboolean)( lastKeys[ent->s.number][0] != '\0' );
+	Q_strncpyz( lastKeys[ent->s.number], now, sizeof( lastKeys[0] ) );
+	if ( hadKeys && ent->inuse && ent->health > 0 && ent->client->pers.connected == CON_CONNECTED )
+	{
+		G_InitPlayerFromCvars( ent );
+	}
+}

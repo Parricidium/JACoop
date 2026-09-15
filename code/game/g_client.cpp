@@ -596,6 +596,8 @@ void ClientUserinfoChanged( int clientNum ) {
 	Q_strcat( buf, sizeof( buf ), va( "snd\\%s\\", sound ) );
 
 	gi.SetConfigstring( CS_PLAYERS+clientNum, buf );
+
+	G_CoopCheckCharacterChange( ent );	// coop: joiner changed its look after spawning
 }
 
 
@@ -1987,12 +1989,12 @@ extern void WP_RemoveSaber( gentity_t *ent, int saberNum );
 void G_ChangePlayerModel( gentity_t *ent, const char *newModel );
 void G_SetSabersFromCVars( gentity_t *ent )
 {
-	if ( g_saber->string
-		&& g_saber->string[0]
-		&& Q_stricmp( "none", g_saber->string )
-		&& Q_stricmp( "NULL", g_saber->string ) )
+	if ( G_CoopPlayerVar( ent, "g_saber", g_saber )
+		&& G_CoopPlayerVar( ent, "g_saber", g_saber )[0]
+		&& Q_stricmp( "none", G_CoopPlayerVar( ent, "g_saber", g_saber ) )
+		&& Q_stricmp( "NULL", G_CoopPlayerVar( ent, "g_saber", g_saber ) ) )
 	{//FIXME: how to specify second saber?
-		WP_SaberParseParms( g_saber->string, &ent->client->ps.saber[0] );
+		WP_SaberParseParms( G_CoopPlayerVar( ent, "g_saber", g_saber ), &ent->client->ps.saber[0] );
 		if ( ent->client->ps.saber[0].stylesLearned )
 		{
 			ent->client->ps.saberStylesKnown |= ent->client->ps.saber[0].stylesLearned;
@@ -2014,22 +2016,22 @@ void G_SetSabersFromCVars( gentity_t *ent )
 			ent->client->ps.saber[0].blade[n].color = SABER_RED;
 		}
 	}
-	else if ( g_saber_color->string )
+	else if ( G_CoopPlayerVar( ent, "g_saber_color", g_saber_color ) )
 	{//FIXME: how to specify color for each blade and/or color for second saber?
-		saber_colors_t color = TranslateSaberColor( g_saber_color->string );
+		saber_colors_t color = TranslateSaberColor( G_CoopPlayerVar( ent, "g_saber_color", g_saber_color ) );
 		for ( int n = 0; n < MAX_BLADES; n++ )
 		{
 			ent->client->ps.saber[0].blade[n].color = color;
 		}
 	}
-	if ( g_saber2->string
-		&& g_saber2->string[0]
-		&& Q_stricmp( "none", g_saber2->string )
-		&& Q_stricmp( "NULL", g_saber2->string ) )
+	if ( G_CoopPlayerVar( ent, "g_saber2", g_saber2 )
+		&& G_CoopPlayerVar( ent, "g_saber2", g_saber2 )[0]
+		&& Q_stricmp( "none", G_CoopPlayerVar( ent, "g_saber2", g_saber2 ) )
+		&& Q_stricmp( "NULL", G_CoopPlayerVar( ent, "g_saber2", g_saber2 ) ) )
 	{
 		if ( !(ent->client->ps.saber[0].saberFlags&SFL_TWO_HANDED) )
 		{//can't use a second saber if first one is a two-handed saber...?
-			WP_SaberParseParms( g_saber2->string, &ent->client->ps.saber[1] );
+			WP_SaberParseParms( G_CoopPlayerVar( ent, "g_saber2", g_saber2 ), &ent->client->ps.saber[1] );
 			if ( ent->client->ps.saber[1].stylesLearned )
 			{
 				ent->client->ps.saberStylesKnown |= ent->client->ps.saber[1].stylesLearned;
@@ -2056,9 +2058,9 @@ void G_SetSabersFromCVars( gentity_t *ent )
 						ent->client->ps.saber[1].blade[n].color = SABER_RED;
 					}
 				}
-				else if ( g_saber2_color->string )
+				else if ( G_CoopPlayerVar( ent, "g_saber2_color", g_saber2_color ) )
 				{//FIXME: how to specify color for each blade and/or color for second saber?
-					saber_colors_t color = TranslateSaberColor( g_saber2_color->string );
+					saber_colors_t color = TranslateSaberColor( G_CoopPlayerVar( ent, "g_saber2_color", g_saber2_color ) );
 					for ( int n = 0; n < MAX_BLADES; n++ )
 					{
 						ent->client->ps.saber[1].blade[n].color = color;
@@ -2072,10 +2074,10 @@ void G_SetSabersFromCVars( gentity_t *ent )
 void G_InitPlayerFromCvars( gentity_t *ent )
 {
 	//set model based on cvars
-	if(Q_stricmp(g_char_skin_head->string, "model_default") == 0 && Q_stricmp(g_char_skin_torso->string, "model_default") == 0 && Q_stricmp(g_char_skin_legs->string, "model_default") == 0)
-		G_ChangePlayerModel( ent, va("%s|model_default", g_char_model->string) );
+	if(Q_stricmp(G_CoopPlayerVar( ent, "g_char_skin_head", g_char_skin_head ), "model_default") == 0 && Q_stricmp(G_CoopPlayerVar( ent, "g_char_skin_torso", g_char_skin_torso ), "model_default") == 0 && Q_stricmp(G_CoopPlayerVar( ent, "g_char_skin_legs", g_char_skin_legs ), "model_default") == 0)
+		G_ChangePlayerModel( ent, va("%s|model_default", G_CoopPlayerVar( ent, "g_char_model", g_char_model )) );
 	else
-		G_ChangePlayerModel( ent, va("%s|%s|%s|%s", g_char_model->string, g_char_skin_head->string, g_char_skin_torso->string, g_char_skin_legs->string) );
+		G_ChangePlayerModel( ent, va("%s|%s|%s|%s", G_CoopPlayerVar( ent, "g_char_model", g_char_model ), G_CoopPlayerVar( ent, "g_char_skin_head", g_char_skin_head ), G_CoopPlayerVar( ent, "g_char_skin_torso", g_char_skin_torso ), G_CoopPlayerVar( ent, "g_char_skin_legs", g_char_skin_legs )) );
 
 	//FIXME: parse these 2 from some cvar or require playermodel to be in a *.npc?
 	if( ent->NPC_type && gi.bIsFromZone(ent->NPC_type, TAG_G_ALLOC) ) {
@@ -2091,7 +2093,7 @@ void G_InitPlayerFromCvars( gentity_t *ent )
 	}
 
 	char snd[512];
-	gi.Cvar_VariableStringBuffer( "snd", snd, sizeof(snd) );
+	Q_strncpyz( snd, G_CoopPlayerVar( ent, "snd", gi.cvar( "snd", "", 0 ) ), sizeof(snd) );	// coop: per player
 
 	ent->client->clientInfo.customBasicSoundDir = G_NewString(snd);	//copy current cvar
 
@@ -2108,13 +2110,13 @@ void G_InitPlayerFromCvars( gentity_t *ent )
 	}
 	//color tinting
 	//FIXME: the customRGBA shouldn't be set if the shader this guys .skin is using doesn't have the tinting on it
-	if ( g_char_color_red->integer
-		|| g_char_color_green->integer
-		|| g_char_color_blue->integer )
+	if ( atoi( G_CoopPlayerVar( ent, "g_char_color_red", g_char_color_red ) )
+		|| atoi( G_CoopPlayerVar( ent, "g_char_color_green", g_char_color_green ) )
+		|| atoi( G_CoopPlayerVar( ent, "g_char_color_blue", g_char_color_blue ) ) )
 	{
-		ent->client->renderInfo.customRGBA[0] = g_char_color_red->integer;
-		ent->client->renderInfo.customRGBA[1] = g_char_color_green->integer;
-		ent->client->renderInfo.customRGBA[2] = g_char_color_blue->integer;
+		ent->client->renderInfo.customRGBA[0] = atoi( G_CoopPlayerVar( ent, "g_char_color_red", g_char_color_red ) );
+		ent->client->renderInfo.customRGBA[1] = atoi( G_CoopPlayerVar( ent, "g_char_color_green", g_char_color_green ) );
+		ent->client->renderInfo.customRGBA[2] = atoi( G_CoopPlayerVar( ent, "g_char_color_blue", g_char_color_blue ) );
 		ent->client->renderInfo.customRGBA[3] = 255;
 	}
 }
@@ -2430,7 +2432,7 @@ qboolean ClientSpawn(gentity_t *ent, SavedGameJustLoaded_e eSavedGameJustLoaded 
 			client->ps.dualSabers = qfalse;
 			WP_SaberParseParms( g_saber->string, &client->ps.saber[0] );//get saber info
 
-			client->ps.saberStylesKnown |= (1<<gi.Cvar_VariableIntegerValue("g_fighting_style"));
+			client->ps.saberStylesKnown |= (1<<atoi( G_CoopPlayerVar( ent, "g_fighting_style", gi.cvar( "g_fighting_style", "0", 0 ) ) ));	// coop: per player
 
 //			if ( client->ps.saber[0].stylesLearned )
 //			{
