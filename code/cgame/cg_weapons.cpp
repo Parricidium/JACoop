@@ -987,10 +987,9 @@ void CG_AddViewWeapon( playerState_t *ps )
 
 	cent = &cg_entities[ps->clientNum];
 
-	// coop: the first-person view weapon is built from the local player's server gentity
-	// (renderInfo, ghoul2, bolts). A serverless remote client has none of that yet;
-	// skip the viewmodel rather than fault. Snapshot-backed viewmodel is later work.
-	if ( cg_remoteClient || !cent->gent || !cent->gent->client )
+	// coop: the remote client's placeholder gentity carries a rebuilt ghoul2 and the
+	// snapshot playerstate, enough for the view weapon; just never fault on a missing one
+	if ( !cent->gent || !cent->gent->client )
 	{
 		return;
 	}
