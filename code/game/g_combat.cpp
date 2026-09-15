@@ -4041,7 +4041,10 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 		}
 		else	// Player died, fire off scoreboard soon
 		{
-			cg.missionStatusDeadTime = level.time + 1000;	// Too long?? Too short??
+			if ( !G_CoopPlayerDied( self ) )	// coop: respawn beside a teammate instead, unless nobody is left
+			{
+				cg.missionStatusDeadTime = level.time + 1000;	// Too long?? Too short??
+			}
 			cg.zoomMode = 0; // turn off zooming when we die
 		}
 	}

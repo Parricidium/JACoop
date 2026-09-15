@@ -270,10 +270,6 @@ static void CG_CoopDriveAnim( centity_t *cent )
 		const int torsoFlags = flags | ( ( s->torsoAnimTimer > st->torsoTimer && s->torsoAnim == ps->torsoAnim ) ? SETANIM_FLAG_RESTART : 0 );
 		PM_SetAnimFinal( &ps->torsoAnim, &ps->legsAnim, SETANIM_TORSO, s->torsoAnim, torsoFlags, &ps->torsoAnimTimer, &ps->legsAnimTimer, gent );
 	}
-	if ( cg_developer.integer && ( st->legsTimer == -12345 || ps->legsAnim != s->legsAnim || ps->torsoAnim != s->torsoAnim ) )
-	{
-		Com_Printf( "coop: ent %i anim net legs %i torso %i -> ps legs %i torso %i (speed %.0f)\n", cent->currentState.number, s->legsAnim, s->torsoAnim, ps->legsAnim, ps->torsoAnim, gent->resultspeed );
-	}
 	st->legsTimer = s->legsAnimTimer;
 	st->torsoTimer = s->torsoAnimTimer;
 	// keep the placeholder ps timers in step with the network (the HUD/anim
@@ -401,6 +397,8 @@ void CG_CoopSyncLocalPlayer( void )
 	{
 		return;
 	}
+	// shared code compares against level.time; there is no server clock here, use ours
+	level.time = cg.time;
 
 	gentity_t *me = &g_entities[cg_localEntNum];
 	if ( !me->client )

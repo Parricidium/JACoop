@@ -222,3 +222,129 @@ qboolean G_CoopInAnyPlayerPVS( const vec3_t org )
 	}
 	return qfalse;
 }
+
+/*
+==============================================================================
+Death and respawn
+
+Single player ends the mission when the player dies. In co-op a dead player
+comes back a few seconds later beside a living teammate, keeping the loadout
+they died with; the mission only fails once nobody is left alive.
+==============================================================================
+*/
+
+#define COOP_RESPAWN_DELAY	4000
+
+static int				coopRespawnTime[MAX_CLIENTS];
+static playerState_t	coopDeathState[MAX_CLIENTS];	// loadout snapshot taken at death
+
+// true while this player is dead and waiting for a co-op respawn
+qboolean G_CoopRespawnPending( const gentity_t *ent )
+{
+	return (qboolean)( G_CoopIsPlayer( ent ) && coopRespawnTime[ent->s.number] != 0 );
+}
+
+static gentity_t *G_CoopLivingTeammate( const gentity_t *self )
+{
+	gentity_t	*best = NULL;
+	float		bestDist = -1;
+
+	for ( int i = 0; i < MAX_CLIENTS; i++ )
+	{
+		gentity_t *ent = &g_entities[i];
+		if ( ent == self || !ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || ent->health <= 0 )
+		{
+			continue;
+		}
+		const float dist = DistanceSquared( self->currentOrigin, ent->currentOrigin );
+		if ( bestDist < 0 || dist < bestDist )
+		{
+			bestDist = dist;
+			best = ent;
+		}
+	}
+	return best;
+}
+
+/*
+================
+G_CoopPlayerDied
+
+Called from player_die. Returns qtrue when the death is handled as a co-op
+respawn, in which case the caller must not start the mission-failed flow.
+================
+*/
+qboolean G_CoopPlayerDied( gentity_t *self )
+{
+	if ( !G_CoopIsPlayer( self ) || !G_CoopLivingTeammate( self ) )
+	{
+		return qfalse;
+	}
+	coopDeathState[self->s.number] = self->client->ps;
+	coopRespawnTime[self->s.number] = level.time + COOP_RESPAWN_DELAY;
+	gi.SendServerCommand( -1, "print \"%s ^3est tombé, retour dans %i s...\n\"", self->client->pers.netname, COOP_RESPAWN_DELAY / 1000 );
+	return qtrue;
+}
+
+extern void G_DisplaceSpawnOrigin( vec3_t origin );
+extern void G_AddWeaponModels( gentity_t *ent );
+
+static void G_CoopRespawn( gentity_t *ent )
+{
+	const int		slot = ent->s.number;
+	playerState_t	*dead = &coopDeathState[slot];
+	gentity_t		*mate = G_CoopLivingTeammate( ent );
+
+	ClientSpawn( ent, eNO );
+
+	// bring the loadout back
+	playerState_t *ps = &ent->client->ps;
+	ps->stats[STAT_WEAPONS] = dead->stats[STAT_WEAPONS] | ( 1 << WP_NONE );
+	memcpy( ps->ammo, dead->ammo, sizeof( ps->ammo ) );
+	memcpy( ps->inventory, dead->inventory, sizeof( ps->inventory ) );
+	memcpy( ps->forcePowerLevel, dead->forcePowerLevel, sizeof( ps->forcePowerLevel ) );
+	ps->forcePowersKnown = dead->forcePowersKnown;
+	ps->forcePowerMax = dead->forcePowerMax;
+	ps->forcePower = ps->forcePowerMax;
+	ps->saberStylesKnown = dead->saberStylesKnown;
+	ps->saberAnimLevel = dead->saberAnimLevel;
+	if ( dead->weapon > WP_NONE && dead->weapon < WP_NUM_WEAPONS && ( ps->stats[STAT_WEAPONS] & ( 1 << dead->weapon ) ) )
+	{
+		ps->weapon = dead->weapon;
+		G_RemoveWeaponModels( ent );
+		G_AddWeaponModels( ent );
+	}
+
+	// come back beside a living teammate rather than at the map start
+	if ( mate )
+	{
+		vec3_t origin;
+		VectorCopy( mate->currentOrigin, origin );
+		origin[2] += 9;
+		G_DisplaceSpawnOrigin( origin );
+		VectorCopy( origin, ps->origin );
+		VectorCopy( origin, ent->currentOrigin );
+		SetClientViewAngle( ent, mate->client->ps.viewangles );
+		ps->eFlags ^= EF_TELEPORT_BIT;
+		gi.linkentity( ent );
+	}
+	ent->health = ps->stats[STAT_HEALTH] = ps->stats[STAT_MAX_HEALTH];
+}
+
+// run once per server frame
+void G_CoopRunRespawns( void )
+{
+	for ( int slot = 0; slot < MAX_CLIENTS; slot++ )
+	{
+		if ( !coopRespawnTime[slot] || level.time < coopRespawnTime[slot] )
+		{
+			continue;
+		}
+		coopRespawnTime[slot] = 0;
+		gentity_t *ent = &g_entities[slot];
+		if ( ent->inuse && ent->client && ent->client->pers.connected == CON_CONNECTED && ent->health <= 0 )
+		{
+			G_CoopRespawn( ent );
+		}
+	}
+}

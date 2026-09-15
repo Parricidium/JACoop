@@ -337,7 +337,7 @@ is already occupied, walk outward in a ring until a free spot is found. Leaves
 the origin untouched when it is clear, which is the single-player case.
 ============
 */
-static void G_DisplaceSpawnOrigin( vec3_t origin )
+void G_DisplaceSpawnOrigin( vec3_t origin )
 {
 	static const float	angles[8] = { 0, 45, 90, 135, 180, 225, 270, 315 };
 	vec3_t				candidate;
@@ -781,10 +781,25 @@ Player_RestoreFromPrevLevel
   Argument		: gentity_t *ent
 ============
 */
+// coop: per-slot carry-over cvar name, mirroring SV_PlayerSaveCvarName on the
+// engine side. Slot 0 (the host) keeps the bare stock name so retail single
+// player is unchanged; joiners read their own suffixed set ("playersave1"...).
+static const char *G_PlayerSaveCvarName( const char *psBase, int slot )
+{
+	static char sName[64];
+	if ( slot <= 0 )
+	{
+		return psBase;
+	}
+	Com_sprintf( sName, sizeof(sName), "%s%i", psBase, slot );
+	return sName;
+}
+
 static void Player_RestoreFromPrevLevel(gentity_t *ent, SavedGameJustLoaded_e eSavedGameJustLoaded)
 {
 	gclient_t	*client = ent->client;
 	int			i;
+	const int	slot = ent - g_entities;	// coop: which carry-over cvar set to read
 
 	assert(client);
 	if (client)	// though I can't see it not being true...
@@ -794,7 +809,7 @@ static void Player_RestoreFromPrevLevel(gentity_t *ent, SavedGameJustLoaded_e eS
 		char	saber1Name[MAX_QPATH];
 		const char	*var;
 
-		gi.Cvar_VariableStringBuffer( sCVARNAME_PLAYERSAVE, s, sizeof(s) );
+		gi.Cvar_VariableStringBuffer( G_PlayerSaveCvarName( sCVARNAME_PLAYERSAVE, slot ), s, sizeof(s) );
 
 		if (strlen(s))	// actually this would be safe anyway because of the way sscanf() works, but this is clearer
 		{//				|general info				  |-force powers |-saber 1										   |-saber 2										  |-general saber
@@ -904,7 +919,7 @@ static void Player_RestoreFromPrevLevel(gentity_t *ent, SavedGameJustLoaded_e eS
 //			SetClientViewAngle( ent, ent->client->ps.viewangles);
 
 			//ammo
-			gi.Cvar_VariableStringBuffer( "playerammo", s, sizeof(s) );
+			gi.Cvar_VariableStringBuffer( G_PlayerSaveCvarName( "playerammo", slot ), s, sizeof(s) );
 			i=0;
 			var = strtok( s, " " );
 			while( var != NULL )
@@ -917,7 +932,7 @@ static void Player_RestoreFromPrevLevel(gentity_t *ent, SavedGameJustLoaded_e eS
 			assert (i==AMMO_MAX);
 
 			//inventory
-			gi.Cvar_VariableStringBuffer( "playerinv", s, sizeof(s) );
+			gi.Cvar_VariableStringBuffer( G_PlayerSaveCvarName( "playerinv", slot ), s, sizeof(s) );
 			i=0;
 			var = strtok( s, " " );
 			while( var != NULL )
@@ -932,7 +947,7 @@ static void Player_RestoreFromPrevLevel(gentity_t *ent, SavedGameJustLoaded_e eS
 
 			// the new JK2 stuff - force powers, etc...
 			//
-			gi.Cvar_VariableStringBuffer( "playerfplvl", s, sizeof(s) );
+			gi.Cvar_VariableStringBuffer( G_PlayerSaveCvarName( "playerfplvl", slot ), s, sizeof(s) );
 			i=0;
 			var = strtok( s, " " );
 			while( var != NULL )

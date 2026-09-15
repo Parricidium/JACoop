@@ -84,26 +84,53 @@ static bool SV_Map_( ForceReload_e eForceReload )
 
 
 
+// co-op: build the per-slot carry-over cvar name. Slot 0 keeps the bare stock
+// name (so single-player savegames and the retail restore path are unchanged);
+// joiners in slots 1+ get an index suffix (e.g. "playersave1"). psBase is one of
+// the four carry-over cvar bases ("playersave"/"playerammo"/"playerinv"/"playerfplvl").
+static const char *SV_PlayerSaveCvarName( const char *psBase, int slot )
+{
+	static char sName[64];
+	if ( slot <= 0 )
+	{
+		return psBase;
+	}
+	Com_sprintf( sName, sizeof(sName), "%s%i", psBase, slot );
+	return sName;
+}
+
 // Save out some player data for later restore if this is a spawn point with KEEP_PREV (spawnflags&1) set...
 //
 // (now also called by auto-save code to setup the cvars correctly
+//
+// co-op: originally only client 0 (the host) was ever a player. We now loop every
+// connected client slot so joiners carry their weapons/health/ammo/force across a
+// level transition too; each slot's data lands in its own suffixed cvar set that
+// survives the SV_SpawnServer restart (cvars are not hunk-cleared).
 void SV_Player_EndOfLevelSave(void)
 {
 	int	i;
+	int	slot;
+	const int	maxSlots = Cvar_VariableIntegerValue( "sv_maxclients" );
 
-	// I could just call GetClientState() but that's in sv_bot.cpp, and I'm not sure if that's going to be deleted for
-	//	the single player build, so here's the guts again...
-	//
-	client_t* cl = &svs.clients[0];	// 0 because only ever us as a player
+	for ( slot = 0; slot < maxSlots && slot < MAX_CLIENTS; slot++ )
+	{
+	client_t* cl = &svs.clients[slot];
+
+	// blank this slot's carry-over so a slot that is not currently a connected
+	// player doesn't restore a stale player from an earlier transition.
+	Cvar_Set( SV_PlayerSaveCvarName( sCVARNAME_PLAYERSAVE, slot ), "" );
+	Cvar_Set( SV_PlayerSaveCvarName( "playerammo", slot ), "" );
+	Cvar_Set( SV_PlayerSaveCvarName( "playerinv", slot ), "" );
+	Cvar_Set( SV_PlayerSaveCvarName( "playerfplvl", slot ), "" );
 
 	if (cl
+		&& cl->state >= CS_CONNECTED	// only slots that are actually connected players
 		&&
 		cl->gentity && cl->gentity->client	// crash fix for voy4->brig transition when you kill Foster.
 											//	Shouldn't happen, but does sometimes...
 		)
 	{
-		Cvar_Set( sCVARNAME_PLAYERSAVE, "");	// default to blank
-
 //		clientSnapshot_t*	pFrame = &cl->frames[cl->netchan.outgoingSequence & PACKET_MASK];
 		playerState_t*		pState = cl->gentity->client;
 		const char	*s2;
@@ -189,7 +216,7 @@ void SV_Player_EndOfLevelSave(void)
 						pState->saberLockTime
 						);
 #endif
-		Cvar_Set( sCVARNAME_PLAYERSAVE, s );
+		Cvar_Set( SV_PlayerSaveCvarName( sCVARNAME_PLAYERSAVE, slot ), s );
 
 		//ammo
 		s2 = "";
@@ -197,7 +224,7 @@ void SV_Player_EndOfLevelSave(void)
 		{
 			s2 = va("%s %i",s2, pState->ammo[i]);
 		}
-		Cvar_Set( "playerammo", s2 );
+		Cvar_Set( SV_PlayerSaveCvarName( "playerammo", slot ), s2 );
 
 		//inventory
 		s2 = "";
@@ -205,7 +232,7 @@ void SV_Player_EndOfLevelSave(void)
 		{
 			s2 = va("%s %i",s2, pState->inventory[i]);
 		}
-		Cvar_Set( "playerinv", s2 );
+		Cvar_Set( SV_PlayerSaveCvarName( "playerinv", slot ), s2 );
 
 		// the new JK2 stuff - force powers, etc...
 		//
@@ -214,8 +241,9 @@ void SV_Player_EndOfLevelSave(void)
 		{
 			s2 = va("%s %i",s2, pState->forcePowerLevel[i]);
 		}
-		Cvar_Set( "playerfplvl", s2 );
+		Cvar_Set( SV_PlayerSaveCvarName( "playerfplvl", slot ), s2 );
 	}
+	}	// for slot
 }
 
 

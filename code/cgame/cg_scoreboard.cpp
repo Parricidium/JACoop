@@ -376,7 +376,8 @@ qboolean CG_DrawScoreboard( void )
 	}
 
 	// Character is either dead, or a script has brought up the screen
-	if (((cg.predicted_player_state.pm_type == PM_DEAD) && (cg.missionStatusDeadTime < level.time))
+	// coop: a remote client never decides mission failure itself (it respawns; the host says when everyone is dead)
+	if ((!cg_remoteClient && (cg.predicted_player_state.pm_type == PM_DEAD) && (cg.missionStatusDeadTime < level.time))
 		|| (cg.missionStatusShow))
 	{
 		CG_MissionFailed();

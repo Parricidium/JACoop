@@ -1983,6 +1983,8 @@ void G_RunFrame( int levelTime ) {
 	level.previousTime = level.time;
 	level.time = levelTime;
 
+	G_CoopRunRespawns();	// coop: bring dead players back beside a teammate
+
 	//ResetTeamCounters();
 	NAV::DecayDangerSenses();
 	Rail_Update();

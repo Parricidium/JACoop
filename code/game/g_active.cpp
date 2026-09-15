@@ -4859,7 +4859,7 @@ extern cvar_t	*g_skippingcin;
 				gi.cvar_set("timescale", "1");
 				gi.cvar_set("skippingCinematic", "0");
 			}
-			if ( ent->client->ps.pm_type == PM_DEAD && cg.missionStatusDeadTime < level.time )
+			if ( ent->client->ps.pm_type == PM_DEAD && cg.missionStatusDeadTime < level.time && !G_CoopRespawnPending( ent ) )
 			{//mission status screen is up because player is dead, stop all scripts
 				stop_icarus = qtrue;
 			}

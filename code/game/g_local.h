@@ -409,6 +409,9 @@ int G_CoopNumPlayers( void );
 gentity_t *G_CoopNearestPlayer( const vec3_t org, qboolean aliveOnly );
 qboolean G_CoopAnyPlayerAlive( void );
 qboolean G_CoopInAnyPlayerPVS( const vec3_t org );
+qboolean G_CoopRespawnPending( const gentity_t *ent );
+qboolean G_CoopPlayerDied( gentity_t *self );
+void G_CoopRunRespawns( void );
 int	G_SoundIndex( const char *name );
 /*
 Ghoul2 Insert Start
