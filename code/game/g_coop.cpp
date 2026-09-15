@@ -479,3 +479,35 @@ void G_CoopCheckCharacterChange( gentity_t *ent )
 		G_InitPlayerFromCvars( ent );
 	}
 }
+
+/*
+==============================================================================
+Mission objectives
+
+ICARUS updates the host's client->sess.mission_objectives; joiners read them
+back from a configstring (one character per objective: display bit + status)
+into their own placeholder client so the datapad and the HUD flash work.
+==============================================================================
+*/
+void G_CoopUpdateObjectives( void )
+{
+	static char	last[MAX_MISSION_OBJ + 1];
+	char		now[MAX_MISSION_OBJ + 1];
+	const gclient_t *host = g_entities[0].client;
+
+	if ( !host || G_CoopNumPlayers() < 2 )
+	{
+		return;
+	}
+	for ( int i = 0; i < MAX_MISSION_OBJ; i++ )
+	{
+		const objectives_t *o = &host->sess.mission_objectives[i];
+		now[i] = (char)( 'A' + ( o->display ? 8 : 0 ) + ( o->status & 7 ) );
+	}
+	now[MAX_MISSION_OBJ] = '\0';
+	if ( strcmp( now, last ) )
+	{
+		Q_strncpyz( last, now, sizeof( last ) );
+		gi.SetConfigstring( CS_COOP_OBJECTIVES, now );
+	}
+}

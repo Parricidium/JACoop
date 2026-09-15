@@ -726,7 +726,8 @@ Ghoul2 Insert End
 // serverless remote client can rebuild the same ghoul2 for players and NPCs.
 #define MAX_COOP_MODELSPECS		128
 #define CS_COOP_MODELSPECS		(CS_WORLD_FX + MAX_WORLD_FX)
-#define CS_MAX					(CS_COOP_MODELSPECS + MAX_COOP_MODELSPECS)
+#define CS_COOP_OBJECTIVES		(CS_COOP_MODELSPECS + MAX_COOP_MODELSPECS)	// coop: host mission objectives (one char per objective)
+#define CS_MAX					(CS_COOP_OBJECTIVES + 1)
 
 #if (CS_MAX) > MAX_CONFIGSTRINGS
 #error overflow: (CS_MAX) > MAX_CONFIGSTRINGS

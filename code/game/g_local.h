@@ -419,6 +419,7 @@ void G_CoopCheckCharacterChange( gentity_t *ent );
 void G_InitPlayerFromCvars( gentity_t *ent );
 void G_CoopUpdateCamera( void );
 void G_CoopResetCamera( void );
+void G_CoopUpdateObjectives( void );
 int	G_SoundIndex( const char *name );
 /*
 Ghoul2 Insert Start

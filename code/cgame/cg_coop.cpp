@@ -427,6 +427,27 @@ void CG_CoopSyncLocalPlayer( void )
 	memcpy( me->client->ps.saber, saber, sizeof( saber ) );
 	me->client->ps.dualSabers = dualSabers;
 
+
+	// mission objectives mirrored from the host (CS_COOP_OBJECTIVES); a change
+	// flashes the HUD prompt exactly as an ICARUS update does on the host
+	{
+		extern qboolean missionInfo_Updated;
+		const char *obj = CG_ConfigString( CS_COOP_OBJECTIVES );
+		for ( int i = 0; i < MAX_MISSION_OBJ && obj[i]; i++ )
+		{
+			objectives_t *o = &me->client->sess.mission_objectives[i];
+			const int code = obj[i] - 'A';
+			const qboolean display = (qboolean)( ( code & 8 ) != 0 );
+			const int status = code & 7;
+			if ( o->display != display || o->status != status )
+			{
+				o->display = display;
+				o->status = status;
+				missionInfo_Updated = qtrue;
+			}
+		}
+	}
+
 	me->s.number = cg_localEntNum;
 	me->s.clientNum = cg_localEntNum;
 	me->s.eFlags = cg.snap->ps.eFlags;

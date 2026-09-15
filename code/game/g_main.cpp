@@ -2151,6 +2151,7 @@ void G_RunFrame( int levelTime ) {
 
 	// coop: mirror the host's cinematic camera to remote clients
 	G_CoopUpdateCamera();
+	G_CoopUpdateObjectives();
 	if( g_numEntities->integer )
 	{
 		gi.Printf( S_COLOR_WHITE"Number of Entities in use : %d\n", ents_inuse );
