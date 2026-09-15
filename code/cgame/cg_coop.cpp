@@ -425,3 +425,76 @@ void CG_CoopSyncLocalPlayer( void )
 	VectorCopy( cg.snap->ps.origin, me->currentOrigin );
 	VectorCopy( cg.snap->ps.viewangles, me->currentAngles );
 }
+
+/*
+==============================================================================
+Cinematic camera on the remote client
+
+The host broadcasts an ET_COOPCAMERA entity while it is in a cutscene camera
+(g_coop.cpp). Here we feed its interpolated state into our own client_camera
+and raise in_camera, so the stock camera render path (CGCam_RenderScene) and
+the HUD/2D suppression behave exactly as on the host.
+==============================================================================
+*/
+
+#include "cg_camera.h"
+
+extern void CG_CalcEntityLerpPositions( centity_t *cent );
+
+static qboolean coopCameraActive = qfalse;
+
+void CG_CoopSyncCamera( void )
+{
+	if ( !cg_remoteClient || !cg.snap )
+	{
+		return;
+	}
+
+	centity_t *cam = NULL;
+	for ( int i = 0; i < cg.snap->numEntities; i++ )
+	{
+		centity_t *cent = &cg_entities[cg.snap->entities[i].number];
+		if ( cent->currentState.eType == ET_COOPCAMERA )
+		{
+			cam = cent;
+			break;
+		}
+	}
+
+	if ( !cam )
+	{
+		if ( coopCameraActive )
+		{
+			coopCameraActive = qfalse;
+			in_camera = false;
+			client_camera.info_state = 0;
+			client_camera.bar_alpha = 0.0f;
+			client_camera.bar_height = 0.0f;
+			client_camera.fade_color[3] = 0.0f;
+		}
+		return;
+	}
+
+	CG_CalcEntityLerpPositions( cam );
+
+	if ( !coopCameraActive )
+	{
+		coopCameraActive = qtrue;
+		memset( &client_camera, 0, sizeof( client_camera ) );
+		in_camera = true;
+		cg.zoomMode = 0;
+	}
+	client_camera.info_state = 0;
+	VectorCopy( cam->lerpOrigin, client_camera.origin );
+	VectorCopy( cam->lerpAngles, client_camera.angles );
+	client_camera.FOV = cam->currentState.origin2[0];
+	client_camera.FOV2 = client_camera.FOV;
+	client_camera.bar_alpha = cam->currentState.origin2[1] > 0.0f ? 1.0f : 0.0f;
+	client_camera.bar_height = cam->currentState.origin2[1];
+	// CGCam_UpdateBarFade snaps to the *_dest values once bar_time is stale; keep them equal
+	client_camera.bar_alpha_dest = client_camera.bar_alpha_source = client_camera.bar_alpha;
+	client_camera.bar_height_dest = client_camera.bar_height_source = client_camera.bar_height;
+	client_camera.bar_time = cg.time;
+	VectorCopy( cam->currentState.angles2, client_camera.fade_color );
+	client_camera.fade_color[3] = cam->currentState.origin2[2];
+}

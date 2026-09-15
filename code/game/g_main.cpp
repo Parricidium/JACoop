@@ -830,6 +830,7 @@ ShutdownGame
 */
 void ShutdownGame( void )
 {
+	G_CoopResetCamera();	// coop: the camera entity dies with the level
 	// write all the client session data so we can get it back
 	G_WriteSessionData();
 
@@ -2137,12 +2138,18 @@ void G_RunFrame( int levelTime ) {
 		//UpdateTeamCounters( ent );	//	   to call anyway on a freed ent.
 	}
 
-	// perform final fixups on the player
-	ent = &g_entities[0];
-	if ( ent->inuse )
+	// perform final fixups on the players (coop: every connected client, not just slot 0)
+	for ( i = 0; i < MAX_CLIENTS; i++ )
 	{
-		ClientEndFrame( ent );
+		if ( g_entities[i].inuse && g_entities[i].client && g_entities[i].client->pers.connected == CON_CONNECTED )
+		{
+			ClientEndFrame( &g_entities[i] );
+		}
 	}
+	ent = &g_entities[0];
+
+	// coop: mirror the host's cinematic camera to remote clients
+	G_CoopUpdateCamera();
 	if( g_numEntities->integer )
 	{
 		gi.Printf( S_COLOR_WHITE"Number of Entities in use : %d\n", ents_inuse );

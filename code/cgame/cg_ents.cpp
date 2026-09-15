@@ -2392,6 +2392,7 @@ Ghoul2 Insert End
 		CG_Error( "Bad entity type: %i\n", cent->currentState.eType );
 		break;
 	case ET_INVISIBLE:
+	case ET_COOPCAMERA:	// coop: consumed by CG_CoopSyncCamera, nothing to draw
 	case ET_PUSH_TRIGGER:
 	case ET_TELEPORT_TRIGGER:
 	case ET_TERRAIN:

@@ -348,3 +348,66 @@ void G_CoopRunRespawns( void )
 		}
 	}
 }
+
+/*
+==============================================================================
+Cinematic camera replication
+
+Cutscenes run entirely on the host: ICARUS drives the cgame camera
+(cg_camera.cpp) through shared memory, which a remote client never sees.
+While the host is in a camera, a broadcast entity mirrors the final view the
+host renders (origin, angles, fov, cinematic bars, fade) into every snapshot;
+the remote cgame turns it back into its own client_camera (cg_coop.cpp).
+==============================================================================
+*/
+
+#include "../cgame/cg_local.h"
+#include "../cgame/cg_camera.h"
+
+static gentity_t *coopCameraEnt = NULL;
+
+void G_CoopUpdateCamera( void )
+{
+	if ( !in_camera )
+	{
+		if ( coopCameraEnt )
+		{
+			G_FreeEntity( coopCameraEnt );
+			coopCameraEnt = NULL;
+		}
+		return;
+	}
+
+	if ( !coopCameraEnt || !coopCameraEnt->inuse || coopCameraEnt->s.eType != ET_COOPCAMERA )
+	{
+		coopCameraEnt = G_Spawn();
+		if ( !coopCameraEnt )
+		{
+			return;
+		}
+		coopCameraEnt->classname = "coop_camera";
+		coopCameraEnt->s.eType = ET_COOPCAMERA;
+		coopCameraEnt->svFlags |= SVF_BROADCAST;	// sent regardless of PVS
+		coopCameraEnt->contents = 0;
+		coopCameraEnt->clipmask = 0;
+	}
+
+	gentity_t *cam = coopCameraEnt;
+	VectorCopy( cg.refdef.vieworg, cam->s.origin );
+	VectorCopy( cg.refdef.vieworg, cam->s.pos.trBase );
+	VectorCopy( cg.refdef.vieworg, cam->currentOrigin );
+	VectorCopy( cg.refdefViewAngles, cam->s.angles );
+	VectorCopy( cg.refdefViewAngles, cam->s.apos.trBase );
+	cam->s.pos.trType = cam->s.apos.trType = TR_INTERPOLATE;
+	cam->s.origin2[0] = cg.refdef.fov_x;
+	cam->s.origin2[1] = client_camera.bar_height * client_camera.bar_alpha;
+	cam->s.origin2[2] = client_camera.fade_color[3];
+	VectorCopy( client_camera.fade_color, cam->s.angles2 );
+	gi.linkentity( cam );
+}
+
+// forget the camera entity when the level goes away
+void G_CoopResetCamera( void )
+{
+	coopCameraEnt = NULL;
+}
