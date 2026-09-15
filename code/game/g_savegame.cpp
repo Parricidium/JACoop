@@ -893,6 +893,10 @@ static void WriteGEntities(qboolean qbAutosave)
 	{
 		gentity_t* ent = &g_entities[i];
 
+		if ( i > 0 && i < MAX_CLIENTS )
+		{
+			continue;	// coop: joiners are live connections, not part of the save
+		}
 		if ( ent->inuse )
 		{
 			iCount++;
@@ -910,6 +914,10 @@ static void WriteGEntities(qboolean qbAutosave)
 	{
 		gentity_t* ent = &g_entities[i];
 
+		if ( i > 0 && i < MAX_CLIENTS )
+		{
+			continue;	// coop: see above
+		}
 		if ( ent->inuse)
 		{
 			saved_game.write_chunk<int32_t>(

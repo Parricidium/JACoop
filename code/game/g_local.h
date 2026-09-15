@@ -412,6 +412,8 @@ qboolean G_CoopInAnyPlayerPVS( const vec3_t org );
 qboolean G_CoopRespawnPending( const gentity_t *ent );
 qboolean G_CoopPlayerDied( gentity_t *self );
 void G_CoopRunRespawns( void );
+void G_CoopPlaceBeside( gentity_t *ent, gentity_t *mate );
+gentity_t *G_CoopLivingTeammate( const gentity_t *self );
 void G_CoopUpdateCamera( void );
 void G_CoopResetCamera( void );
 int	G_SoundIndex( const char *name );

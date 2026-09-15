@@ -627,6 +627,11 @@ char *ClientConnect( int clientNum, qboolean firstTime, SavedGameJustLoaded_e eS
 	gi.GetUserinfo( clientNum, userinfo, sizeof( userinfo ) );
 
 	// they can connect
+	// coop: joiners are never restored from a savegame (see ClientBegin)
+	if ( clientNum != 0 )
+	{
+		eSavedGameJustLoaded = eNO;
+	}
 	ent->client = level.clients + clientNum;
 	gclient_t *client = ent->client;
 
@@ -688,6 +693,13 @@ void ClientBegin( int clientNum, usercmd_t *cmd, SavedGameJustLoaded_e eSavedGam
 	ent = g_entities + clientNum;
 	client = level.clients + clientNum;
 
+	// coop: only the host's client lives in a savegame; a joiner arriving after a
+	// load (or any joiner at all) always gets a fresh spawn
+	if ( clientNum != 0 )
+	{
+		eSavedGameJustLoaded = eNO;
+	}
+
 	if (eSavedGameJustLoaded == eFULL)//qbFromSavedGame)
 	{
 		client->pers.connected = CON_CONNECTED;
@@ -719,6 +731,11 @@ void ClientBegin( int clientNum, usercmd_t *cmd, SavedGameJustLoaded_e eSavedGam
 		if ( ClientSpawn( ent, eSavedGameJustLoaded) )	// SavedGameJustLoaded_e
 		{
 			// send teleport event
+		}
+		if ( clientNum != 0 )
+		{
+			// coop: a joiner lands beside the host, who may be deep into the level (join in progress, load)
+			G_CoopPlaceBeside( ent, G_CoopLivingTeammate( ent ) );
 		}
 		client->ps.inventory[INV_GOODIE_KEY] = 0;
 		client->ps.inventory[INV_SECURITY_KEY] = 0;

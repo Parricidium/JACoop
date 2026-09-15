@@ -244,7 +244,7 @@ qboolean G_CoopRespawnPending( const gentity_t *ent )
 	return (qboolean)( G_CoopIsPlayer( ent ) && coopRespawnTime[ent->s.number] != 0 );
 }
 
-static gentity_t *G_CoopLivingTeammate( const gentity_t *self )
+gentity_t *G_CoopLivingTeammate( const gentity_t *self )
 {
 	gentity_t	*best = NULL;
 	float		bestDist = -1;
@@ -289,6 +289,24 @@ qboolean G_CoopPlayerDied( gentity_t *self )
 extern void G_DisplaceSpawnOrigin( vec3_t origin );
 extern void G_AddWeaponModels( gentity_t *ent );
 
+// move a freshly spawned player next to mate (no-op without one)
+void G_CoopPlaceBeside( gentity_t *ent, gentity_t *mate )
+{
+	if ( !mate || !mate->client || mate == ent )
+	{
+		return;
+	}
+	vec3_t origin;
+	VectorCopy( mate->currentOrigin, origin );
+	origin[2] += 9;
+	G_DisplaceSpawnOrigin( origin );
+	VectorCopy( origin, ent->client->ps.origin );
+	VectorCopy( origin, ent->currentOrigin );
+	SetClientViewAngle( ent, mate->client->ps.viewangles );
+	ent->client->ps.eFlags ^= EF_TELEPORT_BIT;
+	gi.linkentity( ent );
+}
+
 static void G_CoopRespawn( gentity_t *ent )
 {
 	const int		slot = ent->s.number;
@@ -316,18 +334,7 @@ static void G_CoopRespawn( gentity_t *ent )
 	}
 
 	// come back beside a living teammate rather than at the map start
-	if ( mate )
-	{
-		vec3_t origin;
-		VectorCopy( mate->currentOrigin, origin );
-		origin[2] += 9;
-		G_DisplaceSpawnOrigin( origin );
-		VectorCopy( origin, ps->origin );
-		VectorCopy( origin, ent->currentOrigin );
-		SetClientViewAngle( ent, mate->client->ps.viewangles );
-		ps->eFlags ^= EF_TELEPORT_BIT;
-		gi.linkentity( ent );
-	}
+	G_CoopPlaceBeside( ent, mate );
 	ent->health = ps->stats[STAT_HEALTH] = ps->stats[STAT_MAX_HEALTH];
 }
 
