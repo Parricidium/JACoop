@@ -60,6 +60,9 @@ static void SV_EmitPacketEntities( clientSnapshot_t *from, clientSnapshot_t *to,
 	int		oldindex, newindex;
 	int		oldnum, newnum;
 	int		from_num_entities;
+	entityState_t	nullEntityState;
+
+	memset( &nullEntityState, 0, sizeof( nullEntityState ) );
 
 	// generate the delta update
 	if ( !from ) {
@@ -89,19 +92,27 @@ static void SV_EmitPacketEntities( clientSnapshot_t *from, clientSnapshot_t *to,
 			oldnum = oldent->number;
 		}
 
+		// MSG_WriteEntity used to be called here. It wrote the entity's index
+		// into svs.snapshotEntities and let the client dereference the server's
+		// own array -- coherent only while client and server share a process.
+		// A remote client has no such array and faults on its first snapshot.
+		// MSG_WriteDeltaEntity serialises the fields themselves.
+		//
+		// A newly visible entity is delta'd from a null state rather than from
+		// sv.svEntities[].baseline, so the gamestate need not carry a baseline
+		// for every entity: kejim_post has enough entities that those overflow
+		// MAX_MSGLEN. The cost is a slightly larger first snapshot per entity.
 		if ( newnum == oldnum ) {
 			// delta update from old position
-			// because the force parm is qfalse, this will not result
-			// in any bytes being emited if the entity has not changed at all
-			MSG_WriteEntity(msg, newent, 0);
+			MSG_WriteDeltaEntity( msg, oldent, newent, qfalse );
 			oldindex++;
 			newindex++;
 			continue;
 		}
 
 		if ( newnum < oldnum ) {
-			// this is a new entity, send it from the baseline
-			MSG_WriteEntity (msg, newent, 0);
+			// this is a new entity, send it in full
+			MSG_WriteDeltaEntity( msg, &nullEntityState, newent, qtrue );
 			newindex++;
 			continue;
 		}
@@ -109,7 +120,7 @@ static void SV_EmitPacketEntities( clientSnapshot_t *from, clientSnapshot_t *to,
 		if ( newnum > oldnum ) {
 			// the old entity isn't present in the new message
 			if(oldent) {
-				MSG_WriteEntity (msg, NULL, oldent->number);
+				MSG_WriteDeltaEntity( msg, oldent, NULL, qtrue );
 			}
 			oldindex++;
 			continue;
@@ -414,7 +425,12 @@ static void SV_AddEntitiesVisibleFromPoint( vec3_t origin, clientSnapshot_t *fra
 		}
 
 		// broadcast entities are always sent, and so is the main player so we don't see noclip weirdness
-		if ( ent->svFlags & SVF_BROADCAST || !e) {
+		// co-op: force-send every connected player (entity < MAX_CLIENTS), not
+		// just the viewer's own (!e), so co-op partners stay visible to each
+		// other across PVS boundaries (adjacent rooms) instead of popping out.
+		// Unused client slots are already filtered by the !ent->inuse check
+		// above. Mirrors MP's per-viewer client send (SVF_BROADCASTCLIENTS).
+		if ( ent->svFlags & SVF_BROADCAST || e < MAX_CLIENTS ) {
 			SV_AddEntToSnapshot( svEnt, ent, eNums );
 			continue;
 		}
@@ -706,7 +722,7 @@ void SV_SendClientMessages( void ) {
 	client_t	*c;
 
 	// send a message to each connected client
-	for (i=0, c = svs.clients ; i < 1 ; i++, c++) {
+	for (i=0, c = svs.clients ; i < MAX_CLIENTS ; i++, c++) {
 		if (!c->state) {
 			continue;		// not connected
 		}

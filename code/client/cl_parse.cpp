@@ -63,15 +63,33 @@ Parses deltas from the given base and adds the resulting entity
 to the current frame
 ==================
 */
-void CL_DeltaEntity (msg_t *msg, clSnapshot_t *frame)
+// Formerly called MSG_ReadEntity, which read an index into the *server's*
+// svs.snapshotEntities and dereferenced it -- valid only when client and server
+// share a process. MSG_ReadDeltaEntity parses the fields off the wire. It needs
+// the entity number, already read by the caller, and the state to delta from:
+// the matching entity in the previous frame, or a null state for one newly
+// visible, which SV_EmitPacketEntities sends in full. `unchanged` marks an
+// entity the server did not write at all; carry the old state forward rather
+// than consuming bytes that are not there.
+void CL_DeltaEntity (msg_t *msg, clSnapshot_t *frame, int newnum, entityState_t *old,
+					 qboolean unchanged)
 {
 	entityState_t	*state;
+	entityState_t	nullEntityState;
 
 	// save the parsed entity state into the big circular buffer so
 	// it can be used as the source for a later delta
 	state = &cl.parseEntities[cl.parseEntitiesNum & (MAX_PARSE_ENTITIES-1)];
 
-	MSG_ReadEntity( msg, state);
+	if ( unchanged ) {
+		*state = *old;
+	} else {
+		if ( !old ) {
+			memset( &nullEntityState, 0, sizeof( nullEntityState ) );
+			old = &nullEntityState;
+		}
+		MSG_ReadDeltaEntity( msg, old, state, newnum );
+	}
 
 	if ( state->number == (MAX_GENTITIES-1) ) {
 		return;		// entity was delta removed
@@ -126,7 +144,7 @@ void CL_ParsePacketEntities( msg_t *msg, clSnapshot_t *oldframe, clSnapshot_t *n
 			if ( cl_shownet->integer == 3 ) {
 				Com_Printf ("%3i:  unchanged: %i\n", msg->readcount, oldnum);
 			}
-			CL_DeltaEntity( msg, newframe );
+			CL_DeltaEntity( msg, newframe, oldnum, oldstate, qtrue );
 
 			oldindex++;
 
@@ -143,7 +161,7 @@ void CL_ParsePacketEntities( msg_t *msg, clSnapshot_t *oldframe, clSnapshot_t *n
 			if ( cl_shownet->integer == 3 ) {
 				Com_Printf ("%3i:  delta: %i\n", msg->readcount, newnum);
 			}
-			CL_DeltaEntity( msg, newframe );
+			CL_DeltaEntity( msg, newframe, newnum, oldstate, qfalse );
 
 			oldindex++;
 
@@ -162,7 +180,7 @@ void CL_ParsePacketEntities( msg_t *msg, clSnapshot_t *oldframe, clSnapshot_t *n
 			if ( cl_shownet->integer == 3 ) {
 				Com_Printf ("%3i:  baseline: %i\n", msg->readcount, newnum);
 			}
-			CL_DeltaEntity( msg, newframe );
+			CL_DeltaEntity( msg, newframe, newnum, NULL, qfalse );
 			continue;
 		}
 
@@ -174,7 +192,7 @@ void CL_ParsePacketEntities( msg_t *msg, clSnapshot_t *oldframe, clSnapshot_t *n
 		if ( cl_shownet->integer == 3 ) {
 			Com_Printf ("%3i:  unchanged: %i\n", msg->readcount, oldnum);
 		}
-		CL_DeltaEntity( msg, newframe );
+		CL_DeltaEntity( msg, newframe, oldnum, oldstate, qtrue );
 
 		oldindex++;
 
@@ -371,6 +389,21 @@ void CL_ParseGamestate( msg_t *msg ) {
 	Con_Close();
 
 	UI_UpdateConnectionString( "" );
+
+	// co-op dual-load: a remote client that is already in a map and receives a
+	// fresh gamestate (a level transition / mission reload on the host) must tear
+	// down its renderer world and cgame before loading the new one. Otherwise the
+	// cgame re-init calls RE_LoadWorldMap while tr.worldMapLoaded is still set from
+	// the old map and the renderer aborts with "attempted to redundantly load world
+	// map" (tr_bsp.cpp), dropping the joiner. The host reaches this same teardown
+	// via CL_MapLoading -> CL_FlushMemory (driven from SV_SpawnServer), which leaves
+	// cls.rendererStarted false by the time it parses its own gamestate; so gating
+	// on rendererStarted here fires only for the remote client and never double-
+	// flushes the host. On the very first connect the renderer isn't started yet,
+	// so this is skipped and connect behaves exactly as before.
+	if ( cls.rendererStarted ) {
+		CL_FlushMemory();
+	}
 
 	// wipe local client state
 	CL_ClearState();

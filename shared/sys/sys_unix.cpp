@@ -561,6 +561,11 @@ void Sys_SetProcessorAffinity( void ) {
 #endif
 }
 
+// E3: distinct per-process value used to seed net_qport (see sys_public.h).
+int Sys_GetProcessId( void ) {
+	return (int)getpid();
+}
+
 UnpackDLLResult Sys_UnpackDLL(const char *name)
 {
 	return UnpackDLLResult();

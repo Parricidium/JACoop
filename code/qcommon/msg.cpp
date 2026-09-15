@@ -514,7 +514,16 @@ typedef struct {
 // using the stringizing operator to save typing...
 #define	NETF(x) #x,offsetof(entityState_t, x)
 
-#if 0	// Removed by BTO (VV)
+// Vicarious Visions removed entity delta compression -- this table,
+// MSG_WriteDeltaEntity and MSG_ReadDeltaEntity -- and replaced it with
+// MSG_WriteEntity/MSG_ReadEntity, which ship an index into the server's
+// svs.snapshotEntities and let the client dereference the server's own array.
+// That is coherent only while client and server share a process, so a remote
+// client faults on its first snapshot. Restored.
+//
+// The table was written against the Jedi Academy entityState_t. The struct is
+// #ifdef JK2_MODE conditional, so this must be too, or MSG_WriteDeltaEntity's
+// numFields assertion fires immediately.
 const netField_t	entityStateFields[] =
 {
 { NETF(eType), 8 },
@@ -560,7 +569,7 @@ const netField_t	entityStateFields[] =
 { NETF(angles2[2]), 0 },
 
 { NETF(otherEntityNum), GENTITYNUM_BITS },
-//{ NETF(otherEntityNum2), GENTITYNUM_BITS },
+{ NETF(otherEntityNum2), GENTITYNUM_BITS },
 { NETF(groundEntityNum), GENTITYNUM_BITS },
 
 { NETF(constantLight), 32 },
@@ -579,18 +588,22 @@ const netField_t	entityStateFields[] =
 { NETF(powerups), 16 },
 { NETF(weapon), 8 },
 { NETF(legsAnim), 16 },
-{ NETF(legsAnimTimer), 8 },
+{ NETF(legsAnimTimer), 32 },	// coop: SP anim timers are in ms, 8 bits truncates them
 { NETF(torsoAnim), 16 },
-{ NETF(torsoAnimTimer), 8 },
+{ NETF(torsoAnimTimer), 32 },
 { NETF(scale), 8 },
 
 { NETF(saberInFlight), 4 },
 { NETF(saberActive), 4 },
-{ NETF(vehicleArmor), 32 },
+#ifdef JK2_MODE
+{ NETF(vehicleModel), 32 },
+#else
 { NETF(vehicleAngles[0]), 0 },
 { NETF(vehicleAngles[1]), 0 },
 { NETF(vehicleAngles[2]), 0 },
+{ NETF(vehicleArmor), 32 },
 { NETF(m_iVehicleNum), 32 },
+#endif
 
 /*
 Ghoul2 Insert Start
@@ -600,12 +613,12 @@ Ghoul2 Insert Start
 { NETF(modelScale[2]), 0 },
 { NETF(radius), 16 },
 { NETF(boltInfo), 32 },
-//{ NETF(ghoul2), 32 },
 
+#ifndef JK2_MODE
 { NETF(isPortalEnt), 1 },
+#endif
 
 };
-#endif
 
 
 // if (int)f == f and (int)f + ( 1<<(FLOAT_INT_BITS-1) ) < ( 1 << FLOAT_INT_BITS )
@@ -717,7 +730,6 @@ If force is not set, then nothing at all will be generated if the entity is
 identical, under the assumption that the in-order delta code will catch it.
 ==================
 */
-#if 0 // Removed by BTO (VV)
 void MSG_WriteDeltaEntity( msg_t *msg, struct entityState_s *from, struct entityState_s *to,
 						   qboolean force ) {
 	int			c;
@@ -801,7 +813,6 @@ void MSG_WriteDeltaEntity( msg_t *msg, struct entityState_s *from, struct entity
 
 	c = msg->cursize - c;
 }
-#endif
 
 
 extern serverStatic_t svs;
@@ -850,7 +861,6 @@ Can go from either a baseline or a previous packet_entity
 */
 extern	cvar_t	*cl_shownet;
 
-#if 0 // Removed by BTO (VV)
 void MSG_ReadDeltaEntity( msg_t *msg, entityState_t *from, entityState_t *to, int number)
 {
 	int			i;
@@ -931,7 +941,6 @@ void MSG_ReadDeltaEntity( msg_t *msg, entityState_t *from, entityState_t *to, in
 		Com_Printf( " (%i bits)\n", endBit - startBit  );
 	}
 }
-#endif
 
 /*
 Ghoul2 Insert End

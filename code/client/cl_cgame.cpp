@@ -32,8 +32,293 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "vmachine.h"
 #include "qcommon/stringed_ingame.h"
 #include "sys/sys_loadlib.h"
+#include "../qcommon/cm_public.h"
 
 vm_t	cgvm;
+
+// dual-load: on a serverless remote client the shared game/cgame library is
+// loaded a second time and initialised through GetCGameAPI (see A1). It needs
+// a client-safe game_import_t: qcommon services pass through unchanged, all
+// renderer/collision/sound-backed services (G2API_*, RE_*, WE_*,
+// CM_TotalMapContents, CM_AreasConnected, VoiceVolume) forward exactly as the
+// server's SV_InitGameProgs does — the renderer and collision model both live
+// in the client process — and only the genuinely server-state services
+// (entity linking, traces against server entities, PVS, userinfo, ...) become
+// loud stubs. Each stub fired at runtime is a discovered work item for the
+// A5 burn-down. Built by CL_BuildCGameImport below, called only from the
+// dual-load branch of CL_InitCGame; the host path is untouched.
+extern refexport_t	re;
+extern int	s_entityWavVol[MAX_GENTITIES];	// snd_dma.cpp
+typedef void GetCGameAPIProc( game_import_t * );
+
+static void *cl_cgame_library = NULL;	// dual-load handle; NULL on the host
+
+// ---- gamestate-backed services (A2 bucket 2) ----
+
+// GetConfigstring: copy the string the server sent us at this index. Same
+// source as CL_InitCGame's mapname lookup (cl.gameState).
+static void CL_CG_GetConfigstring( int index, char *buffer, int bufferSize ) {
+	if ( index < 0 || index >= MAX_CONFIGSTRINGS ) {
+		Com_Error( ERR_DROP, "CL_CG_GetConfigstring: bad index %i", index );
+	}
+	if ( !bufferSize ) {
+		return;
+	}
+	const char *s = cl.gameState.stringData + cl.gameState.stringOffsets[ index ];
+	Q_strncpyz( buffer, s, bufferSize );
+}
+
+// SetConfigstring: LOOKUP-ONLY on the client. Registration helpers
+// (G_EffectIndex/G_SoundIndex/...) call this to *allocate* an index; but the
+// string is already in the gamestate at the index the SERVER chose, so a
+// client-side allocation would silently desync every later index. We never
+// write: if the requested string already matches what the server sent, this
+// is a harmless no-op; on a mismatch we warn once and still do nothing.
+static void CL_CG_SetConfigstring( int index, const char *string ) {
+	static qboolean warned = qfalse;
+	if ( index < 0 || index >= MAX_CONFIGSTRINGS ) {
+		return;
+	}
+	if ( !string ) {
+		string = "";
+	}
+	const char *existing = cl.gameState.stringData + cl.gameState.stringOffsets[ index ];
+	if ( strcmp( existing, string ) && !warned ) {
+		warned = qtrue;
+		Com_Printf( "^3CL_cgame: SetConfigstring(%i) ignored on client (server-authoritative)\n", index );
+	}
+}
+
+// GetServerinfo: the serverinfo string is CS_SERVERINFO in the gamestate.
+static void CL_CG_GetServerinfo( char *buffer, int bufferSize ) {
+	CL_CG_GetConfigstring( CS_SERVERINFO, buffer, bufferSize );
+}
+
+// ---- server-only loud stubs (A2 bucket 3) ----
+// Only services that read/write live server state (sv/svs/server entities).
+// Everything renderer/collision/sound-backed is a real pass-through below.
+
+static int cl_cg_voiceVolumeDummy = 0;	// unused; VoiceVolume points at s_entityWavVol
+
+// compile-helper: Z_Malloc is a macro, so the import needs a real function
+// (mirrors the server's G_ZMalloc_Helper).
+static void *CL_CG_ZMalloc( int iSize, memtag_t eTag, qboolean bZeroit ) {
+	return Z_Malloc( iSize, eTag, bZeroit );
+}
+
+#define CL_CG_STUB_WARN(name) \
+	static qboolean warned = qfalse; \
+	if ( !warned ) { warned = qtrue; Com_Printf( "^3CL_cgame stub: " #name " called\n" ); }
+
+static void CL_CG_Stub_WriteCam( const char *text ) { CL_CG_STUB_WARN(WriteCam); }
+static void CL_CG_Stub_FlushCamFile() { CL_CG_STUB_WARN(FlushCamFile); }
+static void CL_CG_Stub_DropClient( int clientNum, const char *reason ) { CL_CG_STUB_WARN(DropClient); }
+static void CL_CG_Stub_SendServerCommand( int clientNum, const char *fmt, ... ) { CL_CG_STUB_WARN(SendServerCommand); }
+
+static void CL_CG_Stub_linkentity( gentity_t *ent ) { CL_CG_STUB_WARN(linkentity); }
+static void CL_CG_Stub_unlinkentity( gentity_t *ent ) { CL_CG_STUB_WARN(unlinkentity); }
+static int CL_CG_Stub_EntitiesInBox( const vec3_t mins, const vec3_t maxs, gentity_t **list, int maxcount ) {
+	CL_CG_STUB_WARN(EntitiesInBox); return 0;
+}
+static qboolean CL_CG_Stub_EntityContact( const vec3_t mins, const vec3_t maxs, const gentity_t *ent ) {
+	CL_CG_STUB_WARN(EntityContact); return qfalse;
+}
+static void CL_CG_Stub_trace( trace_t *results, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end,
+		const int passEntityNum, const int contentmask, const EG2_Collision eG2TraceType, const int useLod ) {
+	CL_CG_STUB_WARN(trace);
+	if ( results ) {
+		memset( results, 0, sizeof( *results ) );
+		results->fraction = 1.0f;
+		results->entityNum = ENTITYNUM_NONE;
+	}
+}
+static int CL_CG_Stub_pointcontents( const vec3_t point, int passEntityNum ) { CL_CG_STUB_WARN(pointcontents); return 0; }
+static void CL_CG_Stub_SetBrushModel( gentity_t *ent, const char *name ) { CL_CG_STUB_WARN(SetBrushModel); }
+static qboolean CL_CG_Stub_inPVS( const vec3_t p1, const vec3_t p2 ) { CL_CG_STUB_WARN(inPVS); return qtrue; }
+static qboolean CL_CG_Stub_inPVSIgnorePortals( const vec3_t p1, const vec3_t p2 ) { CL_CG_STUB_WARN(inPVSIgnorePortals); return qtrue; }
+static void CL_CG_Stub_AdjustAreaPortalState( gentity_t *ent, qboolean open ) { CL_CG_STUB_WARN(AdjustAreaPortalState); }
+static void CL_CG_Stub_GetUserinfo( int num, char *buffer, int bufferSize ) {
+	CL_CG_STUB_WARN(GetUserinfo);
+	if ( buffer && bufferSize > 0 ) buffer[0] = '\0';
+}
+static void CL_CG_Stub_SetUserinfo( int num, const char *buffer ) { CL_CG_STUB_WARN(SetUserinfo); }
+static const char *CL_CG_Stub_SetActiveSubBSP( int index ) { CL_CG_STUB_WARN(SetActiveSubBSP); return NULL; }
+
+// Gore is behind _G2_GORE (off in this build); re.G2API_*SkinGore is then
+// compiled out, so these bridge the import's void* signature to a no-op,
+// exactly as the server's #else path does.
+static void CL_CG_G2API_AddSkinGore( CGhoul2Info_v &ghoul2, SSkinGoreData &gore ) { (void)ghoul2; (void)gore; }
+static void CL_CG_G2API_ClearSkinGore( CGhoul2Info_v &ghoul2 ) { (void)ghoul2; }
+
+/*
+====================
+CL_BuildCGameImport
+
+Fill a game_import_t for the dual-loaded cgame. Mirrors the server's
+SV_InitGameProgs table in the same order, one of three buckets per entry:
+pass-through qcommon/renderer/collision service, gamestate-backed, or a loud
+server-only stub.
+====================
+*/
+static void CL_BuildCGameImport( game_import_t &import ) {
+	// bucket 1: qcommon services (identical to the server's assignments)
+	import.Printf = Com_Printf;
+	import.WriteCam = CL_CG_Stub_WriteCam;
+	import.FlushCamFile = CL_CG_Stub_FlushCamFile;
+	import.Error = Com_Error;
+
+	import.Milliseconds = Sys_Milliseconds2;
+
+	import.DropClient = CL_CG_Stub_DropClient;
+
+	import.SendServerCommand = CL_CG_Stub_SendServerCommand;
+
+	import.linkentity = CL_CG_Stub_linkentity;
+	import.unlinkentity = CL_CG_Stub_unlinkentity;
+	import.EntitiesInBox = CL_CG_Stub_EntitiesInBox;
+	import.EntityContact = CL_CG_Stub_EntityContact;
+	import.trace = CL_CG_Stub_trace;
+	import.pointcontents = CL_CG_Stub_pointcontents;
+	import.totalMapContents = CM_TotalMapContents;	// collision model (client-loaded)
+	import.SetBrushModel = CL_CG_Stub_SetBrushModel;
+
+	import.inPVS = CL_CG_Stub_inPVS;
+	import.inPVSIgnorePortals = CL_CG_Stub_inPVSIgnorePortals;
+
+	// bucket 2: gamestate-backed
+	import.SetConfigstring = CL_CG_SetConfigstring;
+	import.GetConfigstring = CL_CG_GetConfigstring;
+
+	import.SetUserinfo = CL_CG_Stub_SetUserinfo;
+	import.GetUserinfo = CL_CG_Stub_GetUserinfo;
+
+	import.GetServerinfo = CL_CG_GetServerinfo;
+
+	// bucket 1 continued: cvars, args, filesystem (all qcommon)
+	import.cvar = Cvar_Get;
+	import.cvar_set = Cvar_Set;
+	import.Cvar_VariableIntegerValue = Cvar_VariableIntegerValue;
+	import.Cvar_VariableStringBuffer = Cvar_VariableStringBuffer;
+
+	import.argc = Cmd_Argc;
+	import.argv = Cmd_Argv;
+	import.SendConsoleCommand = Cbuf_AddText;
+
+	import.FS_FOpenFile = FS_FOpenFileByMode;
+	import.FS_Read = FS_Read;
+	import.FS_Write = FS_Write;
+	import.FS_FCloseFile = FS_FCloseFile;
+	import.FS_ReadFile = FS_ReadFile;
+	import.FS_FreeFile = FS_FreeFile;
+	import.FS_GetFileList = FS_GetFileList;
+
+	import.saved_game = NULL;	// no save/load on a remote client
+
+	import.AdjustAreaPortalState = CL_CG_Stub_AdjustAreaPortalState;
+	import.AreasConnected = CM_AreasConnected;	// collision model (client-loaded)
+
+	import.VoiceVolume = s_entityWavVol;	// client sound state
+
+	import.Malloc = CL_CG_ZMalloc;
+	import.Free = Z_Free;
+	import.bIsFromZone = Z_IsFromZone;
+
+	// renderer-backed (Ghoul2 / weather / skin) — the renderer lives in the
+	// client, so every one of these is a real pass-through, exactly as the
+	// server forwards them to re.*
+	import.G2API_AddBolt = re.G2API_AddBolt;
+	import.G2API_AttachEnt = re.G2API_AttachEnt;
+	import.G2API_AttachG2Model = re.G2API_AttachG2Model;
+	import.G2API_CollisionDetect = re.G2API_CollisionDetect;
+	import.G2API_DetachEnt = re.G2API_DetachEnt;
+	import.G2API_DetachG2Model = re.G2API_DetachG2Model;
+	import.G2API_GetAnimFileName = re.G2API_GetAnimFileName;
+	import.G2API_GetBoltMatrix = re.G2API_GetBoltMatrix;
+	import.G2API_GetBoneAnim = re.G2API_GetBoneAnim;
+	import.G2API_GetBoneAnimIndex = re.G2API_GetBoneAnimIndex;
+	import.G2API_AddSurface = re.G2API_AddSurface;
+	import.G2API_HaveWeGhoul2Models = re.G2API_HaveWeGhoul2Models;
+	import.G2API_InitGhoul2Model = re.G2API_InitGhoul2Model;
+	import.G2API_SetBoneAngles = re.G2API_SetBoneAngles;
+	import.G2API_SetBoneAnglesMatrix = re.G2API_SetBoneAnglesMatrix;
+	import.G2API_SetBoneAnim = re.G2API_SetBoneAnim;
+	import.G2API_SetSkin = re.G2API_SetSkin;
+	import.G2API_CopyGhoul2Instance = re.G2API_CopyGhoul2Instance;
+	import.G2API_SetBoneAnglesIndex = re.G2API_SetBoneAnglesIndex;
+	import.G2API_SetBoneAnimIndex = re.G2API_SetBoneAnimIndex;
+	import.G2API_IsPaused = re.G2API_IsPaused;
+	import.G2API_ListBones = re.G2API_ListBones;
+	import.G2API_ListSurfaces = re.G2API_ListSurfaces;
+	import.G2API_PauseBoneAnim = re.G2API_PauseBoneAnim;
+	import.G2API_PauseBoneAnimIndex = re.G2API_PauseBoneAnimIndex;
+	import.G2API_PrecacheGhoul2Model = re.G2API_PrecacheGhoul2Model;
+	import.G2API_RemoveBolt = re.G2API_RemoveBolt;
+	import.G2API_RemoveBone = re.G2API_RemoveBone;
+	import.G2API_RemoveGhoul2Model = re.G2API_RemoveGhoul2Model;
+	import.G2API_SetLodBias = re.G2API_SetLodBias;
+	import.G2API_SetRootSurface = re.G2API_SetRootSurface;
+	import.G2API_SetShader = re.G2API_SetShader;
+	import.G2API_SetSurfaceOnOff = re.G2API_SetSurfaceOnOff;
+	import.G2API_StopBoneAngles = re.G2API_StopBoneAngles;
+	import.G2API_StopBoneAnim = re.G2API_StopBoneAnim;
+	import.G2API_SetGhoul2ModelFlags = re.G2API_SetGhoul2ModelFlags;
+	import.G2API_AddBoltSurfNum = re.G2API_AddBoltSurfNum;
+	import.G2API_RemoveSurface = re.G2API_RemoveSurface;
+	import.G2API_GetAnimRange = re.G2API_GetAnimRange;
+	import.G2API_GetAnimRangeIndex = re.G2API_GetAnimRangeIndex;
+	import.G2API_GiveMeVectorFromMatrix = re.G2API_GiveMeVectorFromMatrix;
+	import.G2API_GetGhoul2ModelFlags = re.G2API_GetGhoul2ModelFlags;
+	import.G2API_CleanGhoul2Models = re.G2API_CleanGhoul2Models;
+	import.TheGhoul2InfoArray = re.TheGhoul2InfoArray;
+	import.G2API_GetParentSurface = re.G2API_GetParentSurface;
+	import.G2API_GetSurfaceIndex = re.G2API_GetSurfaceIndex;
+	import.G2API_GetSurfaceName = re.G2API_GetSurfaceName;
+	import.G2API_GetGLAName = re.G2API_GetGLAName;
+	import.G2API_SetNewOrigin = re.G2API_SetNewOrigin;
+	import.G2API_GetBoneIndex = re.G2API_GetBoneIndex;
+	import.G2API_StopBoneAnglesIndex = re.G2API_StopBoneAnglesIndex;
+	import.G2API_StopBoneAnimIndex = re.G2API_StopBoneAnimIndex;
+	import.G2API_SetBoneAnglesMatrixIndex = re.G2API_SetBoneAnglesMatrixIndex;
+	import.G2API_SetAnimIndex = re.G2API_SetAnimIndex;
+	import.G2API_GetAnimIndex = re.G2API_GetAnimIndex;
+
+	import.G2API_SaveGhoul2Models = re.G2API_SaveGhoul2Models;
+	import.G2API_LoadGhoul2Models = re.G2API_LoadGhoul2Models;
+	import.G2API_LoadSaveCodeDestructGhoul2Info = re.G2API_LoadSaveCodeDestructGhoul2Info;
+	import.G2API_GetAnimFileNameIndex = re.G2API_GetAnimFileNameIndex;
+	import.G2API_GetAnimFileInternalNameIndex = re.G2API_GetAnimFileInternalNameIndex;
+	import.G2API_GetSurfaceRenderStatus = re.G2API_GetSurfaceRenderStatus;
+
+	import.G2API_SetRagDoll = re.G2API_SetRagDoll;
+	import.G2API_AnimateG2Models = re.G2API_AnimateG2Models;
+
+	import.G2API_RagPCJConstraint = re.G2API_RagPCJConstraint;
+	import.G2API_RagPCJGradientSpeed = re.G2API_RagPCJGradientSpeed;
+	import.G2API_RagEffectorGoal = re.G2API_RagEffectorGoal;
+	import.G2API_GetRagBonePos = re.G2API_GetRagBonePos;
+	import.G2API_RagEffectorKick = re.G2API_RagEffectorKick;
+	import.G2API_RagForceSolve = re.G2API_RagForceSolve;
+
+	import.G2API_SetBoneIKState = re.G2API_SetBoneIKState;
+	import.G2API_IKMove = re.G2API_IKMove;
+
+	import.G2API_AddSkinGore = CL_CG_G2API_AddSkinGore;
+	import.G2API_ClearSkinGore = CL_CG_G2API_ClearSkinGore;
+
+	import.SetActiveSubBSP = CL_CG_Stub_SetActiveSubBSP;	// server sub-BSP state
+
+	import.RE_RegisterSkin = re.RegisterSkin;
+	import.RE_GetAnimationCFG = re.GetAnimationCFG;
+
+	import.WE_GetWindVector = re.GetWindVector;
+	import.WE_GetWindGusting = re.GetWindGusting;
+	import.WE_IsOutside = re.IsOutside;
+	import.WE_IsOutsideCausingPain = re.IsOutsideCausingPain;
+	import.WE_GetChanceOfSaberFizz = re.GetChanceOfSaberFizz;
+	import.WE_IsShaking = re.IsShaking;
+	import.WE_AddWeatherZone = re.AddWeatherZone;
+	import.WE_SetTempGlobalFogColor = re.SetTempGlobalFogColor;
+}
 /*
 Ghoul2 Insert Start
 */
@@ -240,6 +525,15 @@ qboolean CL_GetDefaultState(int index, entityState_t *state)
 		return qfalse;
 	}
 
+	// dual-load: sv.svEntities is server memory. On a remote client with no
+	// local server it is zeroed; reading a baseline from it is meaningless.
+	// Return a zeroed state so the cgame falls back to delta-from-null.
+	if ( !com_sv_running->integer )
+	{
+		memset( state, 0, sizeof( *state ) );
+		return qfalse;
+	}
+
 	// Is this safe? I think so. But it's still ugly as sin.
 	if (!(sv.svEntities[index].baseline.eFlags & EF_PERMANENT))
 //	if (!(cl.entityBaselines[index].eFlags & EF_PERMANENT))
@@ -432,6 +726,15 @@ void CL_ShutdownCGame( void ) {
 
 //	VM_Free( cgvm );
 //	cgvm = NULL;
+
+	// dual-load: if this client owns its own copy of the library (remote
+	// client, no local server), unload it here. On the host cl_cgame_library
+	// is NULL — SV_ShutdownGameProgs owns the single shared handle.
+	if ( cl_cgame_library ) {
+		Sys_UnloadDll( cl_cgame_library );
+		cl_cgame_library = NULL;
+		cgvm.entryPoint = 0;
+	}
 }
 
 #ifdef JK2_MODE
@@ -1406,6 +1709,40 @@ void CL_InitCGame( void ) {
 	Com_sprintf( cl.mapname, sizeof( cl.mapname ), "maps/%s.bsp", mapname );
 
 	cls.state = CA_LOADING;
+
+	// dual-load: on a serverless remote client the cgame VM was never set up
+	// by SV_InitGameProgs (there is no local server), so cgvm.entryPoint is
+	// null. Load our own copy of the shared library, give it a client-safe
+	// import table, and initialise the VM. On the host this branch is skipped
+	// because SV_InitGameProgs already populated cgvm.entryPoint.
+	if ( !cgvm.entryPoint ) {
+		Com_Printf( "^5dual-load: initialising cgame on remote client\n" );	// A3 probe (temporary)
+
+#ifdef JK2_MODE
+		const char *gamename = "jospgame";
+#else
+		const char *gamename = "jagame";
+#endif
+		GetCGameAPIProc *GetCGameAPI = NULL;
+		cl_cgame_library = Sys_LoadSPGameDll( gamename, (GetGameAPIProc **)&GetCGameAPI );
+		// Sys_LoadSPGameDll resolves "GetGameAPI"; we need "GetCGameAPI".
+		if ( cl_cgame_library ) {
+			GetCGameAPI = (GetCGameAPIProc *)Sys_LoadFunction( cl_cgame_library, "GetCGameAPI" );
+		}
+		if ( !cl_cgame_library || !GetCGameAPI ) {
+			Com_Error( ERR_DROP, "dual-load: failed to load %s / GetCGameAPI", gamename );
+		}
+
+		game_import_t import;
+		CL_BuildCGameImport( import );
+		GetCGameAPI( &import );
+
+		if ( !CL_InitCGameVM( cl_cgame_library ) ) {
+			Com_Error( ERR_DROP, "dual-load: CL_InitCGameVM failed" );
+		}
+	} else {
+		Com_DPrintf( "^5dual-load: host path, cgame already initialised (branch skipped)\n" );	// A3 probe (temporary)
+	}
 
 	// init for this gamestate
 	VM_Call( CG_INIT, clc.serverCommandSequence );

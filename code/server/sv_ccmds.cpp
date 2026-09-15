@@ -478,6 +478,59 @@ static void SV_CompleteSaveName( char *args, int argNum ) {
 SV_AddOperatorCommands
 ==================
 */
+/*
+==================
+SV_CoopHost_f
+
+coop_host [maxplayers] — start hosting the current singleplayer game over the
+network without a restart or any command-line flags. Enables networking and
+(re)opens the UDP socket via NET_Restart, then prints the port a second machine
+should connect to. maxplayers is accepted and stored for a later task (the
+client cap); it does nothing on its own yet.
+==================
+*/
+static int sv_coopMaxPlayers = 0;	// stored for a future max-clients task (E5)
+
+static void SV_CoopHost_f( void ) {
+	if ( !com_sv_running->integer ) {
+		Com_Printf( "coop_host: no game is running — load a map first.\n" );
+		return;
+	}
+
+	if ( Cmd_Argc() > 1 ) {
+		sv_coopMaxPlayers = atoi( Cmd_Argv( 1 ) );
+	}
+
+	// E1: raise the player limit to the requested count (clamped to MAX_CLIENTS).
+	// sv_maxclients is CVAR_LATCH; re-Cvar_Get after Cvar_Set applies the latched
+	// value so it takes effect for this running server without a map restart.
+	if ( sv_coopMaxPlayers > 0 ) {
+		int want = sv_coopMaxPlayers;
+		if ( want < 1 ) want = 1;
+		if ( want > MAX_CLIENTS ) want = MAX_CLIENTS;
+		Cvar_Set( "sv_maxclients", va( "%i", want ) );
+		sv_maxclients = Cvar_Get( "sv_maxclients", "2", CVAR_SERVERINFO | CVAR_LATCH | CVAR_ARCHIVE );
+	}
+
+	// Enable networking and (re)bind the socket for the current cvars. net_enabled
+	// is CVAR_LATCH; NET_Restart re-reads it so this takes effect immediately.
+	Cvar_Set( "net_enabled", "1" );
+	NET_Restart();
+
+	if ( !NET_IsSocketOpen() ) {
+		Com_Printf( "coop_host: failed to open a network socket.\n" );
+		return;
+	}
+
+	// net_port holds the port actually bound (NET_OpenIP scans 29070-29079).
+	const int port = Cvar_VariableIntegerValue( "net_port" );
+	Com_Printf( "^2Co-op hosting on port %i.\n", port );
+	Com_Printf( "A second machine can join with:  connect <this-machine-ip>:%i\n", port );
+	if ( sv_coopMaxPlayers > 0 ) {
+		Com_Printf( "(max players requested: %i)\n", sv_coopMaxPlayers );
+	}
+}
+
 void SV_AddOperatorCommands( void ) {
 	static qboolean	initialized;
 
@@ -486,6 +539,7 @@ void SV_AddOperatorCommands( void ) {
 	}
 	initialized = qtrue;
 
+	Cmd_AddCommand ("coop_host", SV_CoopHost_f);
 	Cmd_AddCommand ("status", SV_Status_f);
 	Cmd_AddCommand ("serverinfo", SV_Serverinfo_f);
 	Cmd_AddCommand ("systeminfo", SV_Systeminfo_f);

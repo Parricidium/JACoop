@@ -156,6 +156,12 @@ qboolean Sys_LowPhysicalMemory();
 
 void Sys_SetProcessorAffinity( void );
 
+// E3: os process id, used to seed net_qport so simultaneously-launched clients
+// on the same host get distinct qports (Com_Milliseconds is ~0 at startup and
+// collides across processes that boot together -- multiple loopback co-op
+// clients then reconnect into one server slot).
+int Sys_GetProcessId( void );
+
 typedef enum graphicsApi_e
 {
 	GRAPHICS_API_GENERIC,

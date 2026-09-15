@@ -394,6 +394,10 @@ qboolean	NET_CompareBaseAdr (netadr_t a, netadr_t b)
 	if (a.type == NA_LOOPBACK)
 		return qtrue;
 
+	// same omission as NET_CompareAdr: every IP address compared unequal
+	if (a.type == NA_IP)
+		return (qboolean)(a.ipi == b.ipi);
+
 	Com_Printf ("NET_CompareBaseAdr: bad address type\n");
 	return qfalse;
 }
@@ -404,6 +408,15 @@ const char	*NET_AdrToString (netadr_t a)
 
 	if (a.type == NA_LOOPBACK) {
 		Com_sprintf (s, sizeof(s), "loopback");
+	} else if (a.type == NA_BOT) {
+		Com_sprintf (s, sizeof(s), "bot");
+	} else if (a.type == NA_IP) {
+		// this branch did not exist: an NA_IP address returned the previous
+		// contents of the static buffer
+		Com_sprintf (s, sizeof(s), "%i.%i.%i.%i:%hu",
+			a.ip[0], a.ip[1], a.ip[2], a.ip[3], BigShort(a.port));
+	} else {
+		Com_sprintf (s, sizeof(s), "unknown");
 	}
 
 	return s;
@@ -417,6 +430,11 @@ qboolean	NET_CompareAdr (netadr_t a, netadr_t b)
 
 	if (a.type == NA_LOOPBACK)
 		return qtrue;
+
+	// this used to print "bad address type" and return false for every IP
+	// address, so the server could never match an incoming packet to a client
+	if (a.type == NA_IP)
+		return (qboolean)(a.ipi == b.ipi && a.port == b.port);
 
 	Com_Printf ("NET_CompareAdr: bad address type\n");
 	return qfalse;
@@ -491,16 +509,22 @@ void NET_SendLoopPacket (netsrc_t sock, int length, const void *data, netadr_t t
 	loop = &loopbacks[sock^1];
 
 	//Make sure there is enough free space in the buffer.
-#ifdef _DEBUG
-	int freeSpace;
-	if(loop->send >= loop->get) {
-		freeSpace = MAX_LOOPDATA - (loop->send - loop->get);
-	} else {
-		freeSpace = loop->get - loop->send;
-	}
+	// This check used to be #ifdef _DEBUG. A release build therefore overran
+	// the ring silently and corrupted whatever followed it, which is a latent
+	// buffer overflow independent of anything this project changed.
+	{
+		int freeSpace;
+		if(loop->send >= loop->get) {
+			freeSpace = MAX_LOOPDATA - (loop->send - loop->get);
+		} else {
+			freeSpace = loop->get - loop->send;
+		}
 
-	assert(freeSpace > length);
-#endif // _DEBUG
+		if ( freeSpace <= length ) {
+			Com_Error( ERR_DROP, "NET_SendLoopPacket: loopback overflow (%i bytes, %i free)",
+				length, freeSpace );
+		}
+	}
 
 	//Get write position.  Wrap around if too close to end.
 	i = loop->send;
@@ -543,6 +567,10 @@ void NET_SendPacket( netsrc_t sock, int length, const void *data, netadr_t to ) 
 		NET_SendLoopPacket (sock, length, data, to);
 		return;
 	}
+
+	// Anything else goes over the wire. Previously this function ended here
+	// and every non-loopback packet was silently dropped.
+	Sys_SendPacket( length, data, &to );
 }
 
 /*
@@ -580,13 +608,16 @@ Traps "localhost" for loopback, passes everything else to system
 =============
 */
 qboolean	NET_StringToAdr( const char *s, netadr_t *a ) {
+	// A bare "localhost" stays on the in-memory loopback, which is how the
+	// singleplayer client has always connected to its own server. Anything
+	// with a port, or any other host, is resolved for real -- this used to
+	// return NA_BAD unconditionally.
 	if (!strcmp (s, "localhost")) {
 		memset (a, 0, sizeof(*a));
 		a->type = NA_LOOPBACK;
 		return qtrue;
 	}
 
-	a->type = NA_BAD;
-	return qfalse;
+	return Sys_StringToAdr( s, a );
 }
 

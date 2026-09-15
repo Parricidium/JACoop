@@ -169,6 +169,18 @@ typedef struct {
 
 extern	clientConnection_t clc;
 
+// D2: one entry per co-op host discovered on the LAN by the `localservers`
+// command. Filled from infoResponse packets; the co-op menu (D3) renders this
+// array directly.
+#define MAX_LOCAL_SERVERS 16
+typedef struct {
+	netadr_t	adr;
+	char		hostname[MAX_INFO_STRING];
+	char		mapname[MAX_INFO_STRING];
+	int			clients;
+	int			maxClients;
+} localServer_t;
+
 /*
 ==================================================================
 
@@ -216,6 +228,11 @@ typedef struct {
 
 	// Engine menu
 	int			menuFont;
+
+	// D2: LAN-discovered co-op hosts (filled by the `localservers` command).
+	int				numLocalServers;
+	localServer_t	localServers[MAX_LOCAL_SERVERS];
+	int				localServerChallenge;	// echoed back in infoResponse to filter spoofs
 } clientStatic_t;
 
 #define	CON_TEXTSIZE	0x30000 //was 32768

@@ -349,6 +349,56 @@ void CL_ForwardToServer_f( void ) {
 
 /*
 ==================
+CL_Connect_f
+
+connect <address[:port]>
+
+The singleplayer client has only ever attached to its own server over the
+in-memory loopback, via CL_MapLoading. This drives the same code path with a
+real address. The server accepts unchallenged connects, so we enter
+CA_CHALLENGING directly rather than requesting a challenge first -- exactly
+as CL_MapLoading does for localhost.
+==================
+*/
+void CL_Connect_f( void ) {
+	const char	*server;
+
+	if ( Cmd_Argc() != 2 ) {
+		Com_Printf( "usage: connect <address[:port]>\n" );
+		return;
+	}
+
+	server = Cmd_Argv(1);
+
+	// clear nextmap so the cinematic shutdown doesn't execute it
+	Cvar_Set( "nextmap", "" );
+	CL_Disconnect();
+	Con_Close();
+
+	Q_strncpyz( cls.servername, server, sizeof(cls.servername) );
+
+	if ( !NET_StringToAdr( cls.servername, &clc.serverAddress ) ) {
+		Com_Printf( "Bad server address: %s\n", cls.servername );
+		cls.state = CA_DISCONNECTED;
+		return;
+	}
+
+	if ( clc.serverAddress.port == 0 ) {
+		clc.serverAddress.port = BigShort( (short)Cvar_VariableIntegerValue("net_port") );
+	}
+
+	Com_Printf( "%s resolved to %s\n", cls.servername, NET_AdrToString( clc.serverAddress ) );
+
+	cls.state = CA_CHALLENGING;		// so the connect screen is drawn
+	Key_SetCatcher( 0 );
+	SCR_UpdateScreen();
+	clc.connectTime = -RETRANSMIT_TIMEOUT;	// send the connect packet immediately
+
+	CL_CheckForResend();
+}
+
+/*
+==================
 CL_Disconnect_f
 ==================
 */
@@ -563,6 +613,130 @@ CL_ConnectionlessPacket
 Responses to broadcasts, etc
 =================
 */
+/*
+===================
+CL_ServerInfoPacket
+
+D2: parse an infoResponse from a co-op host (a reply to our `localservers`
+broadcast) and record it in cls.localServers, deduped by address.
+===================
+*/
+void CL_ServerInfoPacket( netadr_t from, msg_t *msg ) {
+	const char	*infoString = MSG_ReadString( msg );
+
+	// Reject spoofed / stale replies: must echo our challenge, speak our
+	// protocol, and identify as a jk2 co-op host (filters out stock JA servers).
+	if ( atoi( Info_ValueForKey( infoString, "challenge" ) ) != cls.localServerChallenge ) {
+		return;
+	}
+	if ( atoi( Info_ValueForKey( infoString, "protocol" ) ) != PROTOCOL_VERSION ) {
+		return;
+	}
+	if ( Q_stricmp( Info_ValueForKey( infoString, "game" ), "jk2coop" ) != 0 ) {
+		return;
+	}
+
+	// Dedupe by address — the broadcast is sent more than once.
+	int i;
+	for ( i = 0; i < cls.numLocalServers; i++ ) {
+		if ( NET_CompareAdr( cls.localServers[i].adr, from ) ) {
+			return;
+		}
+	}
+	if ( cls.numLocalServers >= MAX_LOCAL_SERVERS ) {
+		return;
+	}
+
+	localServer_t *ls = &cls.localServers[cls.numLocalServers++];
+	memset( ls, 0, sizeof( *ls ) );
+	ls->adr = from;
+	Q_strncpyz( ls->hostname, Info_ValueForKey( infoString, "hostname" ), sizeof( ls->hostname ) );
+	Q_strncpyz( ls->mapname,  Info_ValueForKey( infoString, "mapname" ),  sizeof( ls->mapname ) );
+	ls->clients    = atoi( Info_ValueForKey( infoString, "clients" ) );
+	ls->maxClients = atoi( Info_ValueForKey( infoString, "sv_maxclients" ) );
+
+	// This print is D2's test surface; D3's menu renders the same array.
+	Com_Printf( "co-op host: %s  (%s, %i/%i players)  %s\n",
+		ls->hostname[0] ? ls->hostname : "?",
+		ls->mapname[0] ? ls->mapname : "?",
+		ls->clients, ls->maxClients,
+		NET_AdrToString( from ) );
+}
+
+/*
+===================
+CL_LocalServers_f
+
+D2: `localservers` — broadcast a getinfo probe to the co-op port range on the
+LAN so hosts advertise themselves (they reply with infoResponse, handled in
+CL_ServerInfoPacket). Clears the previous results first.
+===================
+*/
+void CL_LocalServers_f( void ) {
+	Com_Printf( "Scanning for co-op hosts on the LAN...\n" );
+
+	cls.numLocalServers = 0;
+	cls.localServerChallenge = rand() ^ ( rand() << 16 ) ^ Sys_Milliseconds();
+
+	// Networking must be up to send the broadcast.
+	if ( !NET_IsSocketOpen() ) {
+		Cvar_Set( "net_enabled", "1" );
+		NET_Restart();
+	}
+	if ( !NET_IsSocketOpen() ) {
+		Com_Printf( "localservers: could not open a network socket.\n" );
+		return;
+	}
+
+	netadr_t to;
+	memset( &to, 0, sizeof( to ) );
+	to.type = NA_BROADCAST;
+
+	// Probe the co-op port scan range (matches NET_OpenIP / coop_host: 29070-29079).
+	const char *msg = va( "getinfo %i", cls.localServerChallenge );
+	for ( int port = 29070; port <= 29079; port++ ) {
+		to.port = BigShort( (short)port );
+		NET_OutOfBandPrint( NS_CLIENT, to, "%s", msg );
+	}
+}
+
+/*
+===================
+CL co-op server-list accessors (D3)
+
+The in-engine SP UI reads the LAN-discovered hosts (cls.localServers, filled by
+D2's localservers command) through these. Kept here because cls lives in this
+module; the UI extern-declares them.
+===================
+*/
+int CL_GetCoopServerCount( void ) {
+	return cls.numLocalServers;
+}
+
+// Fill 'out' with a display line for row 'index' ("Host - map (n/m)"). Returns
+// the empty string for an out-of-range row.
+const char *CL_GetCoopServerText( int index ) {
+	static char line[MAX_INFO_STRING];
+	if ( index < 0 || index >= cls.numLocalServers ) {
+		return "";
+	}
+	const localServer_t *ls = &cls.localServers[index];
+	Com_sprintf( line, sizeof( line ), "%s  -  %s  (%i/%i)",
+		ls->hostname[0] ? ls->hostname : "?",
+		ls->mapname[0] ? ls->mapname : "?",
+		ls->clients, ls->maxClients );
+	return line;
+}
+
+// Fill 'out' with "ip:port" for row 'index'. Returns qfalse if out of range.
+qboolean CL_GetCoopServerAddress( int index, char *out, int outSize ) {
+	if ( index < 0 || index >= cls.numLocalServers || !out || outSize <= 0 ) {
+		return qfalse;
+	}
+	Q_strncpyz( out, NET_AdrToString( cls.localServers[index].adr ), outSize );
+	return qtrue;
+}
+
 void CL_ConnectionlessPacket( netadr_t from, msg_t *msg ) {
 	char	*s;
 	const char	*c;
@@ -636,6 +810,26 @@ void CL_ConnectionlessPacket( netadr_t from, msg_t *msg ) {
 		s = MSG_ReadString( msg );
 		UI_UpdateConnectionMessageString( s );
 		Com_Printf( "%s", s );
+		// E3: if we are still trying to connect and this print came from the
+		// server we are dialling, it is a rejection ("Server is full.",
+		// "Server uses protocol version N.", etc). Stock behaviour only printed
+		// it to the console and kept resending the connect request, so the
+		// player just sat on the loading screen forever with no on-screen
+		// reason. Treat it as a connection failure: stop retrying and surface
+		// the server's message on the menu (ERR_DISCONNECT drops to the main
+		// menu showing com_errorMessage).
+		if ( ( cls.state == CA_CONNECTING || cls.state == CA_CHALLENGING )
+			&& NET_CompareAdr( from, clc.serverAddress ) ) {
+			Com_Error( ERR_DISCONNECT, "%s", s );
+		}
+		return;
+	}
+
+	// D2: reply to our `localservers` broadcast — a co-op host advertising
+	// itself. Verify it is one of ours (challenge + protocol + game=jk2coop),
+	// then record it (deduped by address) for the co-op browser.
+	if ( !strcmp(c, "infoResponse") ) {
+		CL_ServerInfoPacket( from, msg );
 		return;
 	}
 
@@ -1309,7 +1503,9 @@ void CL_Init( void ) {
 	Cmd_AddCommand ("clientinfo", CL_Clientinfo_f);
 	Cmd_AddCommand ("snd_restart", CL_Snd_Restart_f);
 	Cmd_AddCommand ("vid_restart", CL_Vid_Restart_f);
+	Cmd_AddCommand ("connect", CL_Connect_f);
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f);
+	Cmd_AddCommand ("localservers", CL_LocalServers_f);	// D2: LAN co-op discovery
 	Cmd_AddCommand ("cinematic", CL_PlayCinematic_f);
 	Cmd_SetCommandCompletionFunc( "cinematic", CL_CompleteCinematic );
 	Cmd_AddCommand ("ingamecinematic", CL_PlayInGameCinematic_f);

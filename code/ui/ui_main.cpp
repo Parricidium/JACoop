@@ -97,6 +97,16 @@ void ReadSaveDirectory (void);
 void Item_RunScript(itemDef_t *item, const char *s);
 qboolean Item_SetFocus(itemDef_t *item, float x, float y);
 
+// D3: co-op server-list accessors, defined in cl_main.cpp (same binary; cls
+// lives there). The feeder + coop verbs read the LAN-discovered hosts through
+// these.
+extern int         CL_GetCoopServerCount( void );
+extern const char *CL_GetCoopServerText( int index );
+extern qboolean    CL_GetCoopServerAddress( int index, char *out, int outSize );
+// The row currently selected in the co-op server feeder (tracked below).
+static int ui_coopServerSelection = 0;
+static float UI_GetCoopServerSelection( void ) { return (float)ui_coopServerSelection; }
+
 qboolean		Asset_Parse(char **buffer);
 menuDef_t		*Menus_FindByName(const char *p);
 void			Menus_HideItems(const char *menuName);
@@ -679,7 +689,11 @@ const char *UI_FeederItemText(float feederID, int index, int column, qhandle_t *
 {
 	*handle = -1;
 
-	if (feederID == FEEDER_SAVEGAMES)
+	if (feederID == FEEDER_COOP_SERVERS)	// D3
+	{
+		return CL_GetCoopServerText( index );
+	}
+	else if (feederID == FEEDER_SAVEGAMES)
 	{
 		if (column==0)
 		{
@@ -1574,6 +1588,38 @@ static qboolean UI_RunMenuScript ( const char **args )
 		{
 			// TODO for MAC_PORT, will only be valid for non-JK2 mode
 		}
+		// D3: co-op menu verbs. They drive the D1/D2 console commands.
+		else if ( Q_stricmp( name, "coopHost" ) == 0 )
+		{
+			// Host the current game. ui_coopMaxPlayers (2-4) is passed through.
+			const int mp = (int)trap_Cvar_VariableValue( "ui_coopMaxPlayers" );
+			ui.Cmd_ExecuteText( EXEC_APPEND, va( "coop_host %i\n", mp > 0 ? mp : 2 ) );
+		}
+		else if ( Q_stricmp( name, "coopRefresh" ) == 0 )
+		{
+			// Rescan the LAN for co-op hosts (D2). The feeder reads cls.localServers.
+			ui.Cmd_ExecuteText( EXEC_APPEND, "localservers\n" );
+		}
+		else if ( Q_stricmp( name, "coopJoin" ) == 0 )
+		{
+			// Connect to the host selected in the server-list feeder.
+			int sel = (int)UI_GetCoopServerSelection();
+			char addr[64];
+			if ( CL_GetCoopServerAddress( sel, addr, sizeof( addr ) ) )
+			{
+				ui.Cmd_ExecuteText( EXEC_APPEND, va( "connect %s\n", addr ) );
+			}
+		}
+		else if ( Q_stricmp( name, "coopConnect" ) == 0 )
+		{
+			// Direct-connect to the address typed into the ui_coopAddress field.
+			char addr[64];
+			Cvar_VariableStringBuffer( "ui_coopAddress", addr, sizeof( addr ) );
+			if ( addr[0] )
+			{
+				ui.Cmd_ExecuteText( EXEC_APPEND, va( "connect %s\n", addr ) );
+			}
+		}
 		else
 		{
 			Com_Printf("unknown UI script %s\n", name);
@@ -1809,7 +1855,11 @@ UI_FeederCount
 */
 static int UI_FeederCount(float feederID)
 {
-	if (feederID == FEEDER_SAVEGAMES )
+	if (feederID == FEEDER_COOP_SERVERS )	// D3
+	{
+		return CL_GetCoopServerCount();
+	}
+	else if (feederID == FEEDER_SAVEGAMES )
 	{
 		if (s_savegame.saveFileCnt == -1)
 		{
@@ -1879,7 +1929,11 @@ UI_FeederSelection
 */
 static void UI_FeederSelection(float feederID, int index, itemDef_t *item)
 {
-	if (feederID == FEEDER_SAVEGAMES)
+	if (feederID == FEEDER_COOP_SERVERS)	// D3
+	{
+		ui_coopServerSelection = index;
+	}
+	else if (feederID == FEEDER_SAVEGAMES)
 	{
 		s_savegame.currentLine = index;
 		UI_HandleLoadSelection();

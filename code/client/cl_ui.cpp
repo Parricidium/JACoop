@@ -330,7 +330,14 @@ void CL_GenericMenu_f(void)
 	const char *arg = Cmd_Argv( 1 );
 
 	if (cls.uiStarted) {
-		UI_SetActiveMenu("ingame",arg);
+		// D3: `uimenu coopMenu` opens the Co-op page directly (UI_SetActiveMenu
+		// has a case for it). Everything else keeps the historic behaviour of
+		// opening the in-game menu with the argument as its sub-menu id.
+		if ( arg[0] && !Q_stricmp( arg, "coopMenu" ) ) {
+			UI_SetActiveMenu( "coopMenu", NULL );
+		} else {
+			UI_SetActiveMenu("ingame",arg);
+		}
 	}
 }
 

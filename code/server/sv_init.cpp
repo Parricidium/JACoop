@@ -101,7 +101,7 @@ SV_SetUserinfo
 ===============
 */
 void SV_SetUserinfo( int index, const char *val ) {
-	if ( index < 0 || index >= 1 ) {
+	if ( index < 0 || index >= MAX_CLIENTS ) {
 		Com_Error (ERR_DROP, "SV_SetUserinfo: bad index %i\n", index);
 	}
 
@@ -124,7 +124,7 @@ void SV_GetUserinfo( int index, char *buffer, int bufferSize ) {
 	if ( bufferSize < 1 ) {
 		Com_Error( ERR_DROP, "SV_GetUserinfo: bufferSize == %i", bufferSize );
 	}
-	if ( index < 0 || index >= 1 ) {
+	if ( index < 0 || index >= MAX_CLIENTS ) {
 		Com_Error (ERR_DROP, "SV_GetUserinfo: bad index %i\n", index);
 	}
 	Q_strncpyz( buffer, svs.clients[ index ].userinfo, bufferSize );
@@ -176,8 +176,12 @@ void SV_Startup( void ) {
 		Com_Error( ERR_FATAL, "SV_Startup: svs.initialized" );
 	}
 
-	svs.clients = (struct client_s *) Z_Malloc ( sizeof(client_t) * 1, TAG_CLIENTS, qtrue );
-	svs.numSnapshotEntities = 2 * 4 * 64;
+	svs.clients = (struct client_s *) Z_Malloc ( sizeof(client_t) * MAX_CLIENTS, TAG_CLIENTS, qtrue );
+	// per-client ring buffer: multiplayer sizes this as
+	// sv_maxclients * PACKET_BACKUP * MAX_SNAPSHOT_ENTITIES. The leading
+	// factor must scale with the client count or one client's snapshots
+	// overwrite another's.
+	svs.numSnapshotEntities = MAX_CLIENTS * 4 * 64;
 	svs.initialized = qtrue;
 
 	Cvar_Set( "sv_running", "1" );
@@ -323,7 +327,7 @@ void SV_SpawnServer( const char *server, ForceReload_e eForceReload, qboolean bA
 	// create a baseline for more efficient communications
 	SV_CreateBaseline ();
 
-	for (i=0 ; i<1 ; i++) {
+	for (i=0 ; i<MAX_CLIENTS ; i++) {
 		// clear all time counters, because we have reset sv.time
 		svs.clients[i].lastPacketTime = 0;
 		svs.clients[i].lastConnectTime = 0;
@@ -388,6 +392,14 @@ void SV_Init (void) {
 	// serverinfo vars
 	Cvar_Get ("protocol", va("%i", PROTOCOL_VERSION), CVAR_SERVERINFO | CVAR_ROM);
 	sv_mapname = Cvar_Get ("mapname", "nomap", CVAR_SERVERINFO | CVAR_ROM);
+	// D2: name shown in the LAN co-op browser. Default to the player's name so a
+	// freshly hosted game is identifiable without any configuration.
+	sv_hostname = Cvar_Get ("sv_hostname", Cvar_VariableString("name"), CVAR_ARCHIVE);
+	// E1: how many players may connect. Latched (fixed for the life of a running
+	// server) and clamped to [1, MAX_CLIENTS]; allocations stay MAX_CLIENTS-sized,
+	// only the connection-accept loop is bounded by this. Default 2 (co-op pair);
+	// coop_host raises it via D1's stored maxplayers.
+	sv_maxclients = Cvar_Get ("sv_maxclients", "2", CVAR_SERVERINFO | CVAR_LATCH | CVAR_ARCHIVE);
 
 	// systeminfo
 	Cvar_Get ("helpUsObi", "0", CVAR_SYSTEMINFO );

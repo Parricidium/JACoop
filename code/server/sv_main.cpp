@@ -45,6 +45,8 @@ cvar_t	*sv_reconnectlimit;		// minimum seconds between connect messages
 cvar_t	*sv_showloss;			// report when usercmds are lost
 cvar_t	*sv_killserver;			// menu system can set to 1 to shut server down
 cvar_t	*sv_mapname;
+cvar_t	*sv_hostname;			// D2: name shown in the LAN co-op browser
+cvar_t	*sv_maxclients;			// E1: how many players may connect (<= MAX_CLIENTS)
 cvar_t	*sv_spawntarget;
 cvar_t	*sv_mapChecksum;
 cvar_t	*sv_serverid;
@@ -146,7 +148,7 @@ void SV_SendServerCommand(client_t *cl, const char *fmt, ...) {
 	}
 
 	// send the data to all relevent clients
-	for (j = 0, client = svs.clients; j < 1 ; j++, client++) {
+	for (j = 0, client = svs.clients; j < MAX_CLIENTS ; j++, client++) {
 		if ( client->state < CS_PRIMED ) {
 			continue;
 		}
@@ -192,7 +194,7 @@ void SVC_Status( netadr_t from ) {
 	status[0] = 0;
 	statusLength = 0;
 
-	for (i=0 ; i < 1 ; i++) {
+	for (i=0 ; i < MAX_CLIENTS ; i++) {
 		cl = &svs.clients[i];
 		if ( cl->state >= CS_CONNECTED ) {
 			if ( cl->gentity && cl->gentity->client ) {
@@ -226,7 +228,7 @@ static void SVC_Info( netadr_t from ) {
 	char	infostring[MAX_INFO_STRING];
 
 	count = 0;
-	for ( i = 0 ; i < 1 ; i++ ) {
+	for ( i = 0 ; i < MAX_CLIENTS ; i++ ) {
 		if ( svs.clients[i].state >= CS_CONNECTED ) {
 			count++;
 		}
@@ -239,10 +241,14 @@ static void SVC_Info( netadr_t from ) {
 	Info_SetValueForKey( infostring, "challenge", Cmd_Argv(1) );
 
 	Info_SetValueForKey( infostring, "protocol", va("%i", PROTOCOL_VERSION) );
-	//Info_SetValueForKey( infostring, "hostname", sv_hostname->string );
+	// D2: identify this as a jk2 co-op host so the LAN browser can filter out
+	// unrelated (e.g. stock JA) servers, and give it a human-readable name.
+	Info_SetValueForKey( infostring, "game", "jk2coop" );
+	Info_SetValueForKey( infostring, "hostname", sv_hostname->string );
 	Info_SetValueForKey( infostring, "mapname", sv_mapname->string );
 	Info_SetValueForKey( infostring, "clients", va("%i", count) );
-	Info_SetValueForKey( infostring, "sv_maxclients", va("%i", 1) );
+	Info_SetValueForKey( infostring, "sv_maxclients",
+		va("%i", sv_maxclients ? sv_maxclients->integer : MAX_CLIENTS) );
 
 	NET_OutOfBandPrint( NS_SERVER, from, "infoResponse\n%s", infostring );
 }
@@ -315,7 +321,7 @@ void SV_PacketEvent( netadr_t from, msg_t *msg ) {
 	qport = MSG_ReadShort( msg ) & 0xffff;
 
 	// find which client the message is from
-	for (i=0, cl=svs.clients ; i < 1 ; i++,cl++) {
+	for (i=0, cl=svs.clients ; i < MAX_CLIENTS ; i++,cl++) {
 		if (cl->state == CS_FREE) {
 			continue;
 		}
@@ -361,29 +367,40 @@ void SV_PacketEvent( netadr_t from, msg_t *msg ) {
 // When a client is normally dropped, the client_t goes into a zombie state for a few seconds to make sure any final
 //	reliable message gets resent if necessary
 void SV_CheckTimeouts( void ) {
-	client_t *cl = svs.clients;
-
 	int droppoint = sv.time - 1000 * sv_timeout->integer;
 	int zombiepoint = sv.time - 1000 * sv_zombietime->integer;
 
-	// message times may be wrong across a changelevel
-	if ( cl->lastPacketTime > sv.time )
-		cl->lastPacketTime = sv.time;
+	// E3: iterate every client slot, not just svs.clients[0]. Stock SP checked
+	// only the host slot -- fine when there was one client, but with co-op
+	// joiners it meant a disconnected joiner's slot never left CS_ZOMBIE (so it
+	// was never reclaimed and the server stayed "full"), and a joiner that
+	// stopped responding was never timed out. codemp's SV_CheckTimeouts loops
+	// the same way. Bound by MAX_CLIENTS (all allocated slots); free/zombie
+	// slots past the configured sv_maxclients are simply skipped by state.
+	client_t *cl = svs.clients;
+	for ( int i = 0; i < MAX_CLIENTS; i++, cl++ ) {
+		if ( cl->state == CS_FREE )
+			continue;
 
-	if ( cl->state == CS_ZOMBIE && cl->lastPacketTime < zombiepoint ) {
-		cl->state = CS_FREE;	// can now be reused
-		return;
-	}
+		// message times may be wrong across a changelevel
+		if ( cl->lastPacketTime > sv.time )
+			cl->lastPacketTime = sv.time;
 
-	if ( cl->state >= CS_CONNECTED && cl->lastPacketTime < droppoint ) {
-		// wait several frames so a debugger session doesn't cause a timeout
-		if ( ++cl->timeoutCount > 5 ) {
-			SV_DropClient( cl, "timed out" );
-			cl->state = CS_FREE; // don't bother with zombie state
+		if ( cl->state == CS_ZOMBIE && cl->lastPacketTime < zombiepoint ) {
+			cl->state = CS_FREE;	// can now be reused
+			continue;
 		}
+
+		if ( cl->state >= CS_CONNECTED && cl->lastPacketTime < droppoint ) {
+			// wait several frames so a debugger session doesn't cause a timeout
+			if ( ++cl->timeoutCount > 5 ) {
+				SV_DropClient( cl, "timed out" );
+				cl->state = CS_FREE; // don't bother with zombie state
+			}
+		}
+		else
+			cl->timeoutCount = 0;
 	}
-	else
-		cl->timeoutCount = 0;
 }
 
 /*

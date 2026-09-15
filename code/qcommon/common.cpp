@@ -885,6 +885,19 @@ int Com_EventLoop( void ) {
 				}
 			}
 
+			// drain the UDP socket, if one is open. The loopback polls above
+			// only ever carried this engine's own single client.
+			if ( NET_IsSocketOpen() ) {
+				while ( NET_GetPacket( &evFrom, &buf ) ) {
+					if ( com_sv_running->integer ) {
+						Com_RunAndTimeServerPacket( &evFrom, &buf );
+					} else {
+						CL_PacketEvent( evFrom, &buf );
+					}
+					MSG_Init( &buf, bufData, sizeof( bufData ) );
+				}
+			}
+
 			return ev.evTime;
 		}
 
@@ -1175,7 +1188,13 @@ void Com_Init( char *commandLine ) {
 
 		Sys_SetProcessorAffinity();
 
-		Netchan_Init( Com_Milliseconds() & 0xffff );	// pick a port value that should be nice and random
+		// E3: seed net_qport with the process id, not just Com_Milliseconds().
+		// Com_Milliseconds() is ~0 this early in startup, so clients launched
+		// together (loopback co-op) all seeded near-identical qports and the
+		// server reconnected joiner 2/3 into joiner 1's slot -- only one ever
+		// entered the world. The pid is distinct per process, so same-host
+		// clients now get distinct qports.
+		Netchan_Init( ( Com_Milliseconds() ^ Sys_GetProcessId() ) & 0xffff );	// pick a port value that should be nice and random
 //	VM_Init();
 		SV_Init();
 

@@ -33,7 +33,11 @@ add_subdirectory("${SPDir}/rd-vanilla")
 if(BuildSPEngine OR BuildJK2SPEngine)
 	# Libraries
 	if(WIN32)
-		set(SPEngineLibraries "winmm")
+		# wsock32 resolves the winsock symbols (WSAStartup, socket, bind,
+		# sendto, ...) that net_ip.cpp pulls in for the co-op UDP transport.
+		# Vanilla singleplayer had no networking, so upstream only linked
+		# winmm here; the MP engine links wsock32 the same way.
+		set(SPEngineLibraries "winmm" "wsock32")
 	endif(WIN32)
 	# Defines
 	set(SPEngineDefines ${SharedDefines} "_JK2EXE") # it's called JK2EXE but it really just means Singleplayer Exe
@@ -167,6 +171,7 @@ if(BuildSPEngine OR BuildJK2SPEngine)
 		"${SPDir}/qcommon/md4.cpp"
 		"${SPDir}/qcommon/msg.cpp"
 		"${SPDir}/qcommon/net_chan.cpp"
+		"${SPDir}/qcommon/net_ip.cpp"
 
 		"${SPDir}/qcommon/q_shared.cpp"
 		"${SPDir}/qcommon/q_shared.h"

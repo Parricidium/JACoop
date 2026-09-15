@@ -61,27 +61,50 @@ void SV_DirectConnect( netadr_t from ) {
 
 	//challenge = atoi( Info_ValueForKey( userinfo, "challenge" ) );
 
-	// see if the challenge is valid (local clients don't need to challenge)
-	if ( !NET_IsLocalAddress (from) ) {
-		NET_OutOfBandPrint( NS_SERVER, from, "print\nNo challenge for address.\n" );
-		return;
-	} else {
+	// Raven removed the challenge handshake along with the UDP transport, so
+	// this used to reject every non-local address outright. There is no
+	// svs.challenges array and no SV_GetChallenge to restore.
+	//
+	// A challenge exists to stop an attacker spoofing source addresses to
+	// flood a public server's client slots. This engine has MAX_CLIENTS slots
+	// and no server browser, so remote connects are accepted unchallenged.
+	// Anyone exposing it beyond a trusted LAN wants a real challenge system
+	// first -- port SV_GetChallenge from codemp/server/sv_main.cpp.
+	if ( NET_IsLocalAddress (from) ) {
 		// force the "ip" info key to "localhost"
 		Info_SetValueForKey( userinfo, "ip", "localhost" );
+	} else {
+		Info_SetValueForKey( userinfo, "ip", NET_AdrToString( from ) );
 	}
 
 	newcl = &temp;
 	memset (newcl, 0, sizeof(client_t));
 
+	// E1: only accept up to sv_maxclients connections. Client slots stay
+	// MAX_CLIENTS-sized (allocations unchanged); we just stop handing them out
+	// past the configured limit, so "Server is full" fires at the right count.
+	// Declared before the reuse-slot loop's `goto gotnewcl` so no jump skips it.
+	int maxConnect = sv_maxclients ? sv_maxclients->integer : MAX_CLIENTS;
+	if ( maxConnect < 1 ) maxConnect = 1;
+	if ( maxConnect > MAX_CLIENTS ) maxConnect = MAX_CLIENTS;
+
 	// if there is already a slot for this ip, reuse it
-	for (i=0,cl=svs.clients ; i < 1 ; i++,cl++)
+	for (i=0,cl=svs.clients ; i < MAX_CLIENTS ; i++,cl++)
 	{
 		if ( cl->state == CS_FREE ) {
 			continue;
 		}
+		// E3: match an existing slot for reuse by qport ONLY, not by the
+		// source UDP port. The stock `|| from.port == remoteAddress.port`
+		// clause exists for NAT routers that rewrite ports, but qport already
+		// covers that (see SV_PacketEvent, which differentiates same-IP clients
+		// purely by qport). On loopback all co-op clients share 127.0.0.1 and
+		// the OS readily hands out a source port equal to an existing client's,
+		// so the port clause spuriously reconnects joiner 2/3 into joiner 1's
+		// slot -- only one ever enters the world. Matching on qport alone gives
+		// each same-IP client its own slot.
 		if ( NET_CompareBaseAdr( from, cl->netchan.remoteAddress )
-			&& ( cl->netchan.qport == qport
-			|| from.port == cl->netchan.remoteAddress.port ) )
+			&& cl->netchan.qport == qport )
 		{
 			if (( sv.time - cl->lastConnectTime)
 				< (sv_reconnectlimit->integer * 1000))
@@ -97,7 +120,7 @@ void SV_DirectConnect( netadr_t from ) {
 
 
 	newcl = NULL;
-	for ( i = 0; i < 1 ; i++ ) {
+	for ( i = 0; i < maxConnect ; i++ ) {
 		cl = &svs.clients[i];
 		if (cl->state == CS_FREE) {
 			newcl = cl;

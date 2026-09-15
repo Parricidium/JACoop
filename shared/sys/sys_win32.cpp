@@ -219,6 +219,11 @@ void Sys_SetProcessorAffinity( void ) {
 		Com_DPrintf( "Setting affinity mask failed (%s)\n", GetErrorString( GetLastError() ) );
 }
 
+// E3: distinct per-process value used to seed net_qport (see sys_public.h).
+int Sys_GetProcessId( void ) {
+	return (int)GetCurrentProcessId();
+}
+
 /*
 ==================
 Sys_LowPhysicalMemory()

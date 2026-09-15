@@ -97,6 +97,20 @@ void UI_SetActiveMenu( const char* menuname,const char *menuID )
 		return;
 	}
 
+	// D3: the Co-op page. Activate it directly (like missionfailed_menu) so it
+	// works whether reached from the main menu or in-game, and pause if a game is
+	// running so it overlays cleanly.
+	if ( Q_stricmp (menuname, "coopMenu") == 0 )
+	{
+		if ( cls.state == CA_ACTIVE ) {
+			ui.Cvar_Set( "cl_paused", "1" );
+		}
+		Menus_CloseAll();
+		Menus_ActivateByName("coopMenu");
+		ui.Key_SetCatcher( KEYCATCH_UI );
+		return;
+	}
+
 	if ( Q_stricmp (menuname, "datapad") == 0 )
 	{
 		ui.Cvar_Set( "cl_paused", "1" );

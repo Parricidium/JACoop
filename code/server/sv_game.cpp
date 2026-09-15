@@ -104,7 +104,7 @@ void SV_GameSendServerCommand( int clientNum, const char *fmt, ... ) {
 	if ( clientNum == -1 ) {
 		SV_SendServerCommand( NULL, "%s", msg );
 	} else {
-		if ( clientNum < 0 || clientNum >= 1 ) {
+		if ( clientNum < 0 || clientNum >= MAX_CLIENTS ) {
 			return;
 		}
 		SV_SendServerCommand( svs.clients + clientNum, "%s", msg );
@@ -120,7 +120,7 @@ Disconnects the client with a message
 ===============
 */
 void SV_GameDropClient( int clientNum, const char *reason ) {
-	if ( clientNum < 0 || clientNum >= 1 ) {
+	if ( clientNum < 0 || clientNum >= MAX_CLIENTS ) {
 		return;
 	}
 	SV_DropClient( svs.clients + clientNum, reason );
@@ -1088,7 +1088,7 @@ void SV_InitGameProgs (void) {
 
 	// clear all gentity pointers that might still be set from
 	// a previous level
-	for ( i = 0 ; i < 1 ; i++ ) {
+	for ( i = 0 ; i < MAX_CLIENTS ; i++ ) {
 		svs.clients[i].gentity = NULL;
 	}
 }
