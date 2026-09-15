@@ -399,7 +399,7 @@ void SV_Init (void) {
 	// server) and clamped to [1, MAX_CLIENTS]; allocations stay MAX_CLIENTS-sized,
 	// only the connection-accept loop is bounded by this. Default 2 (co-op pair);
 	// coop_host raises it via D1's stored maxplayers.
-	sv_maxclients = Cvar_Get ("sv_maxclients", "2", CVAR_SERVERINFO | CVAR_LATCH | CVAR_ARCHIVE);
+	sv_maxclients = Cvar_Get ("sv_maxclients", "4", CVAR_SERVERINFO | CVAR_LATCH | CVAR_ARCHIVE);
 
 	// systeminfo
 	Cvar_Get ("helpUsObi", "0", CVAR_SYSTEMINFO );

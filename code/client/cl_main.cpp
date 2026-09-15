@@ -632,7 +632,7 @@ void CL_ServerInfoPacket( netadr_t from, msg_t *msg ) {
 	if ( atoi( Info_ValueForKey( infoString, "protocol" ) ) != PROTOCOL_VERSION ) {
 		return;
 	}
-	if ( Q_stricmp( Info_ValueForKey( infoString, "game" ), "jk2coop" ) != 0 ) {
+	if ( Q_stricmp( Info_ValueForKey( infoString, "game" ), "jacoop" ) != 0 ) {
 		return;
 	}
 
@@ -826,7 +826,7 @@ void CL_ConnectionlessPacket( netadr_t from, msg_t *msg ) {
 	}
 
 	// D2: reply to our `localservers` broadcast — a co-op host advertising
-	// itself. Verify it is one of ours (challenge + protocol + game=jk2coop),
+	// itself. Verify it is one of ours (challenge + protocol + game=jacoop),
 	// then record it (deduped by address) for the co-op browser.
 	if ( !strcmp(c, "infoResponse") ) {
 		CL_ServerInfoPacket( from, msg );

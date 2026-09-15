@@ -537,7 +537,7 @@ static void SV_CoopHost_f( void ) {
 		if ( want < 1 ) want = 1;
 		if ( want > MAX_CLIENTS ) want = MAX_CLIENTS;
 		Cvar_Set( "sv_maxclients", va( "%i", want ) );
-		sv_maxclients = Cvar_Get( "sv_maxclients", "2", CVAR_SERVERINFO | CVAR_LATCH | CVAR_ARCHIVE );
+		sv_maxclients = Cvar_Get( "sv_maxclients", "4", CVAR_SERVERINFO | CVAR_LATCH | CVAR_ARCHIVE );
 	}
 
 	// Enable networking and (re)bind the socket for the current cvars. net_enabled

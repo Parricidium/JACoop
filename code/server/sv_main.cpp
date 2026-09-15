@@ -243,7 +243,7 @@ static void SVC_Info( netadr_t from ) {
 	Info_SetValueForKey( infostring, "protocol", va("%i", PROTOCOL_VERSION) );
 	// D2: identify this as a jk2 co-op host so the LAN browser can filter out
 	// unrelated (e.g. stock JA) servers, and give it a human-readable name.
-	Info_SetValueForKey( infostring, "game", "jk2coop" );
+	Info_SetValueForKey( infostring, "game", "jacoop" );
 	Info_SetValueForKey( infostring, "hostname", sv_hostname->string );
 	Info_SetValueForKey( infostring, "mapname", sv_mapname->string );
 	Info_SetValueForKey( infostring, "clients", va("%i", count) );
