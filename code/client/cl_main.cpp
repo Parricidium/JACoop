@@ -1127,6 +1127,26 @@ void CL_InitRenderer( void ) {
 	// this sets up the renderer and calls R_Init
 	re.BeginRegistration( &cls.glconfig );
 
+	// coop: on a serverless remote client, register the humanoid skeleton and
+	// the map's cinematic skeleton back to back, before the UI or the cgame can
+	// load either. Ghoul2 finds the cinematic GLA as "handle of _humanoid.gla + 1"
+	// (G2_API.cpp animModelIndexOffset), and the anim-set parser refuses to
+	// continue otherwise. The host gets this ordering for free from
+	// SV_SpawnServer -> first humanoid spawn; here the renderer was just reset by
+	// CL_FlushMemory on the gamestate, so these become the first two models.
+	if ( !com_sv_running->integer && cl.gameState.stringOffsets[CS_SERVERINFO] ) {
+		const char *serverinfo = cl.gameState.stringData + cl.gameState.stringOffsets[CS_SERVERINFO];
+		const char *mapname = Info_ValueForKey( serverinfo, "mapname" );
+		if ( mapname[0] ) {
+			const char *slash = strrchr( mapname, '/' );
+			if ( slash ) {
+				mapname = slash + 1;
+			}
+			re.RegisterModel( "models/players/_humanoid/_humanoid.gla" );
+			re.RegisterModel( va( "models/players/_humanoid_%s/_humanoid_%s.gla", mapname, mapname ) );
+		}
+	}
+
 	// load character sets
 	cls.charSetShader = re.RegisterShaderNoMip("gfx/2d/charsgrid_med");
 	cls.consoleFont = re.RegisterFont( "ocr_a" );

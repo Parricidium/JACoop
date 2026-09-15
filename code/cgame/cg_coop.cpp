@@ -26,7 +26,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 // character from what the network carries:
 //
 //   - s.modelindex3      -> CS_COOP_MODELSPECS spec string, built by g_coop.cpp:
-//                           model;skin;surfOff;surfOn;saber1;colors1;saber2;colors2;class
+//                           model;skin;surfOff;surfOn;saber1;colors1;saber2;colors2;class;r,g,b,a
 //   - s.weapon           -> attached weapon / saber hilt models
 //   - s.legsAnim/torsoAnim (+timers) -> ghoul2 bone animations, through the
 //                           same PM_SetAnimFinal the host uses
@@ -173,8 +173,8 @@ static void CG_CoopEnsureCharacter( centity_t *cent )
 	{
 		return;
 	}
-	const char *f[10];
-	CG_CoopSplitSpec( spec, f, 10 );
+	const char *f[11];
+	CG_CoopSplitSpec( spec, f, 11 );
 	const char *modelName = f[0], *skin = f[1], *surfOff = f[2], *surfOn = f[3];
 
 	if ( st->specIndex )
@@ -196,6 +196,18 @@ static void CG_CoopEnsureCharacter( centity_t *cent )
 	gent->inuse = qtrue;
 	gent->client->ps.clientNum = entNum;
 	gent->client->NPC_class = (class_t)atoi( f[8] );
+	// clothing tint (customRGBA is the whole-model colour for the jedi_* player models)
+	{
+		int r = 255, g = 255, b = 255, a = 255;
+		if ( f[9][0] )
+		{
+			sscanf( f[9], "%i,%i,%i,%i", &r, &g, &b, &a );
+		}
+		gent->client->renderInfo.customRGBA[0] = r;
+		gent->client->renderInfo.customRGBA[1] = g;
+		gent->client->renderInfo.customRGBA[2] = b;
+		gent->client->renderInfo.customRGBA[3] = a;
+	}
 	gent->playerModel = -1;
 	gent->weaponModel[0] = gent->weaponModel[1] = -1;
 
@@ -212,6 +224,10 @@ static void CG_CoopEnsureCharacter( centity_t *cent )
 
 	st->specIndex = specIndex;
 	st->weapon = -1;		// force the weapon models to be (re)attached
+	if ( cg_developer.integer )
+	{
+		Com_Printf( "coop: ent %i built model '%s' skin '%s' class %s rgba %s -> playerModel %i animFile %i\n", entNum, modelName, skin, f[8], f[9], gent->playerModel, gent->client->clientInfo.animFileIndex );
+	}
 	st->legsTimer = st->torsoTimer = 0;
 	gent->client->ps.legsAnim = gent->client->ps.torsoAnim = -1;
 }
@@ -243,15 +259,20 @@ static void CG_CoopDriveAnim( centity_t *cent )
 	gent->resultspeed = sqrtf( s->pos.trDelta[0]*s->pos.trDelta[0] + s->pos.trDelta[1]*s->pos.trDelta[1] );
 
 	const int flags = SETANIM_FLAG_OVERRIDE;
-	if ( s->legsAnim >= 0 && s->legsAnim < MAX_ANIMATIONS )
+	if ( s->legsAnim > 0 && s->legsAnim < MAX_ANIMATIONS )
 	{
 		const int legsFlags = flags | ( ( s->legsAnimTimer > st->legsTimer && s->legsAnim == ps->legsAnim ) ? SETANIM_FLAG_RESTART : 0 );
 		PM_SetAnimFinal( &ps->torsoAnim, &ps->legsAnim, SETANIM_LEGS, s->legsAnim, legsFlags, &ps->torsoAnimTimer, &ps->legsAnimTimer, gent );
 	}
-	if ( s->torsoAnim >= 0 && s->torsoAnim < MAX_ANIMATIONS )
+	// torso 0 means "no separate torso anim": leave the lower_lumbar bone following the root
+	if ( s->torsoAnim > 0 && s->torsoAnim < MAX_ANIMATIONS )
 	{
 		const int torsoFlags = flags | ( ( s->torsoAnimTimer > st->torsoTimer && s->torsoAnim == ps->torsoAnim ) ? SETANIM_FLAG_RESTART : 0 );
 		PM_SetAnimFinal( &ps->torsoAnim, &ps->legsAnim, SETANIM_TORSO, s->torsoAnim, torsoFlags, &ps->torsoAnimTimer, &ps->legsAnimTimer, gent );
+	}
+	if ( cg_developer.integer && ( st->legsTimer == -12345 || ps->legsAnim != s->legsAnim || ps->torsoAnim != s->torsoAnim ) )
+	{
+		Com_Printf( "coop: ent %i anim net legs %i torso %i -> ps legs %i torso %i (speed %.0f)\n", cent->currentState.number, s->legsAnim, s->torsoAnim, ps->legsAnim, ps->torsoAnim, gent->resultspeed );
 	}
 	st->legsTimer = s->legsAnimTimer;
 	st->torsoTimer = s->torsoAnimTimer;
@@ -353,4 +374,56 @@ void CG_CoopSyncEntity( centity_t *cent )
 		return;
 	}
 	CG_CoopEnsureCharacter( cent );
+}
+
+/*
+================
+CG_CoopSyncLocalPlayer
+
+Remote client: the local player's placeholder gentity has no simulated
+playerState, but the whole cgame reads it (force powers, weapons owned,
+speed duration, ...) through g_entities[local].client->ps and the player
+global. Copy the snapshot playerState in once per frame, keeping the saber
+info CG_CoopEnsureCharacter built (the wire does not carry saberInfo_t).
+Also publishes cg_localEntNum, the entity slot the local player occupies.
+================
+*/
+int cg_localEntNum = 0;
+
+void CG_CoopSyncLocalPlayer( void )
+{
+	if ( !cg.snap )
+	{
+		return;
+	}
+	cg_localEntNum = cg.snap->ps.clientNum;
+	if ( !cg_remoteClient )
+	{
+		return;
+	}
+
+	gentity_t *me = &g_entities[cg_localEntNum];
+	if ( !me->client )
+	{
+		return;
+	}
+	// the gamecode's "player" global is read by the cgame too (force speed FOV,
+	// weapon selection, datapad); on the remote client it must be us, not slot 0
+	player = me;
+
+	saberInfo_t	saber[MAX_SABERS];
+	const qboolean dualSabers = me->client->ps.dualSabers;
+	memcpy( saber, me->client->ps.saber, sizeof( saber ) );
+
+	me->client->ps = cg.snap->ps;
+
+	memcpy( me->client->ps.saber, saber, sizeof( saber ) );
+	me->client->ps.dualSabers = dualSabers;
+
+	me->s.number = cg_localEntNum;
+	me->s.clientNum = cg_localEntNum;
+	me->s.eFlags = cg.snap->ps.eFlags;
+	me->inuse = qtrue;
+	VectorCopy( cg.snap->ps.origin, me->currentOrigin );
+	VectorCopy( cg.snap->ps.viewangles, me->currentAngles );
 }

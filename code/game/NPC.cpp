@@ -269,14 +269,14 @@ void NPC_RemoveBody( gentity_t *self )
 			{
 				self->nextthink = level.time + FRAMETIME; // try back in a second
 
-				if ( DistanceSquared( g_entities[0].currentOrigin, self->currentOrigin ) <= REMOVE_DISTANCE_SQR )
+				if ( DistanceSquared( G_CoopNearestPlayer( self->currentOrigin, qfalse )->currentOrigin, self->currentOrigin ) <= REMOVE_DISTANCE_SQR )
 				{
 					return;
 				}
 
 				if ( (InFOVFromPlayerView( self, 110, 90 )) ) // generous FOV check
 				{
-					if ( (NPC_ClearLOS( &g_entities[0], self->currentOrigin )) )
+					if ( (NPC_ClearLOS( G_CoopNearestPlayer( self->currentOrigin, qfalse ), self->currentOrigin )) )
 					{
 						return;
 					}
@@ -962,7 +962,7 @@ void NPC_ShowDebugInfo (void)
 		//do NPCs
 		while( (found = G_Find( found, FOFS(classname), "NPC" ) ) != NULL )
 		{
-			if ( gi.inPVS( found->currentOrigin, g_entities[0].currentOrigin ) )
+			if ( G_CoopInAnyPlayerPVS( found->currentOrigin ) )
 			{
 				VectorAdd( found->currentOrigin, found->mins, mins );
 				VectorAdd( found->currentOrigin, found->maxs, maxs );
@@ -1029,7 +1029,7 @@ void NPC_ApplyScriptFlags (void)
 	if( NPCInfo->scriptFlags & SCF_SAFE_REMOVE )
 	{
 		// take from BSRemove
-		if( !gi.inPVS( NPC->currentOrigin, g_entities[0].currentOrigin ) )//FIXME: use cg.vieworg?
+		if( !G_CoopInAnyPlayerPVS( NPC->currentOrigin ) )//FIXME: use cg.vieworg?
 		{
 			G_UseTargets2( NPC, NPC, NPC->target3 );
 			NPC->s.eFlags |= EF_NODRAW;

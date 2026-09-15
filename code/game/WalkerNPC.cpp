@@ -234,7 +234,7 @@ static void ProcessMoveCommands( Vehicle_t *pVeh )
 		pVeh->m_ucmd.rightmove = 0;
 
 		/*if ( !pVeh->m_pVehicleInfo->strafePerc
-			|| (!g_speederControlScheme->value && !parent->s.number) )
+			|| (!g_speederControlScheme->value && G_CoopIsPlayer( parent )) )
 		{//if in a strafe-capable vehicle, clear strafing unless using alternate control scheme
 			pVeh->m_ucmd.rightmove = 0;
 		}*/

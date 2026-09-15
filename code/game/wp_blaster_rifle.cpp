@@ -69,7 +69,7 @@ void WP_FireBlasterMissile( gentity_t *ent, vec3_t start, vec3_t dir, qboolean a
 	missile->s.weapon = WP_BLASTER;
 
 	// Do the damages
-	if ( ent->s.number != 0 && ent->client->NPC_class != CLASS_BOBAFETT )
+	if ( !G_CoopIsPlayer( ent ) && ent->client->NPC_class != CLASS_BOBAFETT )
 	{
 		if ( g_spskill->integer == 0 )
 		{

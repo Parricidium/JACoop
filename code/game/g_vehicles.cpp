@@ -1292,7 +1292,7 @@ getItOutOfMe:
 		//NOTE: this is because you're only allowed to use your first saber's first blade on a vehicle
 	}
 
-/*	if ( !ent->s.number && ent->client->ps.weapon != WP_SABER
+/*	if ( G_CoopIsPlayer( ent ) && ent->client->ps.weapon != WP_SABER
 		&& cg_gunAutoFirst.value )
 	{
 		gi.cvar_set( "cg_thirdperson", "0" );

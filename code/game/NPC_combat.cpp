@@ -484,7 +484,7 @@ void G_SetEnemy( gentity_t *self, gentity_t *enemy )
 
 		//Special case- if player is being hunted by his own people, set the player's team to team_free
 		if ( self->client->playerTeam == TEAM_PLAYER
-			&& enemy->s.number == 0
+			&& G_CoopIsPlayer( enemy )
 			&& enemy->client
 			&& enemy->client->playerTeam == TEAM_PLAYER )
 		{//make the player "evil" so that everyone goes after him
@@ -1597,7 +1597,7 @@ gentity_t *NPC_PickEnemy( gentity_t *closestTo, int enemyTeam, qboolean checkVis
 
 	if( findPlayersFirst )
 	{//try to find a player first
-		newenemy = &g_entities[0];
+		newenemy = G_CoopNearestPlayer( NPC->currentOrigin, qtrue );	// coop: nearest living player
 		if( newenemy->client && !(newenemy->flags & FL_NOTARGET) && !(newenemy->s.eFlags & EF_NODRAW))
 		{
 			if( newenemy->health > 0 )

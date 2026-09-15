@@ -119,7 +119,7 @@ static void NPC_CheckAttacker( gentity_t *other, int mod )
 		}
 	}
 	//Special case player interactions
-	if ( other == &g_entities[0] )
+	if ( G_CoopIsPlayer( other ) )	// coop
 	{
 		//Account for the skill level to skew the results
 		float	luckThreshold;
@@ -254,7 +254,7 @@ void NPC_ChoosePainAnimation( gentity_t *self, gentity_t *other, const vec3_t po
 			pain_chance = (200.0f-self->health)/100.0f + damage/50.0f;
 		}
 	}
-	else if ( self->client && self->client->playerTeam == TEAM_PLAYER && other && !other->s.number )
+	else if ( self->client && self->client->playerTeam == TEAM_PLAYER && other && G_CoopIsPlayer( other ) )
 	{//ally shot by player always complains
 		pain_chance = 1.1f;
 	}
@@ -448,7 +448,7 @@ void NPC_Pain( gentity_t *self, gentity_t *inflictor, gentity_t *other, const ve
 		{//we weren't already enemies
 			if ( self->enemy || other->enemy
 				|| (other->s.number&&other->s.number!=player->client->ps.viewEntity)
-				/*|| (!other->s.number&&Q_irand( 0, 3 ))*/ )
+				/*|| (G_CoopIsPlayer( other )&&Q_irand( 0, 3 ))*/ )
 			{//if one of us actually has an enemy already, it's okay, just an accident OR wasn't hit by player or someone controlled by player OR player hit ally and didn't get 25% chance of getting mad (FIXME:accumulate anger+base on diff?)
 				//FIXME: player should have to do a certain amount of damage to ally or hit them several times to make them mad
 				//Still run pain and flee scripts
@@ -477,7 +477,7 @@ void NPC_Pain( gentity_t *self, gentity_t *inflictor, gentity_t *other, const ve
 				}
 				return;
 			}
-			else if ( self->NPC && !other->s.number )//should be assumed, but...
+			else if ( self->NPC && G_CoopIsPlayer( other ) )//should be assumed, but...
 			{//dammit, stop that!
 				if ( self->NPC->charmedTime > level.time )
 				{//mindtricked
@@ -668,7 +668,7 @@ void NPC_Touch(gentity_t *self, gentity_t *other, trace_t *trace)
 
 		//FIXME: do this if player is moving toward me and with a certain dist?
 		/*
-		if ( other->s.number == 0 && self->client->playerTeam == other->client->playerTeam )
+		if ( G_CoopIsPlayer( other ) && self->client->playerTeam == other->client->playerTeam )
 		{
 			VectorAdd( self->client->pushVec, other->client->ps.velocity, self->client->pushVec );
 		}
@@ -1010,7 +1010,7 @@ void NPC_UseResponse( gentity_t *self, gentity_t *user, qboolean useWhenDone )
 		return;
 	}
 
-	if ( user->s.number != 0 )
+	if ( !G_CoopIsPlayer( user ) )
 	{//not used by the player
 		if ( useWhenDone )
 		{
@@ -1099,7 +1099,7 @@ void NPC_Use( gentity_t *self, gentity_t *other, gentity_t *activator )
 			Jedi_Ambush( NPC );
 		}
 		//Run any use instructions
-		if ( activator && activator->s.number == 0 && self->client->NPC_class == CLASS_GONK )
+		if ( activator && G_CoopIsPlayer( activator ) && self->client->NPC_class == CLASS_GONK )
 		{
 			// must be using the gonk, so attempt to give battery power.
 			// NOTE: this will steal up to MAX_BATTERIES for the activator, leaving the residual on the gonk for potential later use.
@@ -1117,7 +1117,7 @@ void NPC_Use( gentity_t *self, gentity_t *other, gentity_t *activator )
 					G_ActivateBehavior( self, BSET_USE );
 				}
 			}
-			else if ( !self->enemy && activator->s.number == 0 && !gi.VoiceVolume[self->s.number] && !(self->NPC->scriptFlags&SCF_NO_RESPONSE) )
+			else if ( !self->enemy && G_CoopIsPlayer( activator ) && !gi.VoiceVolume[self->s.number] && !(self->NPC->scriptFlags&SCF_NO_RESPONSE) )
 			{//I don't have an enemy and I'm not talking and I was used by the player
 				NPC_UseResponse( self, other, qfalse );
 			}
@@ -1135,7 +1135,7 @@ void NPC_Use( gentity_t *self, gentity_t *other, gentity_t *activator )
 //		}
 		else if ( !self->enemy
 			//&& self->client->NPC_class == CLASS_VEHICLE
-			&& activator->s.number == 0
+			&& G_CoopIsPlayer( activator )
 			&& !gi.VoiceVolume[self->s.number]
 			&& !(self->NPC->scriptFlags&SCF_NO_RESPONSE) )
 		{//I don't have an enemy and I'm not talking and I was used by the player

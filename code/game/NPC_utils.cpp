@@ -86,7 +86,7 @@ void CalcEntitySpot ( const gentity_t *ent, const spot_t spot, vec3_t point )
 				point[0] = ent->currentOrigin[0];
 				point[1] = ent->currentOrigin[1];
 			}
-			else if ( !ent->s.number )
+			else if ( G_CoopIsPlayer( ent ) )
 			{
 				SubtractLeanOfs( ent, point );
 			}
@@ -122,7 +122,7 @@ void CalcEntitySpot ( const gentity_t *ent, const spot_t spot, vec3_t point )
 				point[0] = ent->currentOrigin[0];
 				point[1] = ent->currentOrigin[1];
 			}
-			else if ( !ent->s.number )
+			else if ( G_CoopIsPlayer( ent ) )
 			{
 				SubtractLeanOfs( ent, point );
 			}
@@ -1086,7 +1086,7 @@ static int NPC_GetCheckDelta( void )
 {
 	if ( NPC_ValidEnemy( NPC->enemy ) == qfalse )
 	{
-		int distance = DistanceSquared( NPC->currentOrigin, g_entities[0].currentOrigin );
+		int distance = DistanceSquared( NPC->currentOrigin, G_CoopNearestPlayer( NPC->currentOrigin, qtrue )->currentOrigin );
 
 		distance /= CHECK_TIME_BASE_SQUARED;
 
@@ -1189,7 +1189,7 @@ gentity_t *NPC_PickEnemyExt( qboolean checkAlerts = qfalse )
 			if ( event->level >= AEL_DISCOVERED )
 			{
 				//If it's the player, attack him
-				if ( event->owner == &g_entities[0] )
+				if ( G_CoopIsPlayer( event->owner ) )	// coop: any player
 					return event->owner;
 
 				//If it's on our team, then take its enemy as well
@@ -1210,7 +1210,15 @@ NPC_FindPlayer
 
 qboolean NPC_FindPlayer( void )
 {
-	return NPC_TargetVisible( &g_entities[0] );
+	// coop: any visible player counts
+	for ( int i = 0; i < MAX_CLIENTS; i++ )
+	{
+		if ( G_CoopIsPlayer( &g_entities[i] ) && g_entities[i].health > 0 && NPC_TargetVisible( &g_entities[i] ) )
+		{
+			return qtrue;
+		}
+	}
+	return qfalse;
 }
 
 /*
@@ -1226,22 +1234,25 @@ static qboolean NPC_CheckPlayerDistance( void )
 		return qfalse;
 
 	//Only do this for non-players
-	if ( NPC->enemy->s.number == 0 )
+	if ( G_CoopIsPlayer( NPC->enemy ) )
 		return qfalse;
 
 	//must be set up to get mad at player
 	if ( !NPC->client || NPC->client->enemyTeam != TEAM_PLAYER )
 		return qfalse;
 
+	// coop: consider the nearest living player rather than slot 0
+	gentity_t *nearest = G_CoopNearestPlayer( NPC->currentOrigin, qtrue );
+
 	//Must be within our FOV
-	if ( InFOV( &g_entities[0], NPC, NPCInfo->stats.hfov, NPCInfo->stats.vfov ) == qfalse )
+	if ( InFOV( nearest, NPC, NPCInfo->stats.hfov, NPCInfo->stats.vfov ) == qfalse )
 		return qfalse;
 
 	float	distance = DistanceSquared( NPC->currentOrigin, NPC->enemy->currentOrigin );
 
-	if ( distance > DistanceSquared( NPC->currentOrigin, g_entities[0].currentOrigin ) )
+	if ( distance > DistanceSquared( NPC->currentOrigin, nearest->currentOrigin ) )
 	{
-		G_SetEnemy( NPC, &g_entities[0] );
+		G_SetEnemy( NPC, nearest );
 		return qtrue;
 	}
 

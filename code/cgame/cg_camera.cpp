@@ -95,11 +95,11 @@ void CGCam_Enable( void )
 
 	client_camera.next_roff_time = 0;
 
-	if ( g_entities[0].inuse && g_entities[0].client )
+	if ( g_entities[cg_localEntNum].inuse && g_entities[cg_localEntNum].client )
 	{
 		//Player zero not allowed to do anything
-		VectorClear( g_entities[0].client->ps.velocity );
-		g_entities[0].contents = 0;
+		VectorClear( g_entities[cg_localEntNum].client->ps.velocity );
+		g_entities[cg_localEntNum].contents = 0;
 
 		if ( cg.zoomMode )
 		{
@@ -107,22 +107,22 @@ void CGCam_Enable( void )
 			cg.zoomMode = 0;
 		}
 
-		if ( g_entities[0].client->ps.saberInFlight && g_entities[0].client->ps.saber[0].Active() )
+		if ( g_entities[cg_localEntNum].client->ps.saberInFlight && g_entities[cg_localEntNum].client->ps.saber[0].Active() )
 		{//saber is out
-			gentity_t *saberent = &g_entities[g_entities[0].client->ps.saberEntityNum];
+			gentity_t *saberent = &g_entities[g_entities[cg_localEntNum].client->ps.saberEntityNum];
 			if ( saberent )
 			{
-				WP_SaberCatch( &g_entities[0], saberent, qfalse );
+				WP_SaberCatch( &g_entities[cg_localEntNum], saberent, qfalse );
 			}
 		}
 
 		for ( int i = 0; i < NUM_FORCE_POWERS; i++ )
 		{//deactivate any active force powers
-			g_entities[0].client->ps.forcePowerDuration[i] = 0;
+			g_entities[cg_localEntNum].client->ps.forcePowerDuration[i] = 0;
 extern void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower );
-			if ( g_entities[0].client->ps.forcePowerDuration[i] || (g_entities[0].client->ps.forcePowersActive&( 1 << i )) )
+			if ( g_entities[cg_localEntNum].client->ps.forcePowerDuration[i] || (g_entities[cg_localEntNum].client->ps.forcePowersActive&( 1 << i )) )
 			{
-				WP_ForcePowerStop( &g_entities[0], (forcePowers_t)i );
+				WP_ForcePowerStop( &g_entities[cg_localEntNum], (forcePowers_t)i );
 			}
 		}
 	}
@@ -148,9 +148,9 @@ void CGCam_Disable( void )
 
 	client_camera.info_state |= CAMERA_BAR_FADING;
 
-	if ( g_entities[0].inuse && g_entities[0].client )
+	if ( g_entities[cg_localEntNum].inuse && g_entities[cg_localEntNum].client )
 	{
-		g_entities[0].contents = CONTENTS_BODY;//MASK_PLAYERSOLID;
+		g_entities[cg_localEntNum].contents = CONTENTS_BODY;//MASK_PLAYERSOLID;
 	}
 
 	gi.SendServerCommand( 0, "cts");
@@ -162,8 +162,8 @@ void CGCam_Disable( void )
 	}
 
 	//we just came out of camera, so update cg.refdef.vieworg out of the camera's origin so the snapshot will know our new ori
-	VectorCopy( g_entities[0].currentOrigin, cg.refdef.vieworg);
-	VectorCopy( g_entities[0].client->ps.viewangles, cg.refdefViewAngles );
+	VectorCopy( g_entities[cg_localEntNum].currentOrigin, cg.refdef.vieworg);
+	VectorCopy( g_entities[cg_localEntNum].client->ps.viewangles, cg.refdefViewAngles );
 }
 
 /*

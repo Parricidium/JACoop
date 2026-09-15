@@ -172,7 +172,7 @@ qboolean Jedi_CultistDestroyer( gentity_t *self )
 
 void Jedi_PlayBlockedPushSound( gentity_t *self )
 {
-	if ( !self->s.number )
+	if ( G_CoopIsPlayer( self ) )
 	{
 		G_AddVoiceEvent( self, EV_PUSHFAIL, 3000 );
 	}
@@ -185,7 +185,7 @@ void Jedi_PlayBlockedPushSound( gentity_t *self )
 
 void Jedi_PlayDeflectSound( gentity_t *self )
 {
-	if ( !self->s.number )
+	if ( G_CoopIsPlayer( self ) )
 	{
 		G_AddVoiceEvent( self, Q_irand( EV_DEFLECT1, EV_DEFLECT3 ), 3000 );
 	}
@@ -2175,7 +2175,7 @@ qboolean Jedi_DodgeEvasion( gentity_t *self, gentity_t *shooter, trace_t *tr, in
 	case HL_LEG_RT:
 	case HL_LEG_LT:
 	case HL_WAIST:
-		if ( !self->s.number )
+		if ( G_CoopIsPlayer( self ) )
 		{//don't force the player to jump
 			return qfalse;
 		}
@@ -2648,7 +2648,7 @@ int Jedi_ReCalcParryTime( gentity_t *self, evasionType_t evasionType )
 	{
 		return 0;
 	}
-	if ( !self->s.number )
+	if ( G_CoopIsPlayer( self ) )
 	{//player
 		return parryDebounce[self->client->ps.forcePowerLevel[FP_SABER_DEFENSE]];
 	}
@@ -3464,7 +3464,7 @@ evasionType_t Jedi_SaberBlockGo( gentity_t *self, usercmd_t *cmd, vec3_t pHitloc
 				}
 				if ( ((evasionType = Jedi_CheckFlipEvasions( self, rightdot, zdiff ))!=EVASION_NONE) )
 				{
-					if ( d_slowmodeath->integer > 5 && self->enemy && !self->enemy->s.number )
+					if ( d_slowmodeath->integer > 5 && self->enemy && G_CoopIsPlayer( self->enemy ) )
 					{
 						G_StartMatrixEffect( self );
 					}
@@ -3604,7 +3604,7 @@ evasionType_t Jedi_SaberBlockGo( gentity_t *self, usercmd_t *cmd, vec3_t pHitloc
 		//FIXME: maybe make a sound?  Like a grunt?  EV_JUMP?
 		self->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
 		//dodged, not block
-		if ( d_slowmodeath->integer > 5 && self->enemy && !self->enemy->s.number )
+		if ( d_slowmodeath->integer > 5 && self->enemy && G_CoopIsPlayer( self->enemy ) )
 		{
 			G_StartMatrixEffect( self );
 		}
@@ -6303,7 +6303,7 @@ static void Jedi_Patrol( void )
 				if ( gi.inPVS( NPC->currentOrigin, enemy->currentOrigin ) )
 				{//we could potentially see him
 					enemy_dist = DistanceSquared( NPC->currentOrigin, enemy->currentOrigin );
-					if ( enemy->s.number == 0 || enemy_dist < best_enemy_dist )
+					if ( G_CoopIsPlayer( enemy ) || enemy_dist < best_enemy_dist )
 					{
 						//if the enemy is close enough, or threw his saber, take him as the enemy
 						//FIXME: what if he throws a thermal detonator?
@@ -6951,7 +6951,7 @@ static void Jedi_Attack( void )
 				|| (g_spskill->integer && ( NPC->client->NPC_class == CLASS_DESANN || NPCInfo->rank >= Q_irand( RANK_CREWMAN, RANK_CAPTAIN ))))
 			{//Tavion will kick in force speed if the player does...
 				if ( NPC->enemy
-					&& !NPC->enemy->s.number
+					&& G_CoopIsPlayer( NPC->enemy )
 					&& NPC->enemy->client
 					&& (NPC->enemy->client->ps.forcePowersActive & (1<<FP_SPEED))
 					&& !(NPC->client->ps.forcePowersActive & (1<<FP_SPEED)) )

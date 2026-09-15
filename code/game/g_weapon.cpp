@@ -236,7 +236,7 @@ void WP_ExplosiveDie( gentity_t *self, gentity_t *inflictor, gentity_t *attacker
 {
 	self->enemy = attacker;
 
-	if ( attacker && !attacker->s.number )
+	if ( attacker && G_CoopIsPlayer( attacker ) )
 	{
 		// less damage when shot by player
 		self->splashDamage /= 3;
@@ -452,7 +452,7 @@ void CalcMuzzlePoint( gentity_t *const ent, vec3_t forwardVec, vec3_t right, vec
 	vec3_t		org;
 	mdxaBone_t	boltMatrix;
 
-	if( !lead_in ) //&& ent->s.number != 0
+	if( !lead_in ) //&& !G_CoopIsPlayer( ent )
 	{//Not players or melee
 		if( ent->client )
 		{
@@ -489,7 +489,7 @@ void CalcMuzzlePoint( gentity_t *const ent, vec3_t forwardVec, vec3_t right, vec
 		ViewHeightFix(ent);
 		muzzlePoint[2] += ent->client->ps.viewheight;//By eyes
 		muzzlePoint[2] -= 1;
-		if ( ent->s.number == 0 )
+		if ( G_CoopIsPlayer( ent ) )
 			VectorMA( muzzlePoint, 12, forwardVec, muzzlePoint ); // player, don't set this any lower otherwise the projectile will impact immediately when your back is to a wall
 		else
 			VectorMA( muzzlePoint, 2, forwardVec, muzzlePoint ); // NPC, don't set too far forwardVec otherwise the projectile can go through doors
@@ -676,7 +676,7 @@ void WP_FireVehicleWeapon( gentity_t *ent, vec3_t start, vec3_t dir, vehWeaponIn
 		missile->splashRadius = vehWeapon->fSplashRadius;
 
 		// HUGE HORRIBLE HACK
-		if (ent->owner && ent->owner->s.number==0)
+		if (ent->owner && G_CoopIsPlayer( ent->owner ))
 		{
 			//Should only be for speeders - mainly for t2_trip
 			if (ent->m_pVehicle->m_pVehicleInfo && ent->m_pVehicle->m_pVehicleInfo->type == VH_SPEEDER)
@@ -1216,7 +1216,7 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 
 		VectorCopy( ent->client->renderInfo.muzzlePoint, muzzle1 );
 
-		if ( !ent->s.number )
+		if ( G_CoopIsPlayer( ent ) )
 		{//player driving an AT-ST
 			//SIGH... because we can't anticipate alt-fire, must calc muzzle here and now
 			mdxaBone_t		boltMatrix;
@@ -1345,8 +1345,8 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 					VectorSubtract(ent->enemy->currentOrigin, ent->currentOrigin, toEnemy);
 					VectorNormalize(toEnemy);
 					if (DotProduct(toEnemy, forwardVec)>0.75f &&
-						((ent->s.number==0 && !Q_irand(0,2)) ||		// the player has a 1 in 3 chance
-						 (ent->s.number!=0 && !Q_irand(0,5))))		// other guys have a 1 in 6 chance
+						((G_CoopIsPlayer( ent ) && !Q_irand(0,2)) ||		// the player has a 1 in 3 chance
+						 (!G_CoopIsPlayer( ent ) && !Q_irand(0,5))))		// other guys have a 1 in 6 chance
 					{
 						VectorCopy(toEnemy, forwardVec);
 					}
@@ -1484,7 +1484,7 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 		else
 		{
 			// FIXME!
-		/*	if ( ent->s.number == 0
+		/*	if ( G_CoopIsPlayer( ent )
 				&& ent->client->NPC_class == CLASS_VEHICLE
 				&& vehicleData[((CVehicleNPC *)ent->NPC)->m_iVehicleTypeID].type == VH_FIGHTER )
 			{
@@ -1541,7 +1541,7 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 		break;
 	}
 
-	if ( !ent->s.number )
+	if ( G_CoopIsPlayer( ent ) )
 	{
 		if ( ent->s.weapon == WP_FLECHETTE || (ent->s.weapon == WP_BOWCASTER && !alt_fire) )
 		{//these can fire multiple shots, count them individually within the firing functions
@@ -1552,7 +1552,7 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 		}
 	}
 	// We should probably just use this as a default behavior, in special cases, just set alert to false.
-	if ( ent->s.number == 0 && alert > 0 )
+	if ( G_CoopIsPlayer( ent ) && alert > 0 )
 	{
 		if ( ent->client->ps.groundEntityNum == ENTITYNUM_WORLD//FIXME: check for sand contents type?
 			&& ent->s.weapon != WP_STUN_BATON

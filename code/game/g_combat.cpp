@@ -207,7 +207,7 @@ gentity_t *TossClientItems( gentity_t *self )
 			dropped->e_ThinkFunc = thinkF_NULL;
 			dropped->nextthink = -1;
 
-			if ( !self->s.number )
+			if ( G_CoopIsPlayer( self ) )
 			{//player's dropped items never go away
 				//dropped->e_ThinkFunc = thinkF_NULL;
 				//dropped->nextthink = -1;
@@ -752,7 +752,7 @@ void G_SetMissionStatusText( gentity_t *attacker, int mod )
 //		statusTextIndex = Q_irand( IGT_JUDGEMENTDESIRED, IGT_JUDGEMENTMUCHDESIRED );
 		statusTextIndex = STAT_JUDGEMENTMUCHDESIRED;
 	}
-	else if ( attacker && attacker->s.number != 0 && attacker->client && attacker->client->playerTeam == TEAM_PLAYER )
+	else if ( attacker && !G_CoopIsPlayer( attacker ) && attacker->client && attacker->client->playerTeam == TEAM_PLAYER )
 	{//killed by a teammate
 		statusTextIndex = STAT_INSUBORDINATION;
 	}
@@ -2389,7 +2389,7 @@ qboolean G_DoDismemberment( gentity_t *self, vec3_t point, int mod, int damage, 
 				break;
 			case HL_WAIST:
 				if ( g_dismemberment->integer > 2 &&
-					(!self->s.number||!self->message))
+					(G_CoopIsPlayer( self )||!self->message))
 				{
 					doDismemberment = qtrue;
 					limbBone = "pelvis";
@@ -2427,7 +2427,7 @@ qboolean G_DoDismemberment( gentity_t *self, vec3_t point, int mod, int damage, 
 			case HL_ARM_LT:
 			case HL_BACK_LT:
 				if ( g_dismemberment->integer &&
-					(!self->s.number||!self->message))
+					(G_CoopIsPlayer( self )||!self->message))
 				{//either the player or not carrying a key on my arm
 					doDismemberment = qtrue;
 					limbBone = "lhumerus";
@@ -3942,7 +3942,7 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 
 	if ( attacker )
 	{
-		if ( attacker->client && !attacker->s.number )
+		if ( attacker->client && G_CoopIsPlayer( attacker ) )
 		{
 			if ( self->client )
 			{//killed a client
@@ -3962,7 +3962,7 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 		//player killing a jedi with a lightsaber spawns a matrix-effect entity
 		if ( d_slowmodeath->integer )
 		{
-			if ( !self->s.number )
+			if ( G_CoopIsPlayer( self ) )
 			{//what the hell, always do slow-mo when player dies
 				//FIXME: don't do this when crushed to death?
 				if ( meansOfDeath == MOD_FALLING && self->client->ps.groundEntityNum == ENTITYNUM_NONE )
@@ -3987,7 +3987,7 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 						lastInGroup = qfalse;
 					}
 				}
-				if ( !attacker->s.number
+				if ( G_CoopIsPlayer( attacker )
 					&& (holdingSaber||self->client->NPC_class==CLASS_WAMPA)
 					&& meansOfDeath == MOD_SABER
 					&& attacker->client
@@ -4007,7 +4007,7 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 			}
 			else
 			{//all player-saber kills
-				if ( !attacker->s.number
+				if ( G_CoopIsPlayer( attacker )
 					&& meansOfDeath == MOD_SABER
 					&& attacker->client
 					&& attacker->client->ps.weapon == WP_SABER
@@ -4035,7 +4035,7 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 	{//FIXME: just HazTeam members in formation on away missions?
 		//or more controlled- via deathscripts?
 		// Don't count player
-		if (( g_entities[0].inuse && g_entities[0].client ) && (self->s.number != 0))
+		if (( g_entities[0].inuse && g_entities[0].client ) && (!G_CoopIsPlayer( self )))
 		{//add to the number of teammates lost
 			g_entities[0].client->ps.persistant[PERS_TEAMMATES_KILLED]++;
 		}
@@ -4046,7 +4046,7 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 		}
 	}
 
-	if ( self->s.number == 0 && attacker )
+	if ( G_CoopIsPlayer( self ) && attacker )
 	{
 //		G_SetMissionStatusText( attacker, meansOfDeath );
 		//TEST: If player killed, unmark all teammates from being undying so they can buy it too
@@ -4073,7 +4073,7 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 	// if client is in a nodrop area, don't drop anything
 	contents = gi.pointcontents( self->currentOrigin, -1 );
 	if ( !holdingSaber
-		//&& self->s.number != 0
+		//&& !G_CoopIsPlayer( self )
 		&& !( contents & CONTENTS_NODROP )
 		&& meansOfDeath != MOD_SNIPER
 		&& (!self->client||self->client->NPC_class!=CLASS_GALAKMECH))
@@ -4121,7 +4121,7 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 		self->maxs[2] = -8;
 	}
 	*/
-	if ( !self->s.number )
+	if ( G_CoopIsPlayer( self ) )
 	{//player
 		self->contents = CONTENTS_CORPSE;
 		self->maxs[2] = -8;
@@ -4129,7 +4129,7 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 	self->clipmask&=~(CONTENTS_MONSTERCLIP|CONTENTS_BOTCLIP);//so dead NPC can fly off ledges
 
 	//FACING==========================================================
-	if ( attacker && self->s.number == 0 )
+	if ( attacker && G_CoopIsPlayer( self ) )
 	{
 		self->client->ps.stats[STAT_DEAD_YAW] = AngleNormalize180( self->client->ps.viewangles[YAW] );
 	}
@@ -4160,11 +4160,11 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 	{//I was the player's viewentity and I died, kick him back to his normal view
 		G_ClearViewEntity( player );
 	}
-	else if ( !self->s.number && self->client->ps.viewEntity > 0 && self->client->ps.viewEntity < ENTITYNUM_NONE )
+	else if ( G_CoopIsPlayer( self ) && self->client->ps.viewEntity > 0 && self->client->ps.viewEntity < ENTITYNUM_NONE )
 	{
 		G_ClearViewEntity( self );
 	}
-	else if ( !self->s.number && self->client->ps.viewEntity > 0 && self->client->ps.viewEntity < ENTITYNUM_NONE )
+	else if ( G_CoopIsPlayer( self ) && self->client->ps.viewEntity > 0 && self->client->ps.viewEntity < ENTITYNUM_NONE )
 	{
 		G_ClearViewEntity( self );
 	}
@@ -4194,7 +4194,7 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 	}
 	else if ( self->client->NPC_class == CLASS_ATST )
 	{//FIXME: need keyframed explosions
-		if ( !self->s.number )
+		if ( G_CoopIsPlayer( self ) )
 		{
 			G_DrivableATSTDie( self );
 		}
@@ -4594,7 +4594,7 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 			}
 		}
 
-		if ( attacker && attacker->s.number == 0 )
+		if ( attacker && G_CoopIsPlayer( attacker ) )
 		{//killed by player
 			//FIXME: this should really be wherever my body comes to rest...
 			AddSightEvent( attacker, self->currentOrigin, 384, AEL_DISCOVERED, 10 );
@@ -4942,7 +4942,7 @@ int CheckArmor (gentity_t *ent, int damage, int dflags, int mod)
 		}
 		else
 		{
-			if ( !ent->s.number && client->NPC_class == CLASS_ATST )
+			if ( G_CoopIsPlayer( ent ) && client->NPC_class == CLASS_ATST )
 			{//player in ATST... armor takes *all* the damage
 				save = damage;
 			}
@@ -5021,7 +5021,7 @@ void G_Knockdown( gentity_t *self, gentity_t *attacker, const vec3_t pushDir, fl
 
 	if ( self->health > 0 )
 	{
-		if ( !self->s.number )
+		if ( G_CoopIsPlayer( self ) )
 		{
 			NPC_SetPainEvent( self );
 		}
@@ -5038,7 +5038,7 @@ void G_Knockdown( gentity_t *self, gentity_t *attacker, const vec3_t pushDir, fl
 			&& !PM_InKnockDown( &self->client->ps ) )
 		{
 			int knockAnim = BOTH_KNOCKDOWN1;//default knockdown
-			if ( !self->s.number && ( strength < 300 ) )//!g_spskill->integer ||
+			if ( G_CoopIsPlayer( self ) && ( strength < 300 ) )//!g_spskill->integer ||
 			{//player only knocked down if pushed *hard*
 				return;
 			}
@@ -5118,7 +5118,7 @@ void G_CheckKnockdown( gentity_t *targ, gentity_t *attacker, vec3_t newDir, int 
 		return;
 	}
 
-	if ( !targ->s.number )
+	if ( G_CoopIsPlayer( targ ) )
 	{//player less likely to be knocked down
 		if ( !g_spskill->integer )
 		{//never in easy
@@ -5263,7 +5263,7 @@ static void G_FriendlyFireReaction( gentity_t *self, gentity_t *other, int dflag
 			{//if one of us actually has an enemy already, it's okay, just an accident OR wasn't hit by player or someone controlled by player OR player hit ally and didn't get 25% chance of getting mad (FIXME:accumulate anger+base on diff?)
 				return;
 			}
-			else if ( self->NPC && !other->s.number )//should be assumed, but...
+			else if ( self->NPC && G_CoopIsPlayer( other ) )//should be assumed, but...
 			{//dammit, stop that!
 				if ( !(dflags&DAMAGE_RADIUS) )
 				{
@@ -5514,7 +5514,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 
 	// if we are the player and we are locked to an emplaced gun, we have to reroute damage to the gun....sigh.
 	if ( targ->s.eFlags & EF_LOCKED_TO_WEAPON
-		&& targ->s.number == 0
+		&& G_CoopIsPlayer( targ )
 		&& targ->owner
 		&& !targ->owner->bounceCount //not an EWeb
 		&& !( targ->owner->flags & FL_GODMODE ))
@@ -5621,7 +5621,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 	}
 
 	// no more weakling allies!
-//	if ( attacker->s.number != 0 && damage >= 2 && targ->s.number != 0 && attacker->client && attacker->client->playerTeam == TEAM_PLAYER )
+//	if ( !G_CoopIsPlayer( attacker ) && damage >= 2 && !G_CoopIsPlayer( targ ) && attacker->client && attacker->client->playerTeam == TEAM_PLAYER )
 //	{//player-helpers do only half damage to enemies
 //		damage = ceil((float)damage/2.0f);
 //	}
@@ -5629,7 +5629,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 	client = targ->client;
 
 	if ( client ) {
-		if ( client->noclip && !targ->s.number ) {
+		if ( client->noclip && G_CoopIsPlayer( targ ) ) {
 			return;
 		}
 	}
@@ -5656,7 +5656,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 		VectorNormalize2( dir, newDir );
 	}
 
-	if ( targ->s.number != 0 )
+	if ( !G_CoopIsPlayer( targ ) )
 	{//not the player
 		if ( (targ->flags&FL_GODMODE) || (targ->flags&FL_UNDYING) )
 		{//have god or undying on, so ignore no protection flag
@@ -5668,7 +5668,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 	{
 		dflags |= DAMAGE_NO_KNOCKBACK;
 	}
-	if ( !attacker->s.number && targ->client && attacker->client && targ->client->playerTeam == attacker->client->playerTeam )
+	if ( G_CoopIsPlayer( attacker ) && targ->client && attacker->client && targ->client->playerTeam == attacker->client->playerTeam )
 	{//player doesn't do knockback against allies unless he kills them
 		dflags |= DAMAGE_DEATH_KNOCKBACK;
 	}
@@ -6089,14 +6089,14 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 			return;
 		}
 
-		if ( attacker->s.number != 0 && targ->s.number != 0 &&//player not involved in any way in this exchange
+		if ( !G_CoopIsPlayer( attacker ) && !G_CoopIsPlayer( targ ) &&//player not involved in any way in this exchange
 			attacker->client && targ->client &&//two NPCs
 			attacker->client->playerTeam == targ->client->playerTeam ) //on the same team
 		{//NPCs on same team don't hurt each other
 			return;
 		}
 
-		if ( targ->s.number == 0 &&//player was hit
+		if ( G_CoopIsPlayer( targ ) &&//player was hit
 			attacker->client && targ->client &&//by an NPC
 			attacker->client->playerTeam == TEAM_PLAYER ) //on the same team
 		{
@@ -6122,7 +6122,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 	//FIXME: Do not use this method of difficulty changing
 	// Scale the amount of damage given to the player based on the skill setting
 	/*
-	if ( targ->s.number == 0 && targ != attacker )
+	if ( G_CoopIsPlayer( targ ) && targ != attacker )
 	{
 		take *= ( g_spskill->integer + 1) * 0.75;
 	}
@@ -6482,7 +6482,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 		}
 	}
 
-	if ( attacker && attacker->client && !attacker->s.number )
+	if ( attacker && attacker->client && G_CoopIsPlayer( attacker ) )
 	{
 		if ( !alreadyDead )
 		{
@@ -6561,7 +6561,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 				targ->health = targ->health - take;
 
 				//MCG - Falling should never kill player- only if a trigger_hurt does so.
-				if ( mod == MOD_FALLING && targ->s.number == 0 && targ->health < 1 )
+				if ( mod == MOD_FALLING && G_CoopIsPlayer( targ ) && targ->health < 1 )
 				{
 					targ->health = 1;
 				}
@@ -6592,7 +6592,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 				qboolean yellAtAttacker = qtrue;
 
 				//1) player doesn't take damage from teammates unless they're angry at him
-				if ( targ->s.number == 0 )
+				if ( G_CoopIsPlayer( targ ) )
 				{//the player
 					if ( attacker->enemy != targ && attacker != targ )
 					{//an NPC shot the player by accident
@@ -6619,7 +6619,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 				if ( takeDamage )
 				{
 					targ->health = targ->health - take;
-					if ( !alreadyDead && ((((targ->flags&FL_UNDYING)||targ->client->ps.forcePowersActive & (1 << FP_RAGE)) && !(dflags&DAMAGE_NO_PROTECTION) && attacker->s.number != 0) || (dflags&DAMAGE_NO_KILL) ) )
+					if ( !alreadyDead && ((((targ->flags&FL_UNDYING)||targ->client->ps.forcePowersActive & (1 << FP_RAGE)) && !(dflags&DAMAGE_NO_PROTECTION) && !G_CoopIsPlayer( attacker )) || (dflags&DAMAGE_NO_KILL) ) )
 					{//guy is marked undying and we're not the player or we're in combat
 						if ( targ->health < 1 )
 						{
@@ -6628,7 +6628,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 							targ->health = 1;
 						}
 					}
-					else if ( !alreadyDead && ((((targ->flags&FL_UNDYING)||targ->client->ps.forcePowersActive & (1 << FP_RAGE)) && !(dflags&DAMAGE_NO_PROTECTION) && !attacker->s.number && !targ->s.number) || (dflags&DAMAGE_NO_KILL)) )
+					else if ( !alreadyDead && ((((targ->flags&FL_UNDYING)||targ->client->ps.forcePowersActive & (1 << FP_RAGE)) && !(dflags&DAMAGE_NO_PROTECTION) && G_CoopIsPlayer( attacker ) && G_CoopIsPlayer( targ )) || (dflags&DAMAGE_NO_KILL)) )
 					{// player is undying and he's attacking himself, don't let him die
 						if ( targ->health < 1 )
 						{
@@ -6640,7 +6640,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 					else if ( targ->health < 0 )
 					{
 						targ->health = 0;
-						if ( attacker->s.number == 0 && targ->NPC )
+						if ( G_CoopIsPlayer( attacker ) && targ->NPC )
 						{
 							targ->NPC->scriptFlags |= SCF_FFDEATH;
 						}
@@ -6668,7 +6668,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 
 		//TEMP HACK FOR PLAYER LOOK AT ENEMY CODE
 		//FIXME: move this to a player pain func?
-		if ( targ->s.number == 0 )
+		if ( G_CoopIsPlayer( targ ) )
 		{
 			if ( !targ->enemy //player does not have an enemy yet
 				|| targ->enemy->s.weapon != WP_SABER //or player's enemy is not a jedi
@@ -6682,7 +6682,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 				NPC_SetLookTarget( targ, attacker->s.number, level.time+1000 );
 			}
 		}
-		else if ( attacker->s.number == 0 && (!targ->NPC || !targ->NPC->timeOfDeath) && (mod == MOD_SABER || attacker->s.weapon != WP_SABER || !attacker->enemy || attacker->enemy->s.weapon != WP_SABER) )//keep enemy jedi over shooters
+		else if ( G_CoopIsPlayer( attacker ) && (!targ->NPC || !targ->NPC->timeOfDeath) && (mod == MOD_SABER || attacker->s.weapon != WP_SABER || !attacker->enemy || attacker->enemy->s.weapon != WP_SABER) )//keep enemy jedi over shooters
 		{//this looks dumb when they're on the ground and you keep hitting them, so only do this when first kill them
 			if ( !OnSameTeam( targ, attacker ) )
 			{//don't set player's enemy to teammates that he hits by accident
@@ -6756,7 +6756,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 		else
 		{
 			GEntity_PainFunc( targ, inflictor, attacker, point, take, mod, hitLoc );
-			if ( targ->s.number == 0 )
+			if ( G_CoopIsPlayer( targ ) )
 			{//player run painscript
 				G_ActivateBehavior( targ, BSET_PAIN );
 				if ( targ->health <= 25 )

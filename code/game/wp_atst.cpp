@@ -37,7 +37,7 @@ void WP_ATSTMainFire( gentity_t *ent )
 //		vel = 4500.0f;
 //	}
 
-	if ( !ent->s.number )
+	if ( G_CoopIsPlayer( ent ) )
 	{
 		// player shoots faster
 		vel *= 1.6f;
@@ -83,7 +83,7 @@ void WP_ATSTSideAltFire( gentity_t *ent )
 	missile->mass = 10;
 
 	// Do the damages
-	if ( ent->s.number != 0 )
+	if ( !G_CoopIsPlayer( ent ) )
 	{
 		if ( g_spskill->integer == 0 )
 		{
@@ -112,7 +112,7 @@ void WP_ATSTSideAltFire( gentity_t *ent )
 	missile->clipmask = MASK_SHOT;
 
 	// Scale damage down a bit if it is coming from an NPC
-	missile->splashDamage = weaponData[WP_ATST_SIDE].altSplashDamage * ( ent->s.number == 0 ? 1.0f : ATST_SIDE_ALT_ROCKET_SPLASH_SCALE );
+	missile->splashDamage = weaponData[WP_ATST_SIDE].altSplashDamage * ( G_CoopIsPlayer( ent ) ? 1.0f : ATST_SIDE_ALT_ROCKET_SPLASH_SCALE );
 	missile->splashRadius = weaponData[WP_ATST_SIDE].altSplashRadius;
 
 	// we don't want it to ever bounce
@@ -132,7 +132,7 @@ void WP_ATSTSideFire( gentity_t *ent )
 	missile->s.weapon = WP_ATST_SIDE;
 
 	// Do the damages
-	if ( ent->s.number != 0 )
+	if ( !G_CoopIsPlayer( ent ) )
 	{
 		if ( g_spskill->integer == 0 )
 		{
@@ -156,7 +156,7 @@ void WP_ATSTSideFire( gentity_t *ent )
 	missile->methodOfDeath = MOD_ENERGY;
 	missile->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
 
-	missile->splashDamage = weaponData[WP_REPEATER].splashDamage * ( ent->s.number == 0 ? 1.0f : 0.6f );
+	missile->splashDamage = weaponData[WP_REPEATER].splashDamage * ( G_CoopIsPlayer( ent ) ? 1.0f : 0.6f );
 	missile->splashRadius = weaponData[WP_REPEATER].splashRadius;
 
 	// we don't want it to bounce

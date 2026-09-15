@@ -452,7 +452,7 @@ int Pickup_Weapon (gentity_t *ent, gentity_t *other)
 	qboolean	hadWeapon = qfalse;
 
 	/*
-	if ( ent->count || (ent->activator && !ent->activator->s.number) )
+	if ( ent->count || (ent->activator && G_CoopIsPlayer( ent->activator )) )
 	{
 		quantity = ent->count;
 	}
@@ -739,7 +739,7 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 	}
 
 	// NPCs can pick it up
-	if ((ent->spawnflags &  ITMSF_ALLOWNPC) && (!other->s.number))
+	if ((ent->spawnflags &  ITMSF_ALLOWNPC) && (G_CoopIsPlayer( other )))
 	{
 		return;
 	}
@@ -779,7 +779,7 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 	}
 	else if ( !(ent->spawnflags &  ITMSF_ALLOWNPC) )
 	{// NPCs cannot pick it up
-		if ( other->s.number != 0 )
+		if ( !G_CoopIsPlayer( other ) )
 		{// Not the player?
 			return;
 		}
@@ -873,7 +873,7 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 	}
 
 	// play the normal pickup sound
-	if ( !other->s.number && g_timescale->value < 1.0f  )
+	if ( G_CoopIsPlayer( other ) && g_timescale->value < 1.0f  )
 	{//SIGH... with timescale on, you lose events left and right
 extern void CG_ItemPickup( int itemNum, qboolean bHadItem );
 		// but we're SP so we'll cheat
@@ -1056,7 +1056,7 @@ Respawn the item
 */
 void Use_Item( gentity_t *ent, gentity_t *other, gentity_t *activator )
 {
-	if ( (ent->svFlags&SVF_PLAYER_USABLE) && other && !other->s.number )
+	if ( (ent->svFlags&SVF_PLAYER_USABLE) && other && G_CoopIsPlayer( other ) )
 	{//used directly by the player, pick me up
 		if ( (ent->spawnflags&ITMSF_USEPICKUP) )
 		{//player has to be touching me and hit use to pick it up, so don't allow this

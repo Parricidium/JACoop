@@ -2073,7 +2073,7 @@ static void CG_DrawZoomMask( void )
 	float			charge = cg.snap->ps.batteryCharge / (float)MAX_BATTERIES; // convert charge to a percentage
 	qboolean		power = qfalse;
 
-	cent = &cg_entities[0];
+	cent = &cg_entities[cg_localEntNum];
 
 	if ( charge > 0.0f )
 	{
@@ -2220,7 +2220,7 @@ static void CG_DrawZoomMask( void )
 		float cx, cy;
 		float max;
 
-		max = cg_entities[0].gent->client->ps.ammo[weaponData[WP_DISRUPTOR].ammoIndex] / (float)ammoData[weaponData[WP_DISRUPTOR].ammoIndex].max;
+		max = cg_entities[cg_localEntNum].gent->client->ps.ammo[weaponData[WP_DISRUPTOR].ammoIndex] / (float)ammoData[weaponData[WP_DISRUPTOR].ammoIndex].max;
 
 		if ( max > 1.0f )
 		{
@@ -2261,12 +2261,12 @@ static void CG_DrawZoomMask( void )
 		}
 
 		// FIXME: doesn't know about ammo!! which is bad because it draws charge beyond what ammo you may have..
-		if ( cg_entities[0].gent->client->ps.weaponstate == WEAPON_CHARGING_ALT )
+		if ( cg_entities[cg_localEntNum].gent->client->ps.weaponstate == WEAPON_CHARGING_ALT )
 		{
 			cgi_R_SetColor( colorTable[CT_WHITE] );
 
 			// draw the charge level
-			max = ( cg.time - cg_entities[0].gent->client->ps.weaponChargeTime ) / ( 150.0f * 10.0f ); // bad hardcodedness 150 is disruptor charge unit and 10 is max charge units allowed.
+			max = ( cg.time - cg_entities[cg_localEntNum].gent->client->ps.weaponChargeTime ) / ( 150.0f * 10.0f ); // bad hardcodedness 150 is disruptor charge unit and 10 is max charge units allowed.
 
 			if ( max > 1.0f )
 			{
@@ -2516,7 +2516,7 @@ void CG_AddHealthBarEnt( int entNum )
 		return;
 	}
 
-	if (DistanceSquared( cg_entities[entNum].lerpOrigin, g_entities[0].client->renderInfo.eyePoint ) < (HEALTHBARRANGE*HEALTHBARRANGE) )
+	if (DistanceSquared( cg_entities[entNum].lerpOrigin, g_entities[cg_localEntNum].client->renderInfo.eyePoint ) < (HEALTHBARRANGE*HEALTHBARRANGE) )
 	{
 		cg_healthBarEnts[cg_numHealthBarEnts++] = entNum;
 	}
@@ -2589,7 +2589,7 @@ static void CG_DrawCrosshair( vec3_t worldPoint )
 				ecolor[1] = 1.0f;//G
 				ecolor[2] = 1.0f;//B
 			}
-			else if ( g_entities[0].client && g_entities[0].client->playerTeam == TEAM_FREE )
+			else if ( g_entities[cg_localEntNum].client && g_entities[cg_localEntNum].client->playerTeam == TEAM_FREE )
 			{//evil player: everyone is red
 				//Enemies are red
 				ecolor[0] = 1.0f;//R
@@ -2936,20 +2936,20 @@ static void CG_ScanForCrosshairEntity( qboolean scanAll )
 	//FIXME: debounce this to about 10fps?
 
 	cg_forceCrosshair = qfalse;
-	if ( !cg_remoteClient && cg_entities[0].gent && cg_entities[0].gent->client ) // coop: remote client has no server eyePoint // <-Mike said it should always do this   //if (cg_crosshairForceHint.integer &&
+	if ( !cg_remoteClient && cg_entities[cg_localEntNum].gent && cg_entities[cg_localEntNum].gent->client ) // coop: remote client has no server eyePoint // <-Mike said it should always do this   //if (cg_crosshairForceHint.integer &&
 	{//try to check for force-affectable stuff first
 		vec3_t d_f, d_rt, d_up;
 
 		// If you're riding a vehicle and not being drawn.
-		if ( ( pVeh = G_IsRidingVehicle( cg_entities[0].gent ) ) != NULL && cg_entities[0].currentState.eFlags & EF_NODRAW )
+		if ( ( pVeh = G_IsRidingVehicle( cg_entities[cg_localEntNum].gent ) ) != NULL && cg_entities[cg_localEntNum].currentState.eFlags & EF_NODRAW )
 		{
 			VectorCopy( cg_entities[pVeh->m_pParentEntity->s.number].lerpOrigin, start );
 			AngleVectors( cg_entities[pVeh->m_pParentEntity->s.number].lerpAngles, d_f, d_rt, d_up );
 		}
 		else
 		{
-			VectorCopy( g_entities[0].client->renderInfo.eyePoint, start );
-			AngleVectors( cg_entities[0].lerpAngles, d_f, d_rt, d_up );
+			VectorCopy( g_entities[cg_localEntNum].client->renderInfo.eyePoint, start );
+			AngleVectors( cg_entities[cg_localEntNum].lerpAngles, d_f, d_rt, d_up );
 		}
 
 		VectorMA( start, 2048, d_f, end );//4028 is max for mind trick
@@ -2966,7 +2966,7 @@ static void CG_ScanForCrosshairEntity( qboolean scanAll )
 				// Check for mind trickable-guys
 				if ( traceEnt->client )
 				{//is a client
-					if ( cg_entities[0].gent->client->ps.forcePowerLevel[FP_TELEPATHY] && traceEnt->health > 0 && VALIDSTRING(traceEnt->behaviorSet[BSET_MINDTRICK]) )
+					if ( cg_entities[cg_localEntNum].gent->client->ps.forcePowerLevel[FP_TELEPATHY] && traceEnt->health > 0 && VALIDSTRING(traceEnt->behaviorSet[BSET_MINDTRICK]) )
 					{//I have the ability to mind-trick and he is alive and he has a mind trick script
 						//NOTE: no need to check range since it's always 2048
 						cg_forceCrosshair = qtrue;
@@ -2979,16 +2979,16 @@ static void CG_ScanForCrosshairEntity( qboolean scanAll )
 					{//it's a func_door
 						if ( traceEnt->spawnflags & 2/*MOVER_FORCE_ACTIVATE*/ )
 						{//it's force-usable
-							if ( cg_entities[0].gent->client->ps.forcePowerLevel[FP_PULL] || cg_entities[0].gent->client->ps.forcePowerLevel[FP_PUSH] )
+							if ( cg_entities[cg_localEntNum].gent->client->ps.forcePowerLevel[FP_PULL] || cg_entities[cg_localEntNum].gent->client->ps.forcePowerLevel[FP_PUSH] )
 							{//player has push or pull
 								float maxRange;
-								if ( cg_entities[0].gent->client->ps.forcePowerLevel[FP_PULL] > cg_entities[0].gent->client->ps.forcePowerLevel[FP_PUSH] )
+								if ( cg_entities[cg_localEntNum].gent->client->ps.forcePowerLevel[FP_PULL] > cg_entities[cg_localEntNum].gent->client->ps.forcePowerLevel[FP_PUSH] )
 								{//use the better range
-									maxRange = forcePushPullRadius[cg_entities[0].gent->client->ps.forcePowerLevel[FP_PULL]];
+									maxRange = forcePushPullRadius[cg_entities[cg_localEntNum].gent->client->ps.forcePowerLevel[FP_PULL]];
 								}
 								else
 								{//use the better range
-									maxRange = forcePushPullRadius[cg_entities[0].gent->client->ps.forcePowerLevel[FP_PUSH]];
+									maxRange = forcePushPullRadius[cg_entities[cg_localEntNum].gent->client->ps.forcePowerLevel[FP_PUSH]];
 								}
 								if ( maxRange >= trace.fraction * 2048 )
 								{//actually close enough to use one of our force powers on it
@@ -3002,13 +3002,13 @@ static void CG_ScanForCrosshairEntity( qboolean scanAll )
 						if ( (traceEnt->spawnflags & 1/*F_PUSH*/) && (traceEnt->spawnflags & 2/*F_PULL*/) )
 						{//push or pullable
 							float maxRange;
-							if ( cg_entities[0].gent->client->ps.forcePowerLevel[FP_PULL] > cg_entities[0].gent->client->ps.forcePowerLevel[FP_PUSH] )
+							if ( cg_entities[cg_localEntNum].gent->client->ps.forcePowerLevel[FP_PULL] > cg_entities[cg_localEntNum].gent->client->ps.forcePowerLevel[FP_PUSH] )
 							{//use the better range
-								maxRange = forcePushPullRadius[cg_entities[0].gent->client->ps.forcePowerLevel[FP_PULL]];
+								maxRange = forcePushPullRadius[cg_entities[cg_localEntNum].gent->client->ps.forcePowerLevel[FP_PULL]];
 							}
 							else
 							{//use the better range
-								maxRange = forcePushPullRadius[cg_entities[0].gent->client->ps.forcePowerLevel[FP_PUSH]];
+								maxRange = forcePushPullRadius[cg_entities[cg_localEntNum].gent->client->ps.forcePowerLevel[FP_PUSH]];
 							}
 							if ( maxRange >= trace.fraction * 2048 )
 							{//actually close enough to use one of our force powers on it
@@ -3017,14 +3017,14 @@ static void CG_ScanForCrosshairEntity( qboolean scanAll )
 						}
 						else if ( (traceEnt->spawnflags & 1/*F_PUSH*/) )
 						{//pushable only
-							if ( forcePushPullRadius[cg_entities[0].gent->client->ps.forcePowerLevel[FP_PUSH]] >= trace.fraction * 2048 )
+							if ( forcePushPullRadius[cg_entities[cg_localEntNum].gent->client->ps.forcePowerLevel[FP_PUSH]] >= trace.fraction * 2048 )
 							{//actually close enough to use force push on it
 								cg_forceCrosshair = qtrue;
 							}
 						}
 						else if ( (traceEnt->spawnflags & 2/*F_PULL*/) )
 						{//pullable only
-							if ( forcePushPullRadius[cg_entities[0].gent->client->ps.forcePowerLevel[FP_PULL]] >= trace.fraction * 2048 )
+							if ( forcePushPullRadius[cg_entities[cg_localEntNum].gent->client->ps.forcePowerLevel[FP_PULL]] >= trace.fraction * 2048 )
 							{//actually close enough to use force pull on it
 								cg_forceCrosshair = qtrue;
 							}
@@ -3040,7 +3040,7 @@ static void CG_ScanForCrosshairEntity( qboolean scanAll )
 		{//100% accurate
 			vec3_t d_f, d_rt, d_up;
 			// If you're riding a vehicle and not being drawn.
-			if ( ( pVeh = G_IsRidingVehicle( cg_entities[0].gent ) ) != NULL && cg_entities[0].currentState.eFlags & EF_NODRAW )
+			if ( ( pVeh = G_IsRidingVehicle( cg_entities[cg_localEntNum].gent ) ) != NULL && cg_entities[cg_localEntNum].currentState.eFlags & EF_NODRAW )
 			{
 				VectorCopy( cg_entities[pVeh->m_pParentEntity->s.number].lerpOrigin, start );
 				AngleVectors( cg_entities[pVeh->m_pParentEntity->s.number].lerpAngles, d_f, d_rt, d_up );
@@ -3062,17 +3062,17 @@ static void CG_ScanForCrosshairEntity( qboolean scanAll )
 				}
 				else
 				{
-					VectorCopy( g_entities[0].client->renderInfo.eyePoint, start );
-					AngleVectors( cg_entities[0].lerpAngles, d_f, d_rt, d_up );
+					VectorCopy( g_entities[cg_localEntNum].client->renderInfo.eyePoint, start );
+					AngleVectors( cg_entities[cg_localEntNum].lerpAngles, d_f, d_rt, d_up );
 				}
 			}
 			else
 			{
 				extern void CalcMuzzlePoint( gentity_t *const ent, vec3_t forward, vec3_t right, vec3_t up, vec3_t muzzlePoint, float lead_in );
-				AngleVectors( cg_entities[0].lerpAngles, d_f, d_rt, d_up );
-				CalcMuzzlePoint( &g_entities[0], d_f, d_rt, d_up, start , 0 );
+				AngleVectors( cg_entities[cg_localEntNum].lerpAngles, d_f, d_rt, d_up );
+				CalcMuzzlePoint( &g_entities[cg_localEntNum], d_f, d_rt, d_up, start , 0 );
 			}
-			//VectorCopy( g_entities[0].client->renderInfo.muzzlePoint, start );
+			//VectorCopy( g_entities[cg_localEntNum].client->renderInfo.muzzlePoint, start );
 			//FIXME: increase this?  Increase when zoom in?
 			VectorMA( start, 4096, d_f, end );//was 8192
 		}
@@ -3180,7 +3180,7 @@ CG_DrawCrosshairNames
 static void CG_DrawCrosshairNames( void )
 {
 	qboolean	scanAll = qfalse;
-	centity_t	*player = &cg_entities[0];
+	centity_t	*player = &cg_entities[cg_localEntNum];
 
 	if ( cg_dynamicCrosshair.integer )
 	{
@@ -3357,7 +3357,7 @@ static void CG_DrawRocketLocking( int lockEntNum, int lockTime )
 static void CG_RunRocketLocking( void )
 //------------------------------------
 {
-	centity_t	*player = &cg_entities[0];
+	centity_t	*player = &cg_entities[cg_localEntNum];
 
 	// Only bother with this when the player is holding down the alt-fire button of the rocket launcher
 	if ( player->currentState.weapon == WP_ROCKET_LAUNCHER )

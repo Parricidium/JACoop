@@ -1598,7 +1598,7 @@ void touch_ammo_crystal_tigger( gentity_t *self, gentity_t *other, trace_t *trac
 		return;
 
 	// Only player can pick it up
-	if ( other->s.number != 0 )
+	if ( !G_CoopIsPlayer( other ) )
 	{
 		return;
 	}
@@ -2022,7 +2022,7 @@ void shield_power_converter_use( gentity_t *self, gentity_t *other, gentity_t *a
 {
 	int dif,add;
 
-	if ( !activator || activator->s.number != 0 )
+	if ( !activator || !G_CoopIsPlayer( activator ) )
 	{
 		//only the player gets to use these
 		return;
@@ -2380,7 +2380,7 @@ void ammo_power_converter_use( gentity_t *self, gentity_t *other, gentity_t *act
 	int			difBlaster,difPowerCell,difMetalBolts;
 	playerState_t *ps;
 
-	if ( !activator || activator->s.number != 0 )
+	if ( !activator || !G_CoopIsPlayer( activator ) )
 	{//only the player gets to use these
 		return;
 	}
@@ -3013,7 +3013,7 @@ void misc_atst_use( gentity_t *self, gentity_t *other, gentity_t *activator )
 			activator->locationDamage[hl] = self->locationDamage[hl];
 			self->locationDamage[hl] = tempLocDmg[hl];
 		}
-		if ( !self->s.number )
+		if ( G_CoopIsPlayer( self ) )
 		{
 			CG_CenterPrint( "@SP_INGAME_EXIT_VIEW", SCREEN_HEIGHT * 0.95 );
 		}

@@ -1021,7 +1021,7 @@ void NPC_BSJump (void)
 void NPC_BSRemove (void)
 {
 	NPC_UpdateAngles ( qtrue, qtrue );
-	if( !gi.inPVS( NPC->currentOrigin, g_entities[0].currentOrigin ) )//FIXME: use cg.vieworg?
+	if( !G_CoopInAnyPlayerPVS( NPC->currentOrigin ) )//FIXME: use cg.vieworg?
 	{
 		G_UseTargets2( NPC, NPC, NPC->target3 );
 		NPC->s.eFlags |= EF_NODRAW;

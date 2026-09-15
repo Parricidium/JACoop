@@ -1302,7 +1302,7 @@ bool			NAV::TestEdge( TNodeHandle NodeA, TNodeHandle NodeB, qboolean IsDebugEdge
 		{
 			at.mFlags.set_bit(CWayEdge::WE_BLOCKING_BREAK);
 		}
-		else if (ent->NPC || ent->s.number==0)
+		else if (ent->NPC || G_CoopIsPlayer( ent ))
 		{
 			HitCharacter = true;
 		}

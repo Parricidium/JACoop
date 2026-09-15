@@ -987,6 +987,15 @@ extern "C" Q_EXPORT void QDECL GetCGameAPI( game_import_t *import ) {
 		// cvar registration and file reads only.
 		G_InitCvars();
 		WP_SaberLoadParms();
+
+		// The map-specific cinematic animation set (_humanoid_<map>) is picked by
+		// level.mapname when a character's anim file set is parsed; the remote
+		// client never runs InitGame, so take the map from the serverinfo.
+		{
+			char serverinfo[MAX_INFO_STRING];
+			gi.GetServerinfo( serverinfo, sizeof( serverinfo ) );
+			Q_strncpyz( level.mapname, Info_ValueForKey( serverinfo, "mapname" ), sizeof( level.mapname ) );
+		}
 	}
 }
 

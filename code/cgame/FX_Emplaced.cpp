@@ -67,7 +67,7 @@ void FX_EmplacedProjectileThink( centity_t *cent, const struct weaponInfo_s *wea
 	}
 	else
 	{
-		if ( cent->gent && cent->gent->owner && cent->gent->owner->activator && cent->gent->owner->activator->s.number > 0 )
+		if ( cent->gent && cent->gent->owner && cent->gent->owner->activator && cent->gent->owner->activator->s.number >= MAX_CLIENTS )
 		{
 			// NPC's do short shot
 			if ( cent->gent->alt_fire )

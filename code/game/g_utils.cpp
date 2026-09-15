@@ -1124,7 +1124,7 @@ void G_AddEvent( gentity_t *ent, int event, int eventParm ) {
 #endif
 
 	// clients need to add the event in playerState_t instead of entityState_t
-	if ( !ent->s.number ) //only one client
+	if ( G_CoopIsPlayer( ent ) ) //only one client
 	{
 #if 0
 		bits = ent->client->ps.externalEvent & EV_EVENT_BITS;
@@ -1762,12 +1762,12 @@ void TryUse( gentity_t *ent )
 	trace_t		trace;
 	vec3_t		src, dest, vf;
 
-	if (ent->s.number == 0 && g_npcdebug->integer == 1)
+	if (G_CoopIsPlayer( ent ) && g_npcdebug->integer == 1)
 	{
 		DebugTraceForNPC(ent);
 	}
 
-	if ( ent->s.number == 0 && ent->client->NPC_class == CLASS_ATST )
+	if ( G_CoopIsPlayer( ent ) && ent->client->NPC_class == CLASS_ATST )
 	{//a player trying to get out of his ATST
 		GEntity_UseFunc( ent->activator, ent, ent );
 		return;
@@ -1794,7 +1794,7 @@ void TryUse( gentity_t *ent )
 	{
 		//TODO: Play a failure sound
 		/*
-		if ( ent->s.number == 0 )
+		if ( G_CoopIsPlayer( ent ) )
 		{//if nothing else, try the force telepathy power
 			ForceTelepathy( ent );
 		}
@@ -1837,7 +1837,7 @@ void TryUse( gentity_t *ent )
 		return;
 	}
 	/*
-	if ( ent->s.number == 0 )
+	if ( G_CoopIsPlayer( ent ) )
 	{//if nothing else, try the force telepathy power
 		ForceTelepathy( ent );
 	}

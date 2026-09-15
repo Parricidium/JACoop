@@ -367,7 +367,7 @@ void Rancor_DropVictim( gentity_t *self )
 		{
 			self->enemy = NULL;
 		}
-		if ( self->activator->s.number == 0 )
+		if ( G_CoopIsPlayer( self->activator ) )
 		{//don't attack the player again for a bit
 			TIMER_Set( self, "attackDebounce", Q_irand( 2000, 4000+((2-g_spskill->integer)*2000) ) );
 		}
@@ -804,7 +804,7 @@ void Rancor_Attack( float distance, qboolean doCharge, qboolean aimAtBlockedEnti
 			{
 				NPC_SetAnim( NPC, SETANIM_BOTH, BOTH_ATTACK5, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD );
 				TIMER_Set( NPC, "attack_dmg", 1250 );
-				if ( NPC->enemy && NPC->enemy->s.number == 0 )
+				if ( NPC->enemy && G_CoopIsPlayer( NPC->enemy ) )
 				{//don't attack the player again for a bit
 					TIMER_Set( NPC, "attackDebounce", NPC->client->ps.legsAnimTimer + Q_irand( 2000, 4000+((2-g_spskill->integer)*2000) ) );
 				}
@@ -851,7 +851,7 @@ void Rancor_Attack( float distance, qboolean doCharge, qboolean aimAtBlockedEnti
 				TIMER_Set( NPC, "breathAttack", NPC->client->ps.legsAnimTimer-500 );
 				G_SoundOnEnt( NPC, CHAN_WEAPON, "sound/chars/rancor/breath_start.wav" );
 				NPC->s.loopSound = G_SoundIndex( "sound/chars/rancor/breath_loop.wav" );
-				if ( NPC->enemy && NPC->enemy->s.number == 0 )
+				if ( NPC->enemy && G_CoopIsPlayer( NPC->enemy ) )
 				{//don't attack the player again for a bit
 					TIMER_Set( NPC, "attackDebounce", NPC->client->ps.legsAnimTimer + Q_irand( 2000, 4000+((2-g_spskill->integer)*2000) ) );
 				}
@@ -865,7 +865,7 @@ void Rancor_Attack( float distance, qboolean doCharge, qboolean aimAtBlockedEnti
 				VectorScale( fwd, distance*1.5f, NPC->client->ps.velocity );
 				NPC->client->ps.velocity[2] = 150;
 				NPC->client->ps.groundEntityNum = ENTITYNUM_NONE;
-				if ( NPC->enemy && NPC->enemy->s.number == 0 )
+				if ( NPC->enemy && G_CoopIsPlayer( NPC->enemy ) )
 				{//don't attack the player again for a bit
 					TIMER_Set( NPC, "attackDebounce", NPC->client->ps.legsAnimTimer + Q_irand( 2000, 4000+((2-g_spskill->integer)*2000) ) );
 				}
@@ -918,7 +918,7 @@ void Rancor_Attack( float distance, qboolean doCharge, qboolean aimAtBlockedEnti
 			}
 			NPC_SetAnim( NPC, SETANIM_BOTH, grabAnim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD );
 			TIMER_Set( NPC, "attack_dmg", 800 );
-			if ( NPC->enemy && NPC->enemy->s.number == 0 )
+			if ( NPC->enemy && G_CoopIsPlayer( NPC->enemy ) )
 			{//don't attack the player again for a bit
 				TIMER_Set( NPC, "attackDebounce", NPC->client->ps.legsAnimTimer + Q_irand( 2000, 4000+((2-g_spskill->integer)*2000) ) );
 			}
@@ -1204,7 +1204,7 @@ void NPC_Rancor_Pain( gentity_t *self, gentity_t *inflictor, gentity_t *other, c
 	{
 		if ( !self->count )
 		{
-			if ( (!other->s.number&&!Q_irand(0,3))
+			if ( (G_CoopIsPlayer( other )&&!Q_irand(0,3))
 				|| !self->enemy
 				|| self->enemy->health == 0
 				|| (self->enemy->client&&self->enemy->client->NPC_class == CLASS_RANCOR)

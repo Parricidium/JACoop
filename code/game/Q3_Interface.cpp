@@ -2304,7 +2304,7 @@ static void Q3_SetHealth( int entID, int data )
 	}
 
 	ent->client->ps.stats[STAT_HEALTH] = data;
-	if ( ent->s.number == 0 )
+	if ( G_CoopIsPlayer( ent ) )
 	{//clamp health to max
 		if ( ent->client->ps.stats[STAT_HEALTH] > ent->client->ps.stats[STAT_MAX_HEALTH] )
 		{
@@ -2348,7 +2348,7 @@ static void Q3_SetArmor( int entID, int data )
 	}
 
 	ent->client->ps.stats[STAT_ARMOR] = data;
-	if ( ent->s.number == 0 )
+	if ( G_CoopIsPlayer( ent ) )
 	{//clamp armor to max_health
 		if ( ent->client->ps.stats[STAT_ARMOR] > ent->client->ps.stats[STAT_MAX_HEALTH] )
 		{
@@ -6556,7 +6556,7 @@ static void Q3_SetCleanDamagingEnts( void )
 				// check for a client, otherwise we could remove someone holding this weapon
 				G_FreeEntity( ent );
 			}
-			else if ( ent->s.weapon == WP_TURRET && ent->activator && ent->activator->s.number == 0 && !Q_stricmp( "PAS", ent->classname ))
+			else if ( ent->s.weapon == WP_TURRET && ent->activator && G_CoopIsPlayer( ent->activator ) && !Q_stricmp( "PAS", ent->classname ))
 			{
 				// is a player owner personal assault sentry gun.
 				G_FreeEntity( ent );
@@ -9633,7 +9633,7 @@ void	CQuake3GameInterface::Use( int entID, const char *name )
 		return;
 	}
 
-	if ( ent->s.number == 0 && ent->client->NPC_class == CLASS_ATST )
+	if ( G_CoopIsPlayer( ent ) && ent->client->NPC_class == CLASS_ATST )
 	{//a player trying to get out of his ATST
 		GEntity_UseFunc( ent->activator, ent, ent );
 		return;

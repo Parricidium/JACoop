@@ -226,7 +226,7 @@ static bool SortBySurname(const StringAndSize_t &str1, const StringAndSize_t &st
 void CG_Credits_Init( const char *psStripReference, vec4_t *pv4Color)
 {
 	// Play the light side end credits music.
-	if ( g_entities[0].client->sess.mission_objectives[0].status != 2 )
+	if ( g_entities[cg_localEntNum].client->sess.mission_objectives[0].status != 2 )
 	{
 		cgi_S_StartBackgroundTrack( "music/endcredits.mp3", NULL, qfalse );
 	}

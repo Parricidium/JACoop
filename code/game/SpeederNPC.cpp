@@ -507,7 +507,7 @@ static void ProcessMoveCommands( Vehicle_t *pVeh )
 #ifdef _JK2MP
 			|| (0 && pVeh->m_pParentEntity->s.number < MAX_CLIENTS) )
 #else
-			|| (!g_speederControlScheme->value && !pVeh->m_pParentEntity->s.number) )
+			|| (!g_speederControlScheme->value && G_CoopIsPlayer( pVeh->m_pParentEntity )) )
 #endif
 		{//if in a strafe-capable vehicle, clear strafing unless using alternate control scheme
 			//pVeh->m_ucmd.rightmove = 0;

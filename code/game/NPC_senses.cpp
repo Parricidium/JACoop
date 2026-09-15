@@ -627,7 +627,7 @@ NPC_CheckAlertEvents
 
 int G_CheckAlertEvents( gentity_t *self, qboolean checkSight, qboolean checkSound, float maxSeeDist, float maxHearDist, int ignoreAlert, qboolean mustHaveOwner, int minAlertLevel, qboolean onGroundOnly )
 {
-	if ( &g_entities[0] == NULL || g_entities[0].health <= 0 )
+	if ( !G_CoopAnyPlayerAlive() )	// coop
 	{
 		//player is dead
 		return -1;

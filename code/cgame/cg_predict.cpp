@@ -245,7 +245,7 @@ void CG_SetClientViewAngles( vec3_t angles, qboolean overrideViewEnt )
 			cg.predicted_player_state.delta_angles[i] = 0;
 			cg.snap->ps.viewangles[i] = angles[i];
 			cg.snap->ps.delta_angles[i] = 0;
-			g_entities[0].client->pers.cmd_angles[i] = ANGLE2SHORT(angles[i]);
+			g_entities[cg_localEntNum].client->pers.cmd_angles[i] = ANGLE2SHORT(angles[i]);
 		}
 		cgi_SetUserCmdAngles( angles[PITCH], angles[YAW], angles[ROLL] );
 	}
@@ -267,15 +267,15 @@ qboolean CG_CheckModifyUCmd( usercmd_t *cmd, vec3_t viewangles )
 		cmd->angles[YAW] = ANGLE2SHORT( cg.snap->ps.viewangles[YAW] ) - cg.snap->ps.delta_angles[YAW];
 		cmd->angles[ROLL] = 0;
 		*/
-		VectorCopy( g_entities[0].pos4, viewangles );
+		VectorCopy( g_entities[cg_localEntNum].pos4, viewangles );
 		overridAngles = qtrue;
 		//CG_SetClientViewAngles( g_entities[cg.snap->ps.viewEntity].client->ps.viewangles, qtrue );
 	}
-	else if ( G_IsRidingVehicle( &g_entities[0] ) )
+	else if ( G_IsRidingVehicle( &g_entities[cg_localEntNum] ) )
 	{
 		overridAngles = qtrue;
 		/*
-		int vehIndex = g_entities[0].owner->client->ps.vehicleIndex;
+		int vehIndex = g_entities[cg_localEntNum].owner->client->ps.vehicleIndex;
 		if ( vehIndex != VEHICLE_NONE
 			&& (vehicleData[vehIndex].type == VH_FIGHTER || (vehicleData[vehIndex].type == VH_SPEEDER )) )
 		{//in vehicle flight mode
@@ -291,35 +291,35 @@ qboolean CG_CheckModifyUCmd( usercmd_t *cmd, vec3_t viewangles )
 		*/
 	}
 
-	if ( g_entities[0].inuse && g_entities[0].client )
+	if ( g_entities[cg_localEntNum].inuse && g_entities[cg_localEntNum].client )
 	{
-		if ( !PM_AdjustAnglesToGripper( &g_entities[0], cmd ) )
+		if ( !PM_AdjustAnglesToGripper( &g_entities[cg_localEntNum], cmd ) )
 		{
-			if ( PM_AdjustAnglesForSpinningFlip( &g_entities[0], cmd, qtrue ) )
+			if ( PM_AdjustAnglesForSpinningFlip( &g_entities[cg_localEntNum], cmd, qtrue ) )
 			{
-				CG_SetClientViewAngles( g_entities[0].client->ps.viewangles, qfalse );
+				CG_SetClientViewAngles( g_entities[cg_localEntNum].client->ps.viewangles, qfalse );
 				if ( viewangles )
 				{
-					VectorCopy( g_entities[0].client->ps.viewangles, viewangles );
+					VectorCopy( g_entities[cg_localEntNum].client->ps.viewangles, viewangles );
 					overridAngles = qtrue;
 				}
 			}
 		}
 		else
 		{
-			CG_SetClientViewAngles( g_entities[0].client->ps.viewangles, qfalse );
+			CG_SetClientViewAngles( g_entities[cg_localEntNum].client->ps.viewangles, qfalse );
 			if ( viewangles )
 			{
-				VectorCopy( g_entities[0].client->ps.viewangles, viewangles );
+				VectorCopy( g_entities[cg_localEntNum].client->ps.viewangles, viewangles );
 				overridAngles = qtrue;
 			}
 		}
-		if ( G_CheckClampUcmd( &g_entities[0], cmd ) )
+		if ( G_CheckClampUcmd( &g_entities[cg_localEntNum], cmd ) )
 		{
-			CG_SetClientViewAngles( g_entities[0].client->ps.viewangles, qfalse );
+			CG_SetClientViewAngles( g_entities[cg_localEntNum].client->ps.viewangles, qfalse );
 			if ( viewangles )
 			{
-				VectorCopy( g_entities[0].client->ps.viewangles, viewangles );
+				VectorCopy( g_entities[cg_localEntNum].client->ps.viewangles, viewangles );
 				overridAngles = qtrue;
 			}
 		}
@@ -746,7 +746,7 @@ void CG_PredictPlayerState( void ) {
 			break;
 		}
 
-		gentity_t *ent = &g_entities[0];//cheating and dirty, I know, but this is a SP game so prediction can cheat
+		gentity_t *ent = &g_entities[cg_localEntNum];//cheating and dirty, I know, but this is a SP game so prediction can cheat
 		if ( player_locked ||
 			(ent && !ent->s.number&&ent->aimDebounceTime>level.time) ||
 			(ent && ent->client && ent->client->ps.pm_time && (ent->client->ps.pm_flags&PMF_TIME_KNOCKBACK)) ||

@@ -68,7 +68,7 @@ void FX_BlasterProjectileThink( centity_t *cent, const struct weaponInfo_s *weap
 		VectorScale( forward, scale, forward );
 	}
 
-	if ( cent->gent && cent->gent->owner && cent->gent->owner->s.number > 0 )
+	if ( cent->gent && cent->gent->owner && cent->gent->owner->s.number >= MAX_CLIENTS )	// coop: any player, not just slot 0
 	{
 		theFxScheduler.PlayEffect( "blaster/NPCshot", cent->lerpOrigin, forward );
 	}

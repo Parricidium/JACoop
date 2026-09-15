@@ -4672,8 +4672,8 @@ void PM_SetAnimFinal(int *torsoAnim,int *legsAnim,
 		if (LastAnimWarningNum!=anim)
 		{
 			if ((cg_debugAnim.integer==3)	||												// 3 = do everyone
- 				(cg_debugAnim.integer==1 && gent->s.number==0) ||							// 1 = only the player
-				(cg_debugAnim.integer==2 && gent->s.number!=0) ||							// 2 = only everyone else
+ 				(cg_debugAnim.integer==1 && G_CoopIsPlayer( gent )) ||							// 1 = only the player
+				(cg_debugAnim.integer==2 && !G_CoopIsPlayer( gent )) ||							// 2 = only everyone else
 				(cg_debugAnim.integer==4 && gent->s.number!=cg_debugAnimTarget.integer) 	// 4 = specific entnum
 				)
 			{
@@ -4892,8 +4892,8 @@ void PM_SetAnimFinal(int *torsoAnim,int *legsAnim,
 
 #ifndef FINAL_BUILD
 	if ((cg_debugAnim.integer==3)	||												// 3 = do everyone
-		(cg_debugAnim.integer==1 && gent->s.number==0) ||							// 1 = only the player
-		(cg_debugAnim.integer==2 && gent->s.number!=0) ||							// 2 = only everyone else
+		(cg_debugAnim.integer==1 && G_CoopIsPlayer( gent )) ||							// 1 = only the player
+		(cg_debugAnim.integer==2 && !G_CoopIsPlayer( gent )) ||							// 2 = only everyone else
 		(cg_debugAnim.integer==4 && gent->s.number!=cg_debugAnimTarget.integer) 	// 4 = specific entnum
 		)
 	{

@@ -43,7 +43,7 @@ static void WP_BowcasterMainFire( gentity_t *ent )
 	WP_TraceSetStart( ent, start, vec3_origin, vec3_origin );//make sure our start point isn't on the other side of a wall
 
 	// Do the damages
-	if ( ent->s.number != 0 )
+	if ( !G_CoopIsPlayer( ent ) )
 	{
 		if ( g_spskill->integer == 0 )
 		{
@@ -150,7 +150,7 @@ static void WP_BowcasterAltFire( gentity_t *ent )
 	missile->s.weapon = WP_BOWCASTER;
 
 	// Do the damages
-	if ( ent->s.number != 0 )
+	if ( !G_CoopIsPlayer( ent ) )
 	{
 		if ( g_spskill->integer == 0 )
 		{

@@ -192,7 +192,7 @@ void WP_FireRocket( gentity_t *ent, qboolean alt_fire )
 	missile->mass = 10;
 
 	// Do the damages
-	if ( ent->s.number != 0 )
+	if ( !G_CoopIsPlayer( ent ) )
 	{
 		if ( g_spskill->integer == 0 )
 		{

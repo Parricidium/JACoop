@@ -322,7 +322,7 @@ void SandCreature_Attack( qboolean miss )
 				}
 			}
 			/*
-			if ( !NPC->activator->s.number )
+			if ( G_CoopIsPlayer( NPC->activator ) )
 			{
 				cg.overrides.active |= (CG_OVERRIDE_3RD_PERSON_CDP|CG_OVERRIDE_3RD_PERSON_RNG);
 				cg.overrides.thirdPersonCameraDamp = 0;

@@ -371,7 +371,7 @@ extern void ChangeWeapon( gentity_t *ent, int newWeapon );
 	{
 		ChangeWeapon( activator, WP_EMPLACED_GUN );
 	}
-	else if ( activator->s.number == 0 )
+	else if ( G_CoopIsPlayer( activator ) )
 	{
 		// we don't want for it to draw the weapon select stuff
 		cg.weaponSelect = WP_EMPLACED_GUN;
@@ -405,7 +405,7 @@ extern void ChangeWeapon( gentity_t *ent, int newWeapon );
 
 	G_Sound( self, G_SoundIndex( "sound/weapons/eweb/eweb_mount.mp3" ));
 
-	if ( !(self->spawnflags&EMPLACED_PLAYERUSE) || activator->s.number == 0 )
+	if ( !(self->spawnflags&EMPLACED_PLAYERUSE) || G_CoopIsPlayer( activator ) )
 	{//player-only usescript or any usescript
 		// Run use script
 		G_ActivateBehavior( self, BSET_USE );
@@ -594,7 +594,7 @@ extern void ChangeWeapon( gentity_t *ent, int newWeapon );
 		{
 			ChangeWeapon( activator, WP_EMPLACED_GUN );
 		}
-		else if ( activator->s.number == 0 )
+		else if ( G_CoopIsPlayer( activator ) )
 		{
 			// we don't want for it to draw the weapon select stuff
 			cg.weaponSelect = WP_EMPLACED_GUN;
@@ -654,7 +654,7 @@ extern void ChangeWeapon( gentity_t *ent, int newWeapon );
 
 		G_Sound( self, G_SoundIndex( "sound/weapons/emplaced/emplaced_mount.mp3" ));
 
-		if ( !(self->spawnflags&EMPLACED_PLAYERUSE) || activator->s.number == 0 )
+		if ( !(self->spawnflags&EMPLACED_PLAYERUSE) || G_CoopIsPlayer( activator ) )
 		{//player-only usescript or any usescript
 			// Run use script
 			G_ActivateBehavior( self, BSET_USE );

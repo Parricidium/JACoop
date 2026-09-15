@@ -533,7 +533,7 @@ void NPC_BSSeeker_Default( void )
 	if ( NPC->enemy && NPC->enemy->health && NPC->enemy->inuse )
 	{
 		if ( NPC->client->NPC_class != CLASS_BOBAFETT
-			&& ( NPC->enemy->s.number == 0 || ( NPC->enemy->client && NPC->enemy->client->NPC_class == CLASS_SEEKER )) )
+			&& ( G_CoopIsPlayer( NPC->enemy ) || ( NPC->enemy->client && NPC->enemy->client->NPC_class == CLASS_SEEKER )) )
 		{
 			//hacked to never take the player as an enemy, even if the player shoots at it
 			NPC->enemy = NULL;

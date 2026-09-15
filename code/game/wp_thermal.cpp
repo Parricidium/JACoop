@@ -260,7 +260,7 @@ void WP_ThermalThink( gentity_t *ent )
 
 			for ( int i = 0; i < count; i++ )
 			{
-				if ( ent_list[i]->s.number == 0 )
+				if ( G_CoopIsPlayer( ent_list[i] ) )
 				{
 					// avoid deliberately blowing up next to the player, no matter how close any enemy is..
 					//	...if the delay time expires though, there is no saving the player...muwhaaa haa ha
@@ -310,13 +310,13 @@ gentity_t *WP_FireThermalDetonator( gentity_t *ent, qboolean alt_fire )
 
 	bolt->classname = "thermal_detonator";
 
-	if ( ent->s.number != 0 )
+	if ( !G_CoopIsPlayer( ent ) )
 	{
 		// If not the player, cut the damage a bit so we don't get pounded on so much
 		damageScale = TD_NPC_DAMAGE_CUT;
 	}
 
-	if ( !alt_fire && ent->s.number == 0 )
+	if ( !alt_fire && G_CoopIsPlayer( ent ) )
 	{
 		// Main fires for the players do a little bit of extra thinking
 		bolt->e_ThinkFunc = thinkF_WP_ThermalThink;

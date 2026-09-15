@@ -515,18 +515,18 @@ int CG_GetCameraPos( vec3_t camerapos ) {
 		VectorCopy(client_camera.origin, camerapos);
 		return 1;
 	}
-	else if ( cg_entities[0].gent && cg_entities[0].gent->client && cg_entities[0].gent->client->ps.viewEntity > 0 && cg_entities[0].gent->client->ps.viewEntity < ENTITYNUM_WORLD )
+	else if ( cg_entities[cg_localEntNum].gent && cg_entities[cg_localEntNum].gent->client && cg_entities[cg_localEntNum].gent->client->ps.viewEntity > 0 && cg_entities[cg_localEntNum].gent->client->ps.viewEntity < ENTITYNUM_WORLD )
 	//else if ( cg.snap && cg.snap->ps.viewEntity > 0 && cg.snap->ps.viewEntity < ENTITYNUM_WORLD )
 	{//in an entity camera view
-		if ( g_entities[cg_entities[0].gent->client->ps.viewEntity].client && cg.renderingThirdPerson )
+		if ( g_entities[cg_entities[cg_localEntNum].gent->client->ps.viewEntity].client && cg.renderingThirdPerson )
 		{
-			VectorCopy( g_entities[cg_entities[0].gent->client->ps.viewEntity].client->renderInfo.eyePoint, camerapos );
+			VectorCopy( g_entities[cg_entities[cg_localEntNum].gent->client->ps.viewEntity].client->renderInfo.eyePoint, camerapos );
 		}
 		else
 		{
-			VectorCopy( g_entities[cg_entities[0].gent->client->ps.viewEntity].currentOrigin, camerapos );
+			VectorCopy( g_entities[cg_entities[cg_localEntNum].gent->client->ps.viewEntity].currentOrigin, camerapos );
 		}
-		//VectorCopy( cg_entities[cg_entities[0].gent->client->ps.viewEntity].lerpOrigin, camerapos );
+		//VectorCopy( cg_entities[cg_entities[cg_localEntNum].gent->client->ps.viewEntity].lerpOrigin, camerapos );
 		/*
 		if ( g_entities[cg.snap->ps.viewEntity].client && cg.renderingThirdPerson )
 		{
@@ -1579,6 +1579,25 @@ static void CG_RegisterGraphics( void ) {
 		for ( j = 0 ; j < 3 ; j++ ) {
 			cgs.inlineModelMidpoints[i][j] = mins[j] + 0.5 * ( maxs[j] - mins[j] );
 		}
+	}
+
+	// coop: the anim-set parser (G_SetG2PlayerModelInfo -> NPC_stats.cpp) requires
+	// the map's cinematic GLA to sit right after _humanoid.gla in the renderer's
+	// model table. The host guarantees that by registering both back to back when
+	// the first humanoid spawns; a remote client instead precaches the server's
+	// model list below (which pulls _humanoid.gla in through the first .glm), so
+	// register the pair here first, before anything else can load the skeleton.
+	if ( cg_remoteClient )
+	{
+		const char *mapName = Info_ValueForKey( CG_ConfigString( CS_SERVERINFO ), "mapname" );
+		const char *slash = strrchr( mapName, '/' );
+		if ( slash )
+		{
+			mapName = slash + 1;
+		}
+		const int h1 = cgi_R_RegisterModel( "models/players/_humanoid/_humanoid.gla" );
+		const int h2 = cgi_R_RegisterModel( va( "models/players/_humanoid_%s/_humanoid_%s.gla", mapName, mapName ) );
+		Com_Printf( "coop: precached _humanoid.gla=%i _humanoid_%s.gla=%i\n", h1, mapName, h2 );
 	}
 
 	cg.loadLCARSStage = 7;
@@ -3739,7 +3758,7 @@ ForcePower_Valid
 */
 qboolean ForcePower_Valid(int index)
 {
-	gentity_t	*player = &g_entities[0];
+	gentity_t	*player = &g_entities[cg_localEntNum];
 
 	assert (MAX_SHOWPOWERS == ( sizeof(showPowers)/sizeof(showPowers[0]) ));
 	assert (index < MAX_SHOWPOWERS );	//is this a valid index?
@@ -4001,7 +4020,7 @@ ForcePowerDataPad_Valid
 */
 qboolean ForcePowerDataPad_Valid(int index)
 {
-	gentity_t	*player = &g_entities[0];
+	gentity_t	*player = &g_entities[cg_localEntNum];
 
 	assert (index < MAX_DPSHOWPOWERS);
 	if (player->client->ps.forcePowersKnown & (1 << showDataPadPowers[index]) &&

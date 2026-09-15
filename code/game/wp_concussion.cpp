@@ -286,7 +286,7 @@ static void WP_FireConcussion( gentity_t *ent )
 	missile->mass = 10;
 
 	// Do the damages
-	if ( ent->s.number != 0 )
+	if ( !G_CoopIsPlayer( ent ) )
 	{
 		if ( g_spskill->integer == 0 )
 		{

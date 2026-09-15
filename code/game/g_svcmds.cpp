@@ -511,7 +511,7 @@ void Svcmd_SaberAttackCycle_f( void )
 	}
 
 	int	saberAnimLevel;
-	if ( !self->s.number )
+	if ( G_CoopIsPlayer( self ) )
 	{
 		saberAnimLevel = cg.saberAnimLevelPending;
 	}
@@ -539,7 +539,7 @@ void Svcmd_SaberAttackCycle_f( void )
 	}
 
 	WP_UseFirstValidSaberStyle( self, &saberAnimLevel );
-	if ( !self->s.number )
+	if ( G_CoopIsPlayer( self ) )
 	{
 		cg.saberAnimLevelPending = saberAnimLevel;
 	}

@@ -1813,7 +1813,7 @@ void CG_DrawWeaponSelect( void )
 
 	// count the number of weapons owned
 	count = 0;
-	isOnVeh = (G_IsRidingVehicle(cg_entities[0].gent)!=0);
+	isOnVeh = (G_IsRidingVehicle(cg_entities[cg_localEntNum].gent)!=0);
  	for ( i = 1 ; i < MAX_PLAYER_WEAPONS ; i++ )
 	{
 		if ((bits & ( 1 << i ))  &&
@@ -2096,9 +2096,9 @@ qboolean CG_WeaponSelectable( int i, int original, qboolean dpMode )
 		return qfalse;
 	}
 
-	if ( G_IsRidingVehicle(cg_entities[0].gent) )
+	if ( G_IsRidingVehicle(cg_entities[cg_localEntNum].gent) )
 	{
-		if (G_IsRidingTurboVehicle(cg_entities[0].gent) || (i!=WP_NONE && i!=WP_SABER && i!=WP_BLASTER) )
+		if (G_IsRidingTurboVehicle(cg_entities[cg_localEntNum].gent) || (i!=WP_NONE && i!=WP_SABER && i!=WP_BLASTER) )
 		{
 			return qfalse;
 		}
@@ -2151,7 +2151,7 @@ extern qboolean Q3_TaskIDPending( gentity_t *ent, taskID_t taskType );
 	{//not in a cinematic
 		if ( speechDebounceTime < cg.time )
 		{//spoke more than 3 seconds ago
-			if ( !Q3_TaskIDPending( &g_entities[0], TID_CHAN_VOICE ) )
+			if ( !Q3_TaskIDPending( &g_entities[cg_localEntNum], TID_CHAN_VOICE ) )
 			{//not waiting on a scripted sound to finish
 				if( !jumping )
 				{
@@ -2191,13 +2191,13 @@ void CG_NextWeapon_f( void ) {
 	}
 	*/
 
-	if( g_entities[0].flags & FL_LOCK_PLAYER_WEAPONS )
+	if( g_entities[cg_localEntNum].flags & FL_LOCK_PLAYER_WEAPONS )
 	{
 		CG_PlayerLockedWeaponSpeech( qfalse );
 		return;
 	}
 
-	if( g_entities[0].client && g_entities[0].client->NPC_class == CLASS_ATST )
+	if( g_entities[cg_localEntNum].client && g_entities[cg_localEntNum].client->NPC_class == CLASS_ATST )
 	{
 		CG_ToggleATSTWeapon();
 		return;
@@ -2395,13 +2395,13 @@ void CG_PrevWeapon_f( void ) {
 	}
 	*/
 
-	if( g_entities[0].flags & FL_LOCK_PLAYER_WEAPONS )
+	if( g_entities[cg_localEntNum].flags & FL_LOCK_PLAYER_WEAPONS )
 	{
 		CG_PlayerLockedWeaponSpeech( qfalse );
 		return;
 	}
 
-	if( g_entities[0].client && g_entities[0].client->NPC_class == CLASS_ATST )
+	if( g_entities[cg_localEntNum].client && g_entities[cg_localEntNum].client->NPC_class == CLASS_ATST )
 	{
 		CG_ToggleATSTWeapon();
 		return;
@@ -2475,7 +2475,7 @@ void CG_ChangeWeapon( int num )
 */
 void CG_ChangeWeapon( int num )
 {
-	gentity_t	*player = &g_entities[0];
+	gentity_t	*player = &g_entities[cg_localEntNum];
 
 	if ( num < WP_NONE || num >= WP_NUM_WEAPONS )
 	{
@@ -2539,13 +2539,13 @@ void CG_Weapon_f( void )
 	}
 	*/
 
-	if( g_entities[0].flags & FL_LOCK_PLAYER_WEAPONS )
+	if( g_entities[cg_localEntNum].flags & FL_LOCK_PLAYER_WEAPONS )
 	{
 		CG_PlayerLockedWeaponSpeech( qfalse );
 		return;
 	}
 
-	if( g_entities[0].client && g_entities[0].client->NPC_class == CLASS_ATST )
+	if( g_entities[cg_localEntNum].client && g_entities[cg_localEntNum].client->NPC_class == CLASS_ATST )
 	{
 		CG_ToggleATSTWeapon();
 		return;
@@ -2592,29 +2592,29 @@ void CG_Weapon_f( void )
 			if ( !in_camera )
 			{//player can't activate/deactivate saber when in a cinematic
 				//can't toggle it if not holding it and not controlling it or dead
-				if ( cg.predicted_player_state.stats[STAT_HEALTH] > 0 && (!cg_entities[0].gent->client->ps.saberInFlight || (&g_entities[cg_entities[0].gent->client->ps.saberEntityNum] != NULL && g_entities[cg_entities[0].gent->client->ps.saberEntityNum].s.pos.trType == TR_LINEAR) ) )
+				if ( cg.predicted_player_state.stats[STAT_HEALTH] > 0 && (!cg_entities[cg_localEntNum].gent->client->ps.saberInFlight || (&g_entities[cg_entities[cg_localEntNum].gent->client->ps.saberEntityNum] != NULL && g_entities[cg_entities[cg_localEntNum].gent->client->ps.saberEntityNum].s.pos.trType == TR_LINEAR) ) )
 				{//it's either in-hand or it's under telekinetic control
-					if ( cg_entities[0].gent->client->ps.SaberActive() )
+					if ( cg_entities[cg_localEntNum].gent->client->ps.SaberActive() )
 					{//a saber is on
-						if ( cg_entities[0].gent->client->ps.dualSabers
-							&& cg_entities[0].gent->client->ps.saber[1].Active() )
+						if ( cg_entities[cg_localEntNum].gent->client->ps.dualSabers
+							&& cg_entities[cg_localEntNum].gent->client->ps.saber[1].Active() )
 						{//2nd saber is on, turn it off, too
-							cg_entities[0].gent->client->ps.saber[1].Deactivate();
+							cg_entities[cg_localEntNum].gent->client->ps.saber[1].Deactivate();
 						}
-						cg_entities[0].gent->client->ps.saber[0].Deactivate();
-						if ( cg_entities[0].gent->client->ps.saberInFlight )
+						cg_entities[cg_localEntNum].gent->client->ps.saber[0].Deactivate();
+						if ( cg_entities[cg_localEntNum].gent->client->ps.saberInFlight )
 						{//play it on the saber
-							cgi_S_UpdateEntityPosition( cg_entities[0].gent->client->ps.saberEntityNum, g_entities[cg_entities[0].gent->client->ps.saberEntityNum].currentOrigin );
-							cgi_S_StartSound (NULL, cg_entities[0].gent->client->ps.saberEntityNum, CHAN_AUTO, cgs.sound_precache[cg_entities[0].gent->client->ps.saber[0].soundOff] );
+							cgi_S_UpdateEntityPosition( cg_entities[cg_localEntNum].gent->client->ps.saberEntityNum, g_entities[cg_entities[cg_localEntNum].gent->client->ps.saberEntityNum].currentOrigin );
+							cgi_S_StartSound (NULL, cg_entities[cg_localEntNum].gent->client->ps.saberEntityNum, CHAN_AUTO, cgs.sound_precache[cg_entities[cg_localEntNum].gent->client->ps.saber[0].soundOff] );
 						}
 						else
 						{
-							cgi_S_StartSound (NULL, cg.snap->ps.clientNum, CHAN_AUTO, cgs.sound_precache[cg_entities[0].gent->client->ps.saber[0].soundOff] );
+							cgi_S_StartSound (NULL, cg.snap->ps.clientNum, CHAN_AUTO, cgs.sound_precache[cg_entities[cg_localEntNum].gent->client->ps.saber[0].soundOff] );
 						}
 					}
 					else
 					{//turn them both on
-						cg_entities[0].gent->client->ps.SaberActivate();
+						cg_entities[cg_localEntNum].gent->client->ps.SaberActivate();
 					}
 				}
 			}
@@ -2681,7 +2681,7 @@ void CG_OutOfAmmoChange( void ) {
 	if ( cg.weaponSelectTime + 200 > cg.time )
 		return;
 
-	if( g_entities[0].client && g_entities[0].client->NPC_class == CLASS_ATST )
+	if( g_entities[cg_localEntNum].client && g_entities[cg_localEntNum].client->NPC_class == CLASS_ATST )
 	{
 		CG_ToggleATSTWeapon();
 		return;

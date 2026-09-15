@@ -48,7 +48,7 @@ static void WP_DEMP2_MainFire( gentity_t *ent )
 	missile->s.weapon = WP_DEMP2;
 
 	// Do the damages
-	if ( ent->s.number != 0 )
+	if ( !G_CoopIsPlayer( ent ) )
 	{
 		if ( g_spskill->integer == 0 )
 		{

@@ -575,7 +575,7 @@ void G_MissileImpacted( gentity_t *ent, gentity_t *other, vec3_t impactPos, vec3
 
 	VectorCopy( normal, ent->pos1 );
 
-	if ( ent->owner )//&& ent->owner->s.number == 0 )
+	if ( ent->owner )//&& G_CoopIsPlayer( ent->owner ) )
 	{
 		//Add the event
 		AddSoundEvent( ent->owner, ent->currentOrigin, 256, AEL_SUSPICIOUS, qfalse, qtrue );
@@ -662,7 +662,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace, int hitLoc=HL_NONE )
 			{
 				ent->owner->client->ps.persistant[PERS_ACCURACY_HITS]++;
 			}
-			if ( ent->owner->client && !ent->owner->s.number )
+			if ( ent->owner->client && G_CoopIsPlayer( ent->owner ) )
 			{
 				if ( W_AccuracyLoggableWeapon( ent->s.weapon, qfalse, ent->methodOfDeath ) )
 				{
@@ -730,7 +730,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace, int hitLoc=HL_NONE )
 
 		G_BounceMissile( ent, trace );
 
-		if ( ent->owner )//&& ent->owner->s.number == 0 )
+		if ( ent->owner )//&& G_CoopIsPlayer( ent->owner ) )
 		{
 			G_MissileAddAlerts( ent );
 		}
@@ -765,7 +765,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace, int hitLoc=HL_NONE )
 		&& !ent->alt_fire )
 	{//rolling thermal det - FIXME: make this an eFlag like bounce & stick!!!
 		//G_BounceRollMissile( ent, trace );
-		if ( ent->owner )//&& ent->owner->s.number == 0 )
+		if ( ent->owner )//&& G_CoopIsPlayer( ent->owner ) )
 		{
 			G_MissileAddAlerts( ent );
 		}
@@ -776,7 +776,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace, int hitLoc=HL_NONE )
 	// check for sticking
 	if ( ent->s.eFlags & EF_MISSILE_STICK )
 	{
-		if ( ent->owner )//&& ent->owner->s.number == 0 )
+		if ( ent->owner )//&& G_CoopIsPlayer( ent->owner ) )
 		{
 			//Add the event
 			if ( ent->s.weapon == WP_TRIP_MINE )
@@ -803,7 +803,7 @@ extern bool WP_DoingMoronicForcedAnimationForForcePowers(gentity_t *ent);
 	// check for hitting a lightsaber
 	if ( other->contents & CONTENTS_LIGHTSABER )
 	{
-		if ( other->owner && !other->owner->s.number && other->owner->client )
+		if ( other->owner && G_CoopIsPlayer( other->owner ) && other->owner->client )
 		{
 			other->owner->client->sess.missionStats.saberBlocksCnt++;
 		}
@@ -817,7 +817,7 @@ extern bool WP_DoingMoronicForcedAnimationForForcePowers(gentity_t *ent);
 			//FIXME: take other's owner's FP_SABER_DEFENSE into account here somehow?
 			if (  !other->owner || !other->owner->client || other->owner->client->ps.saberInFlight
 				|| (InFront( ent->currentOrigin, other->owner->currentOrigin, other->owner->client->ps.viewangles, SABER_REFLECT_MISSILE_CONE ) &&
-				!WP_DoingMoronicForcedAnimationForForcePowers(other)) )//other->owner->s.number != 0 ||
+				!WP_DoingMoronicForcedAnimationForForcePowers(other)) )//!G_CoopIsPlayer( other->owner ) ||
 			{//Jedi cannot block shots from behind!
 				int blockChance = 0;
 				switch ( other->owner->client->ps.forcePowerLevel[FP_SABER_DEFENSE] )
@@ -882,7 +882,7 @@ void G_ExplodeMissile( gentity_t *ent )
 	dir[0] = dir[1] = 0;
 	dir[2] = 1;
 
-	if ( ent->owner )//&& ent->owner->s.number == 0 )
+	if ( ent->owner )//&& G_CoopIsPlayer( ent->owner ) )
 	{
 		//Add the event
 		AddSoundEvent( ent->owner, ent->currentOrigin, 256, AEL_DISCOVERED, qfalse, qtrue );//FIXME: are we on ground or not?
@@ -1369,7 +1369,7 @@ void G_RunMissile( gentity_t *ent )
 					&& other->owner->client
 					&& !other->owner->client->ps.saberInFlight
 					&& ( Q_irand( 0, (other->owner->client->ps.forcePowerLevel[FP_SABER_DEFENSE]*other->owner->client->ps.forcePowerLevel[FP_SABER_DEFENSE]) ) == 0
-						|| !InFront( ent->currentOrigin, other->owner->currentOrigin, other->owner->client->ps.viewangles, SABER_REFLECT_MISSILE_CONE ) ) )//other->owner->s.number == 0 &&
+						|| !InFront( ent->currentOrigin, other->owner->currentOrigin, other->owner->client->ps.viewangles, SABER_REFLECT_MISSILE_CONE ) ) )//G_CoopIsPlayer( other->owner ) &&
 				{//Jedi cannot block shots from behind!
 					//re-trace from here, ignoring the lightsaber
 					gi.trace( &tr, tr.endpos, ent->mins, ent->maxs, origin, tr.entityNum, ent->clipmask, G2_RETURNONHIT, 10 );

@@ -1140,7 +1140,7 @@ int		G_ParseAnimFileSet(const char *skeletonName, const char *modelName=0)
 				assert(cineGLAIndex == normalGLAIndex+1);
 				if (cineGLAIndex != normalGLAIndex+1)
 				{
-					Com_Error(ERR_DROP,"Cinematic GLA was not loaded after the normal GLA.  Cannot continue safely.");
+					Com_Error(ERR_DROP,"Cinematic GLA was not loaded after the normal GLA (%i vs %i, %s).  Cannot continue safely.", normalGLAIndex, cineGLAIndex, skeletonMapName);
 				}
 				G_ParseAnimationFile(1,    skeletonMapName, fileIndex);
 				G_ParseAnimationEvtFile(1, skeletonMapName, fileIndex, cineGLAIndex, false/*flag for model specific*/);
@@ -1955,7 +1955,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 		NPCName = "Player";
 	}
 
-	if ( !NPC->s.number && NPC->client != NULL )
+	if ( G_CoopIsPlayer( NPC ) && NPC->client != NULL )
 	{//player, only want certain data
 		parsingPlayer = qtrue;
 	}

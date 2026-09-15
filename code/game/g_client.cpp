@@ -2070,7 +2070,7 @@ void G_InitPlayerFromCvars( gentity_t *ent )
 	G_AddWeaponModels( ent );
 	NPC_SetAnim( ent, SETANIM_LEGS, ent->client->ps.legsAnim, SETANIM_FLAG_NORMAL|SETANIM_FLAG_RESTART );
 	NPC_SetAnim( ent, SETANIM_TORSO, ent->client->ps.torsoAnim, SETANIM_FLAG_NORMAL|SETANIM_FLAG_RESTART );
-	if ( !ent->s.number )
+	if ( G_CoopIsPlayer( ent ) )
 	{//the actual player, not an NPC pretending to be a player
 		ClientUserinfoChanged( ent->s.number );
 	}
@@ -2561,7 +2561,7 @@ qboolean ClientSpawn(gentity_t *ent, SavedGameJustLoaded_e eSavedGameJustLoaded 
 		NPC_SetAnim( ent, SETANIM_TORSO, ent->client->ps.torsoAnim, SETANIM_FLAG_NORMAL|SETANIM_FLAG_RESTART );
 	}
 
-	if ( ent->s.number == 0 )
+	if ( G_CoopIsPlayer( ent ) )
 	{//player
 		G_CheckPlayerDarkSide();
 	}

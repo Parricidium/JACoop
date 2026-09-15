@@ -756,9 +756,9 @@ static void CG_OffsetThirdPersonView( void )
 		VectorSet( cameraFocusAngles, 0, AngleNormalize180(monster->lerpAngles[YAW]+180), 0 );
 		cameraFocusAngles[PITCH] = 0.0f;//flatten it out
 	}
-	else if ( G_IsRidingVehicle( &g_entities[0] ) )
+	else if ( G_IsRidingVehicle( &g_entities[cg_localEntNum] ) )
 	{
-		cameraFocusAngles[YAW] = cg_entities[g_entities[0].owner->s.number].lerpAngles[YAW];
+		cameraFocusAngles[YAW] = cg_entities[g_entities[cg_localEntNum].owner->s.number].lerpAngles[YAW];
 		if ( cg.overrides.active & CG_OVERRIDE_3RD_PERSON_ANG )
 		{
 			cameraFocusAngles[YAW] += cg.overrides.thirdPersonAngle;
@@ -811,7 +811,7 @@ static void CG_OffsetThirdPersonView( void )
 	{// First person saber
 		// FIXME: use something network-friendly
 		vec3_t	org, viewDir;
-		VectorCopy( cg_entities[0].gent->client->renderInfo.eyePoint, org );
+		VectorCopy( cg_entities[cg_localEntNum].gent->client->renderInfo.eyePoint, org );
 		float blend = 1.0f - fabs(cg.refdefViewAngles[PITCH])/90.0f;
 		AngleVectors( cg.refdefViewAngles, viewDir, NULL, NULL );
 		VectorMA( org, -8, viewDir, org );
@@ -1021,7 +1021,7 @@ static void CG_OffsetThirdPersonOverheadView( void ) {
 	//	when setting up the actual camera view.
 	AnglesToAxis( angs, cg.refdef.viewaxis );
 	cg.refdefViewAngles[PITCH] = 0;
-	g_entities[0].client->ps.delta_angles[PITCH] = 0;
+	g_entities[cg_localEntNum].client->ps.delta_angles[PITCH] = 0;
 
 	// Trace a ray from the origin to the viewpoint to make sure the view isn't
 	//	in a solid block.
@@ -1087,16 +1087,16 @@ static void CG_OffsetFirstPersonView( qboolean firstPersonSaber ) {
 		return;
 	}
 
-	if ( g_entities[0].client && PM_InKnockDown( &g_entities[0].client->ps ) )
+	if ( g_entities[cg_localEntNum].client && PM_InKnockDown( &g_entities[cg_localEntNum].client->ps ) )
 	{
-		float perc, animLen = (float)PM_AnimLength( g_entities[0].client->clientInfo.animFileIndex, (animNumber_t)g_entities[0].client->ps.legsAnim );
-		if ( PM_InGetUp( &g_entities[0].client->ps ) || PM_InForceGetUp( &g_entities[0].client->ps ) )
+		float perc, animLen = (float)PM_AnimLength( g_entities[cg_localEntNum].client->clientInfo.animFileIndex, (animNumber_t)g_entities[cg_localEntNum].client->ps.legsAnim );
+		if ( PM_InGetUp( &g_entities[cg_localEntNum].client->ps ) || PM_InForceGetUp( &g_entities[cg_localEntNum].client->ps ) )
 		{//start righting the view
-			perc = (float)g_entities[0].client->ps.legsAnimTimer/animLen*2;
+			perc = (float)g_entities[cg_localEntNum].client->ps.legsAnimTimer/animLen*2;
 		}
 		else
 		{//tilt the view
-			perc = (animLen-g_entities[0].client->ps.legsAnimTimer)/animLen*2;
+			perc = (animLen-g_entities[cg_localEntNum].client->ps.legsAnimTimer)/animLen*2;
 		}
 		if ( perc > 1.0f )
 		{
@@ -1612,10 +1612,10 @@ static qboolean CG_CalcViewValues( void ) {
 	cg.xyspeed = sqrt( ps->velocity[0] * ps->velocity[0] +
 		ps->velocity[1] * ps->velocity[1] );
 
-	if ( G_IsRidingVehicle( &g_entities[0] ) )
+	if ( G_IsRidingVehicle( &g_entities[cg_localEntNum] ) )
 	{
 		VectorCopy( ps->origin, cg.refdef.vieworg );
-		VectorCopy( cg_entities[g_entities[0].owner->s.number].lerpAngles, cg.refdefViewAngles );
+		VectorCopy( cg_entities[g_entities[cg_localEntNum].owner->s.number].lerpAngles, cg.refdefViewAngles );
 		if ( !(ps->eFlags&EF_NODRAW) )
 		{//riding it, not *inside* it
 			//let us look up & down
@@ -1695,7 +1695,7 @@ static qboolean CG_CalcViewValues( void ) {
 	{
 		// offset for local bobbing and kicks
 		CG_OffsetFirstPersonView( qfalse );
-		centity_t	*playerCent = &cg_entities[0];
+		centity_t	*playerCent = &cg_entities[cg_localEntNum];
 		if ( playerCent && playerCent->gent && playerCent->gent->client )
 		{
 			VectorCopy( cg.refdef.vieworg, playerCent->gent->client->renderInfo.eyePoint );
@@ -1940,7 +1940,7 @@ static void CG_DrawSkyBoxPortal(void)
 //----------------------------
 void CG_RunEmplacedWeapon()
 {
-	gentity_t	*player = &g_entities[0],
+	gentity_t	*player = &g_entities[cg_localEntNum],
 				*gun = player->owner;
 
 	// Override the camera when we are locked onto the gun.
@@ -2025,6 +2025,9 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 		return;
 	}
 
+	// coop: feed the local player's placeholder gentity from the snapshot (remote client)
+	CG_CoopSyncLocalPlayer();
+
 	// make sure the lagometerSample and frame timing isn't done twice when in stereo
 	if ( stereoView != STEREO_RIGHT ) {
 		cg.frametime = cg.time - cg.oldTime;
@@ -2095,7 +2098,7 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 		cg_thirdPerson.integer
 		|| (cg.snap->ps.stats[STAT_HEALTH] <= 0)
 		|| (cg.snap->ps.eFlags&EF_HELD_BY_SAND_CREATURE)
-		|| ((g_entities[0].client&&g_entities[0].client->NPC_class==CLASS_ATST)
+		|| ((g_entities[cg_localEntNum].client&&g_entities[cg_localEntNum].client->NPC_class==CLASS_ATST)
 		|| (cg.snap->ps.weapon == WP_SABER || cg.snap->ps.weapon == WP_MELEE) ));
 
 	if ( cg.zoomMode )

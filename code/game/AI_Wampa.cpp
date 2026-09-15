@@ -464,7 +464,7 @@ void NPC_Wampa_Pain( gentity_t *self, gentity_t *inflictor, gentity_t *other, co
 		&& other != self->enemy
 		&& !(other->flags&FL_NOTARGET) )
 	{
-		if ( (!other->s.number&&!Q_irand(0,3))
+		if ( (G_CoopIsPlayer( other )&&!Q_irand(0,3))
 			|| !self->enemy
 			|| self->enemy->health == 0
 			|| (self->enemy->client&&self->enemy->client->NPC_class == CLASS_WAMPA)
