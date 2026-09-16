@@ -327,6 +327,7 @@ typedef enum {
 	EV_BMODEL_SOUND,
 	EV_GENERAL_SOUND,
 	EV_GLOBAL_SOUND,		// no attenuation
+	EV_COOP_SOUND,			// coop: host-side sound for remote clients (temp entity: otherEntityNum = source, time2 = channel, eventParm = sound index)
 
 	EV_PLAY_EFFECT,
 	EV_PLAY_MUZZLE_EFFECT,

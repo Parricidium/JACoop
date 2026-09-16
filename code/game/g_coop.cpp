@@ -582,6 +582,25 @@ extern qboolean CG_TryPlayCustomSound( vec3_t origin, int entityNum, soundChanne
 
 void G_CoopForwardSound( int entNum, int channel, int index, const char *path, int customSet )
 {
+	if ( G_CoopNumPlayers() < 2 )
+	{
+		return;
+	}
+	// Indexed, non-voice sounds (weapon fire, saber swings, footsteps, movers:
+	// dozens per second in a fight) travel as an unreliable temp-entity event,
+	// which the snapshot delivers without the 64-command reliable window ever
+	// filling up. Voice lines keep the reliable path: they are rare, must not
+	// be lost (captions, lip sync) and are heard from anywhere.
+	const qboolean voice = (qboolean)( channel == CHAN_VOICE || channel == CHAN_VOICE_ATTEN || channel == CHAN_VOICE_GLOBAL );
+	if ( index > 0 && index < MAX_SOUNDS && !voice && entNum >= 0 && entNum < MAX_GENTITIES )
+	{
+		gentity_t *te = G_TempEntity( g_entities[entNum].currentOrigin, EV_COOP_SOUND );
+		te->svFlags |= SVF_BROADCAST;		// audible range is not the PVS
+		te->s.otherEntityNum = entNum;
+		te->s.time2 = channel;
+		te->s.eventParm = index;
+		return;
+	}
 	for ( int i = 1; i < MAX_CLIENTS; i++ )
 	{
 		const gentity_t *cl = &g_entities[i];

@@ -739,6 +739,27 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 		}
 		break;
 
+	case EV_COOP_SOUND:		// coop: a sound the host played straight into its own sound system
+		DEBUGNAME("EV_COOP_SOUND");
+		if ( cg_remoteClient && es->otherEntityNum >= 0 && es->otherEntityNum < MAX_GENTITIES )
+		{
+			cgi_S_UpdateEntityPosition( es->otherEntityNum, position );
+			if ( cg_developer.integer > 1 )
+			{
+				Com_Printf( "coop: sound event ent %i chan %i '%s'\n", es->otherEntityNum, es->time2, CG_ConfigString( CS_SOUNDS + es->eventParm ) );
+			}
+			if ( cgs.sound_precache[ es->eventParm ] )
+			{
+				cgi_S_StartSound( NULL, es->otherEntityNum, es->time2, cgs.sound_precache[ es->eventParm ] );
+			}
+			else
+			{
+				s = CG_ConfigString( CS_SOUNDS + es->eventParm );
+				CG_TryPlayCustomSound( NULL, es->otherEntityNum, (soundChannel_t)es->time2, s, CS_BASIC );
+			}
+		}
+		break;
+
 	case EV_GLOBAL_SOUND:	// play from the player's head so it never diminishes
 		DEBUGNAME("EV_GLOBAL_SOUND");
 		if ( cgs.sound_precache[ es->eventParm ] ) {
