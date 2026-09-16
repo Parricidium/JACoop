@@ -8006,10 +8006,6 @@ int 	CQuake3GameInterface::PlayIcarusSound( int taskID, int entID, const char *n
 			{
 				continue;
 			}
-			if ( g_developer->integer )
-			{
-				gi.Printf( "coop: caption '%s' client %i dist %.0f cam %i bc %i\n", finalName, i, Distance( ent->currentOrigin, other->currentOrigin ), in_camera, bBroadcast );
-			}
 			if ( in_camera || bBroadcast || DistanceSquared( ent->currentOrigin, other->currentOrigin ) < hearRange )
 			{
 				gi.SendServerCommand( i, "ct \"%s\" %i %i", finalName, soundHandle, ( forced ? 1 : 0 ) | ( in_camera ? 2 : 0 ) );
