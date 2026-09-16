@@ -1713,6 +1713,7 @@ Ghoul2 Insert End
 
 	CG_LoadingString( "static models" );
 	CG_CoopSpawnStaticModels();	// coop: remote client reads misc_model_static from the entity string
+	CG_CoopPrecacheCharacters();	// coop: pull every character model into the caches now, not on first sight
 	CG_CreateMiscEnts();
 
 	cg.loadLCARSStage = 9;

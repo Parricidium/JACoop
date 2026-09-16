@@ -602,6 +602,74 @@ void CG_CoopSpawnStaticModels( void )
 }
 
 /*
+==============================================================================
+CG_CoopPrecacheCharacters
+
+The host built every character's ghoul2 during its own level load, so the
+appearance specs are all in the gamestate by the time we connect. Building
+each model once now (and throwing the scratch ghoul2 away) pulls the .glm,
+skins, textures and animation.cfg into the caches, instead of stalling the
+first frame each character comes into view (the stall was long enough to
+trigger "Delta request from out of date entities" on the host).
+==============================================================================
+*/
+void CG_CoopPrecacheCharacters( void )
+{
+	if ( !cg_remoteClient )
+	{
+		return;
+	}
+	static gentity_t	scratch;
+	static gclient_t	scratchClient;
+	char				seen[MAX_COOP_MODELSPECS][MAX_QPATH];
+	int					numSeen = 0, count = 0;
+
+	for ( int i = 1; i < MAX_COOP_MODELSPECS; i++ )
+	{
+		char spec[MAX_STRING_CHARS];
+		Q_strncpyz( spec, CG_ConfigString( CS_COOP_MODELSPECS + i ), sizeof( spec ) );
+		if ( !spec[0] )
+		{
+			continue;
+		}
+		const char *f[11];
+		CG_CoopSplitSpec( spec, f, 11 );
+		// one build per model+skin pair is enough, the rest is per-entity
+		char key[MAX_QPATH];
+		Com_sprintf( key, sizeof( key ), "%s/%s", f[0], f[1] );
+		int k;
+		for ( k = 0; k < numSeen; k++ )
+		{
+			if ( !Q_stricmp( seen[k], key ) )
+			{
+				break;
+			}
+		}
+		if ( k < numSeen )
+		{
+			continue;
+		}
+		Q_strncpyz( seen[numSeen++], key, sizeof( seen[0] ) );
+
+		scratch.s.number = ENTITYNUM_NONE;	// keeps G_CoopRecordModel off the real slots
+		scratch.client = &scratchClient;
+		scratch.playerModel = -1;
+		scratch.weaponModel[0] = scratch.weaponModel[1] = -1;
+		G_SetG2PlayerModel( &scratch, f[0], f[1][0] ? f[1] : NULL, f[2][0] ? f[2] : NULL, f[3][0] ? f[3] : NULL );
+		if ( scratch.playerModel >= 0 )
+		{
+			count++;
+		}
+		gi.G2API_CleanGhoul2Models( scratch.ghoul2 );
+		scratch.playerModel = -1;
+	}
+	if ( cg_developer.integer )
+	{
+		Com_Printf( "coop: %i character models precached\n", count );
+	}
+}
+
+/*
 ================
 CG_CoopFixLocalEntityState
 
