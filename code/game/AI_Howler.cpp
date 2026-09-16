@@ -173,11 +173,12 @@ static void Howler_Patrol( void )
 	}
 
 	vec3_t dif;
-	VectorSubtract( g_entities[0].currentOrigin, NPC->currentOrigin, dif );
+	gentity_t *pl = G_CoopNearestPlayer( NPC->currentOrigin, qtrue );	// coop
+	VectorSubtract( pl->currentOrigin, NPC->currentOrigin, dif );
 
-	if ( VectorLengthSquared( dif ) < 256 * 256 )
+	if ( VectorLengthSquared( dif ) < 256 * 256 && pl->health > 0 )
 	{
-		G_SetEnemy( NPC, &g_entities[0] );
+		G_SetEnemy( NPC, pl );
 	}
 
 	if ( NPC_CheckEnemyExt( qtrue ) == qfalse )

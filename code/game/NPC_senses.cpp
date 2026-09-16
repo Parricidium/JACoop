@@ -188,7 +188,7 @@ qboolean InFOV( vec3_t origin, gentity_t *from, int hFOV, int vFOV )
 }
 
 //Entity to entity
-qboolean InFOVFromPlayerView ( gentity_t *ent, int hFOV, int vFOV )
+static qboolean InFOVFromOnePlayerView ( gentity_t *ent, gentity_t *player, int hFOV, int vFOV )
 {
 	vec3_t	eyes;
 	vec3_t	spot;
@@ -200,7 +200,8 @@ qboolean InFOVFromPlayerView ( gentity_t *ent, int hFOV, int vFOV )
 	{
 		return qfalse;
 	}
-	if ( cg.time )
+	// the host's actual camera is known; a remote player's view is its viewangles
+	if ( cg.time && player->s.number == 0 )
 	{
 		VectorCopy( cg.refdefViewAngles, fromAngles );
 	}
@@ -209,7 +210,7 @@ qboolean InFOVFromPlayerView ( gentity_t *ent, int hFOV, int vFOV )
 		VectorCopy( player->client->ps.viewangles, fromAngles );
 	}
 
-	if( cg.time )
+	if( cg.time && player->s.number == 0 )
 	{
 		VectorCopy( cg.refdef.vieworg, eyes );
 	}
@@ -249,6 +250,19 @@ qboolean InFOVFromPlayerView ( gentity_t *ent, int hFOV, int vFOV )
 		return qtrue;
 	}
 
+	return qfalse;
+}
+
+// coop: in the view of any player
+qboolean InFOVFromPlayerView ( gentity_t *ent, int hFOV, int vFOV )
+{
+	for ( int i = 0; i < MAX_CLIENTS; i++ )
+	{
+		if ( InFOVFromOnePlayerView( ent, G_CoopPlayerSlot( i ), hFOV, vFOV ) )
+		{
+			return qtrue;
+		}
+	}
 	return qfalse;
 }
 

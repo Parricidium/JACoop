@@ -9919,11 +9919,11 @@ void ForceThrow( gentity_t *self, qboolean pull, qboolean fake )
 					push_list[x]->forcePuller = self->s.number;//remember this regardless
 					if ( push_list[x]->item && push_list[x]->item->giTag == INV_SECURITY_KEY )
 					{
-						AddSightEvent( player, push_list[x]->currentOrigin, 128, AEL_DISCOVERED );//security keys are more important
+						AddSightEvent( self, push_list[x]->currentOrigin, 128, AEL_DISCOVERED );//security keys are more important
 					}
 					else
 					{
-						AddSightEvent( player, push_list[x]->currentOrigin, 128, AEL_SUSPICIOUS );//hmm... or should this always be discovered?
+						AddSightEvent( self, push_list[x]->currentOrigin, 128, AEL_SUSPICIOUS );//hmm... or should this always be discovered?
 					}
 				}
 				else if ( push_list[x]->s.weapon == WP_TURRET
@@ -10291,6 +10291,15 @@ qboolean WP_CheckBreakControl( gentity_t *self )
 		if ( self->NPC && self->NPC->controlledTime > level.time )
 		{//being controlled
 			gentity_t *controller = &g_entities[0];
+			for ( int c = 1; c < MAX_CLIENTS; c++ )
+			{	// coop: whichever player is looking through us
+				const gentity_t *pl = G_CoopPlayerSlot( c );
+				if ( pl && pl->client->ps.viewEntity == self->s.number )
+				{
+					controller = &g_entities[c];
+					break;
+				}
+			}
 			if ( controller->client && controller->client->ps.viewEntity == self->s.number )
 			{//we are being controlled by player
 				if ( controller->client->ps.forcePowerLevel[FP_TELEPATHY] > FORCE_LEVEL_3 )

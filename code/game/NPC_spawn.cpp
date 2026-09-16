@@ -1843,12 +1843,18 @@ void NPC_ShySpawn( gentity_t *ent )
 	ent->nextthink = level.time + SHY_THINK_TIME;
 	ent->e_ThinkFunc = thinkF_NPC_ShySpawn;
 
-	if ( DistanceSquared( g_entities[0].currentOrigin, ent->currentOrigin ) <= SHY_SPAWN_DISTANCE_SQR )
-		return;
-
-	if ( (InFOV( ent, &g_entities[0], 80, 64 )) ) // FIXME: hardcoded fov
-		if ( (NPC_ClearLOS( &g_entities[0], ent->currentOrigin )) )
+	for ( int i = 0; i < MAX_CLIENTS; i++ )
+	{	// coop: every player counts
+		gentity_t *pl = G_CoopPlayerSlot( i );
+		if ( !pl )
+			continue;
+		if ( DistanceSquared( pl->currentOrigin, ent->currentOrigin ) <= SHY_SPAWN_DISTANCE_SQR )
 			return;
+
+		if ( (InFOV( ent, pl, 80, 64 )) ) // FIXME: hardcoded fov
+			if ( (NPC_ClearLOS( pl, ent->currentOrigin )) )
+				return;
+	}
 
 	// 4/18/03 kef -- don't let guys spawn into other guys
 	if (ent->spawnflags & 4096)

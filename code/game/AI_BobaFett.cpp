@@ -1018,9 +1018,10 @@ void	Boba_Update()
 {
 	// Never Forget The Player... Never.
 	//-----------------------------------
-	if (player && player->inuse && !NPC->enemy)
+	gentity_t *pl = G_CoopNearestPlayer( NPC->currentOrigin, qtrue );	// coop
+	if (pl && pl->inuse && !NPC->enemy)
 	{
-		G_SetEnemy(NPC, player);
+		G_SetEnemy(NPC, pl);
 		NPC->svFlags				|= SVF_LOCKEDENEMY;	// Don't forget about the enemy once you've found him
 	}
 

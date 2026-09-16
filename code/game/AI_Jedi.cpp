@@ -6179,6 +6179,8 @@ qboolean Jedi_CheckDanger( void )
 extern int g_crosshairEntNum;
 qboolean Jedi_CheckAmbushPlayer( void )
 {
+	gentity_t *const player = G_CoopNearestPlayer( NPC->currentOrigin, qtrue );	// coop: shadow the global
+
 	if ( !player || !player->client )
 	{
 		return qfalse;
@@ -6199,7 +6201,7 @@ qboolean Jedi_CheckAmbushPlayer( void )
 		{
 			if ( !NPC->client->ps.powerups[PW_CLOAKED] )
 			{
-				NPC_SetLookTarget( NPC, 0, 0 );
+				NPC_SetLookTarget( NPC, player->s.number, 0 );
 			}
 		}
 		float target_dist, zDiff = NPC->currentOrigin[2]-player->currentOrigin[2];

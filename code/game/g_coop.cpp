@@ -205,6 +205,16 @@ gentity_t *G_CoopNearestPlayer( const vec3_t org, qboolean aliveOnly )
 }
 
 // true if at least one connected player is alive
+gentity_t *G_CoopPlayerSlot( int i )
+{
+	gentity_t *ent = &g_entities[i];
+	if ( i < 0 || i >= MAX_CLIENTS || !ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED )
+	{
+		return NULL;
+	}
+	return ent;
+}
+
 qboolean G_CoopAnyPlayerAlive( void )
 {
 	for ( int i = 0; i < MAX_CLIENTS; i++ )

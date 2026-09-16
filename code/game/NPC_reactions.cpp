@@ -594,7 +594,7 @@ void NPC_Touch(gentity_t *self, gentity_t *other, trace_t *trace)
 
 	if ( self->message && self->health <= 0 )
 	{//I am dead and carrying a key
-		if ( other && player && player->health > 0 && other == player )
+		if ( other && other->health > 0 && G_CoopIsPlayer( other ) )
 		{//player touched me
 			char *text;
 			qboolean	keyTaken;
@@ -613,7 +613,7 @@ void NPC_Touch(gentity_t *self, gentity_t *other, trace_t *trace)
 			}
 			else
 			{//a named security key
-				if ( (keyTaken = INV_SecurityKeyGive( player, self->message )) == qtrue )
+				if ( (keyTaken = INV_SecurityKeyGive( other, self->message )) == qtrue )
 				{
 					text = "cp @SP_INGAME_TOOK_IMPERIAL_SECURITY_KEY";
 					G_AddEvent( other, EV_ITEM_PICKUP, (FindItemForInventory( INV_SECURITY_KEY )-bg_itemlist) );

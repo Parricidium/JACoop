@@ -1598,11 +1598,12 @@ void NPC_BSRancor_Default( void )
 					|| level.time - NPC->enemy->s.time > Q_irand( 10000, 15000 )
 					|| (NPC->spawnflags&SPF_RANCOR_FASTKILL) )//don't linger on dead bodies
 				{//it's been a while since the enemy died, or enemy is completely gone, get bored with him
+					gentity_t *pl = G_CoopNearestPlayer( NPC->currentOrigin, qtrue );	// coop
 					if ( (NPC->spawnflags&SPF_RANCOR_MUTANT)
-						&& player && player->health >= 0 )
+						&& pl && pl->health >= 0 )
 					{//all else failing, always go after the player
 						NPC->lastEnemy = NPC->enemy;
-						G_SetEnemy( NPC, player );
+						G_SetEnemy( NPC, pl );
 						if ( NPC->enemy != NPC->lastEnemy )
 						{//clear this so that we only sniff the player the first time we pick them up
 							NPC->useDebounceTime = 0;
@@ -1684,11 +1685,12 @@ void NPC_BSRancor_Default( void )
 			Rancor_Patrol();
 			if ( !NPC->enemy && NPC->wait )
 			{//we've been mad before and can't find an enemy
+				gentity_t *pl = G_CoopNearestPlayer( NPC->currentOrigin, qtrue );	// coop
 				if ( (NPC->spawnflags&SPF_RANCOR_MUTANT)
-					&& player && player->health >= 0 )
+					&& pl && pl->health >= 0 )
 				{//all else failing, always go after the player
 					NPC->lastEnemy = NPC->enemy;
-					G_SetEnemy( NPC, player );
+					G_SetEnemy( NPC, pl );
 					if ( NPC->enemy != NPC->lastEnemy )
 					{//clear this so that we only sniff the player the first time we pick them up
 						NPC->useDebounceTime = 0;

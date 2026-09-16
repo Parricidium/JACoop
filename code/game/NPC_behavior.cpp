@@ -1572,6 +1572,9 @@ void NPC_Surrender( void )
 
 qboolean NPC_CheckSurrender( void )
 {
+	// coop: shadow the global; "the player" is the one we are fighting, else the nearest
+	gentity_t *const player = ( NPC->enemy && G_CoopIsPlayer( NPC->enemy ) ) ? NPC->enemy : G_CoopNearestPlayer( NPC->currentOrigin, qtrue );
+
 	if ( !g_AIsurrender->integer
 		&& NPC->client->NPC_class != CLASS_UGNAUGHT
 		&& NPC->client->NPC_class != CLASS_JAWA )

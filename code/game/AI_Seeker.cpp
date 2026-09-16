@@ -445,7 +445,9 @@ void Seeker_FollowPlayer( void )
 {
 	Seeker_MaintainHeight();
 
-	float	dis	= DistanceHorizontalSquared( NPC->currentOrigin, g_entities[0].currentOrigin );
+	// coop: follow whoever deployed us, else the nearest player
+	gentity_t *const pl = ( NPC->owner && G_CoopIsPlayer( NPC->owner ) ) ? NPC->owner : G_CoopNearestPlayer( NPC->currentOrigin, qtrue );
+	float	dis	= DistanceHorizontalSquared( NPC->currentOrigin, pl->currentOrigin );
 	vec3_t	pt, dir;
 
 	float	minDistSqr = MIN_DISTANCE_SQR;
@@ -463,22 +465,22 @@ void Seeker_FollowPlayer( void )
 		// generally circle the player closely till we take an enemy..this is our target point
 		if ( NPC->client->NPC_class == CLASS_BOBAFETT )
 		{
-			pt[0] = g_entities[0].currentOrigin[0] + cos( level.time * 0.001f + NPC->random ) * 250;
-			pt[1] = g_entities[0].currentOrigin[1] + sin( level.time * 0.001f + NPC->random ) * 250;
+			pt[0] = pl->currentOrigin[0] + cos( level.time * 0.001f + NPC->random ) * 250;
+			pt[1] = pl->currentOrigin[1] + sin( level.time * 0.001f + NPC->random ) * 250;
 			if ( NPC->client->jetPackTime < level.time )
 			{
 				pt[2] = NPC->currentOrigin[2] - 64;
 			}
 			else
 			{
-				pt[2] = g_entities[0].currentOrigin[2] + 200;
+				pt[2] = pl->currentOrigin[2] + 200;
 			}
 		}
 		else
 		{
-			pt[0] = g_entities[0].currentOrigin[0] + cos( level.time * 0.001f + NPC->random ) * 56;
-			pt[1] = g_entities[0].currentOrigin[1] + sin( level.time * 0.001f + NPC->random ) * 56;
-			pt[2] = g_entities[0].currentOrigin[2] + 40;
+			pt[0] = pl->currentOrigin[0] + cos( level.time * 0.001f + NPC->random ) * 56;
+			pt[1] = pl->currentOrigin[1] + sin( level.time * 0.001f + NPC->random ) * 56;
+			pt[2] = pl->currentOrigin[2] + 40;
 		}
 
 		VectorSubtract( pt, NPC->currentOrigin, dir );
@@ -496,10 +498,10 @@ void Seeker_FollowPlayer( void )
 		}
 
 		// Hey come back!
-		NPCInfo->goalEntity = &g_entities[0];
+		NPCInfo->goalEntity = pl;
 		NPCInfo->goalRadius = 32;
 		NPC_MoveToGoal( qtrue );
-		NPC->owner = &g_entities[0];
+		NPC->owner = pl;
 	}
 
 	if ( NPCInfo->enemyCheckDebounceTime < level.time )
