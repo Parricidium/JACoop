@@ -111,7 +111,16 @@ void G_CoopUpdateAppearance( gentity_t *ent )
 	coopAppearance_t	*a = &coopAppearance[ent->s.number];
 	char				spec[MAX_STRING_CHARS];
 
-	if ( !ent->client || !a->modelName[0] )
+	if ( !ent->client )
+	{
+		return;
+	}
+	// the wire has no health; faces, health bars and corpse handling read it
+	ent->s.coopHealth = ent->health;
+	ent->s.coopMaxHealth = ent->max_health;
+	// head tracking: interest points are host-only, so only entity targets travel
+	ent->s.coopLookTarget = ( ent->client->renderInfo.lookMode == LM_ENT ) ? ent->client->renderInfo.lookTarget : ENTITYNUM_NONE;
+	if ( !a->modelName[0] )
 	{
 		return;
 	}

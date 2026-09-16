@@ -192,6 +192,7 @@ static void CG_CoopEnsureCharacter( centity_t *cent )
 			return;
 		}
 		memset( gent->client, 0, sizeof( gclient_t ) );
+		gent->client->renderInfo.lookTarget = ENTITYNUM_NONE;	// 0 would be "stare at the host"
 	}
 	gent->s.number = entNum;
 	gent->inuse = qtrue;
@@ -314,6 +315,13 @@ void CG_CoopSyncCharacter( centity_t *cent )
 
 	VectorCopy( s->pos.trDelta, gent->client->ps.velocity );
 	gent->client->ps.groundEntityNum = s->groundEntityNum;
+	if ( cent->currentState.number != cg_localEntNum )
+	{	// ours comes from the playerState (CG_CoopSyncLocalPlayer)
+		gent->health = s->coopHealth;
+		gent->max_health = s->coopMaxHealth;
+	}
+	gent->client->renderInfo.lookMode = LM_ENT;
+	gent->client->renderInfo.lookTarget = ( s->coopLookTarget >= 0 && s->coopLookTarget < ENTITYNUM_WORLD ) ? s->coopLookTarget : ENTITYNUM_NONE;
 	gent->client->ps.eFlags = s->eFlags;
 	gent->s.eFlags = s->eFlags;
 	gent->client->ps.weapon = s->weapon;
@@ -451,6 +459,8 @@ void CG_CoopSyncLocalPlayer( void )
 	me->s.number = cg_localEntNum;
 	me->s.clientNum = cg_localEntNum;
 	me->s.eFlags = cg.snap->ps.eFlags;
+	me->health = cg.snap->ps.stats[STAT_HEALTH];
+	me->max_health = cg.snap->ps.stats[STAT_MAX_HEALTH];
 	me->inuse = qtrue;
 	VectorCopy( cg.snap->ps.origin, me->currentOrigin );
 	VectorCopy( cg.snap->ps.viewangles, me->currentAngles );
@@ -699,6 +709,9 @@ void CG_CoopFixLocalEntityState( centity_t *cent )
 		cent->currentState.modelindex3 = es->modelindex3;
 		cent->currentState.legsAnimTimer = es->legsAnimTimer;
 		cent->currentState.torsoAnimTimer = es->torsoAnimTimer;
+		cent->currentState.coopHealth = es->coopHealth;
+		cent->currentState.coopMaxHealth = es->coopMaxHealth;
+		cent->currentState.coopLookTarget = es->coopLookTarget;
 		return;
 	}
 }

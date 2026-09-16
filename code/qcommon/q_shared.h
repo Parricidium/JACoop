@@ -2457,6 +2457,12 @@ Ghoul2 Insert End
 	qboolean	isPortalEnt;
 #endif // !JK2_MODE
 
+	// coop: health of characters (ET_PLAYER), so remote clients can drive faces,
+	// health bars and corpse handling that read gentity_t::health
+	int		coopHealth;
+	int		coopMaxHealth;
+	int		coopLookTarget;	// entity the head turns to (renderInfo.lookTarget), ENTITYNUM_NONE if none
+
 
 	void sg_export(
 		ojk::SavedGameHelper& saved_game) const
@@ -2512,6 +2518,9 @@ Ghoul2 Insert End
 #ifndef JK2_MODE
 		saved_game.write<int32_t>(isPortalEnt);
 #endif // !JK2_MODE
+		saved_game.write<int32_t>(coopHealth);
+		saved_game.write<int32_t>(coopMaxHealth);
+		saved_game.write<int32_t>(coopLookTarget);
 	}
 
 	void sg_import(
@@ -2568,6 +2577,9 @@ Ghoul2 Insert End
 #ifndef JK2_MODE
 		saved_game.read<int32_t>(isPortalEnt);
 #endif // !JK2_MODE
+		saved_game.read<int32_t>(coopHealth);
+		saved_game.read<int32_t>(coopMaxHealth);
+		saved_game.read<int32_t>(coopLookTarget);
 	}
 } entityState_t;
 

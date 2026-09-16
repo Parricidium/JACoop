@@ -618,6 +618,9 @@ Ghoul2 Insert Start
 { NETF(isPortalEnt), 1 },
 #endif
 
+{ NETF(coopHealth), 32 },
+{ NETF(coopMaxHealth), 32 },
+{ NETF(coopLookTarget), GENTITYNUM_BITS },
 };
 
 
