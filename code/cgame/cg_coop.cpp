@@ -718,6 +718,22 @@ void CG_CoopFixLocalEntityState( centity_t *cent )
 
 /*
 ================
+CG_CoopMissionFailed_f
+
+"mf <statusTextIndex>": everyone is dead, or a script failed the mission.
+Same screen as the host; it goes away with the host's next level load.
+================
+*/
+void CG_CoopMissionFailed_f( void )
+{
+	extern int statusTextIndex;
+
+	statusTextIndex = atoi( CG_Argv( 1 ) );
+	cg.missionStatusShow = qtrue;
+}
+
+/*
+================
 CG_CoopSound_f
 
 "snd <ent> <channel> <index> <customSet> <path>" from the host: a sound the

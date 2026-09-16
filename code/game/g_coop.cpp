@@ -380,6 +380,7 @@ the remote cgame turns it back into its own client_camera (cg_coop.cpp).
 #include "../cgame/cg_local.h"
 #include "../cgame/cg_camera.h"
 
+static qboolean coopMissionFailedSent[MAX_CLIENTS];	// per client: told about the mission-failed screen
 static gentity_t *coopCameraEnt = NULL;
 
 void G_CoopUpdateCamera( void )
@@ -426,6 +427,52 @@ void G_CoopUpdateCamera( void )
 void G_CoopResetCamera( void )
 {
 	coopCameraEnt = NULL;
+	memset( coopMissionFailedSent, 0, sizeof( coopMissionFailedSent ) );
+}
+
+/*
+================
+G_CoopUpdateMissionFailed
+
+The mission-failed screen is raised straight in the host's cgame (a script
+via Q3_SetMissionFailed, or the last player dying: cg.missionStatusShow /
+cg.missionStatusDeadTime). Tell the remote clients once, with the status
+text, so they show the same screen.
+================
+*/
+void G_CoopUpdateMissionFailed( void )
+{
+	extern int statusTextIndex;
+
+	const qboolean allDead = (qboolean)( !G_CoopAnyPlayerAlive() && cg.missionStatusDeadTime && cg.missionStatusDeadTime < level.time );
+	if ( !cg.missionStatusShow && !allDead )
+	{
+		return;
+	}
+	for ( int i = 1; i < MAX_CLIENTS; i++ )
+	{
+		const gentity_t *ent = &g_entities[i];
+		if ( !coopMissionFailedSent[i] && ent->inuse && ent->client && ent->client->pers.connected == CON_CONNECTED )
+		{
+			coopMissionFailedSent[i] = qtrue;
+			gi.SendServerCommand( i, "mf %i", statusTextIndex );
+		}
+	}
+}
+
+/*
+================
+G_CoopClientBegin
+
+A client (re)entered the world: forget what we told the previous occupant.
+================
+*/
+void G_CoopClientBegin( const gentity_t *ent )
+{
+	if ( ent->s.number >= 0 && ent->s.number < MAX_CLIENTS )
+	{
+		coopMissionFailedSent[ent->s.number] = qfalse;
+	}
 }
 
 /*

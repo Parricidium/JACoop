@@ -181,6 +181,16 @@ static void CG_Print_f( void ) {
 static void CG_CaptionText_f( void ) {
 	sfxHandle_t sound = (sfxHandle_t)atoi( CG_Argv( 2 ) );
 
+	if ( cg_remoteClient )
+	{	// coop: the host sends every audible line; our own g_subtitles decides
+		extern cvar_t *g_subtitles;
+		const int flags = atoi( CG_Argv( 3 ) );		// 1 = NPC forces subtitles, 2 = cinematic
+		const qboolean show = (qboolean)( ( flags & 1 ) || g_subtitles->integer == 1 || ( g_subtitles->integer == 2 && ( flags & 2 ) ) );
+		if ( !show )
+		{
+			return;
+		}
+	}
 	CG_CaptionText( CG_Argv( 1 ), sound >= 0 && sound < MAX_SOUNDS ? cgs.sound_precache[sound] : NULL_SOUND );
 }
 
@@ -216,6 +226,7 @@ static serverCommand_t	commands[] = {
 	{ "ct",					CG_CaptionText_f },
 	{ "cts",				CG_CaptionTextStop },
 	{ "lt",					CG_LCARSText_f },
+	{ "mf",					CG_CoopMissionFailed_f },	// coop: host raised the mission-failed screen
 	{ "print",				CG_Print_f },
 	{ "snd",				CG_CoopSound_f },	// coop: host-side sound forwarded to remote clients
 	{ "st",					CG_ScrollText_f },

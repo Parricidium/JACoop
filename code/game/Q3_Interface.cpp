@@ -7970,20 +7970,22 @@ int 	CQuake3GameInterface::PlayIcarusSound( int taskID, int entID, const char *n
 	{
 		// Text on
 		// certain NPC's we always want to use subtitles regardless of subtitle setting
-		if (g_subtitles->integer == 1 || (ent->NPC && (ent->NPC->scriptFlags & SCF_USE_SUBTITLES) ) ) // Show all text
+		const qboolean forced = (qboolean)( ent->NPC && ( ent->NPC->scriptFlags & SCF_USE_SUBTITLES ) );
+		const float hearRange = ( voice_chan == CHAN_VOICE_ATTEN ) ? ( 350 * 350 ) : ( 1200 * 1200 );
+		if (g_subtitles->integer == 1 || forced ) // Show all text
 		{
 			if ( in_camera)	// Cinematic
 			{
-				gi.SendServerCommand( -1, "ct \"%s\" %i", finalName, soundHandle );
+				gi.SendServerCommand( 0, "ct \"%s\" %i", finalName, soundHandle );
 			}
 			else //if (precacheWav[i].speaker==SP_NONE)	//  lower screen text
 			{
 				gentity_t		*ent2 = &g_entities[0];
 				// the numbers in here were either the original ones Bob entered (350), or one arrived at from checking the distance Chell stands at in stasis2 by the computer core that was submitted as a bug report...
 				//
-				if (bBroadcast || (DistanceSquared(ent->currentOrigin, ent2->currentOrigin) < ((voice_chan == CHAN_VOICE_ATTEN)?(350 * 350):(1200 * 1200)) ) )
+				if (bBroadcast || (DistanceSquared(ent->currentOrigin, ent2->currentOrigin) < hearRange ) )
 				{
-					gi.SendServerCommand( -1, "ct \"%s\" %i", finalName, soundHandle );
+					gi.SendServerCommand( 0, "ct \"%s\" %i", finalName, soundHandle );
 				}
 			}
 		}
@@ -7992,7 +7994,25 @@ int 	CQuake3GameInterface::PlayIcarusSound( int taskID, int entID, const char *n
 		{
 			if ( in_camera)	// Cinematic text
 			{
-				gi.SendServerCommand( -1, "ct \"%s\" %i", finalName, soundHandle);
+				gi.SendServerCommand( 0, "ct \"%s\" %i", finalName, soundHandle);
+			}
+		}
+		// coop: each remote client gets the line when *its* player can hear it,
+		// tagged so it can apply its own g_subtitles (1 = forced, 2 = cinematic)
+		for ( int i = 1; i < MAX_CLIENTS; i++ )
+		{
+			const gentity_t *other = &g_entities[i];
+			if ( !other->inuse || !other->client || other->client->pers.connected != CON_CONNECTED )
+			{
+				continue;
+			}
+			if ( g_developer->integer )
+			{
+				gi.Printf( "coop: caption '%s' client %i dist %.0f cam %i bc %i\n", finalName, i, Distance( ent->currentOrigin, other->currentOrigin ), in_camera, bBroadcast );
+			}
+			if ( in_camera || bBroadcast || DistanceSquared( ent->currentOrigin, other->currentOrigin ) < hearRange )
+			{
+				gi.SendServerCommand( i, "ct \"%s\" %i %i", finalName, soundHandle, ( forced ? 1 : 0 ) | ( in_camera ? 2 : 0 ) );
 			}
 		}
 	}

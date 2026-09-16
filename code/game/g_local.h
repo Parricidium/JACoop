@@ -420,6 +420,8 @@ void G_InitPlayerFromCvars( gentity_t *ent );
 void G_CoopUpdateCamera( void );
 void G_CoopResetCamera( void );
 void G_CoopUpdateObjectives( void );
+void G_CoopUpdateMissionFailed( void );
+void G_CoopClientBegin( const gentity_t *ent );
 void G_CoopForwardSound( int entNum, int channel, int index, const char *path, int customSet );
 qboolean G_CoopCustomSound( vec3_t origin, int entityNum, soundChannel_t channel, const char *soundName, int customSoundSet );
 void G_CoopSoundPath( const vec3_t origin, int entityNum, int channel, const char *path );

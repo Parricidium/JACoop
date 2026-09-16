@@ -734,6 +734,7 @@ void ClientBegin( int clientNum, usercmd_t *cmd, SavedGameJustLoaded_e eSavedGam
 		{
 			// send teleport event
 		}
+		G_CoopClientBegin( ent );
 		if ( clientNum != 0 )
 		{
 			// coop: a joiner lands beside the host, who may be deep into the level (join in progress, load)
