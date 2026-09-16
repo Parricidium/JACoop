@@ -246,7 +246,10 @@ static void G_DynamicMusicUpdate( usercmd_t *ucmd )
 
   FIXME: can we merge any of this with the G_ChooseLookEnemy stuff?
 */
-static void G_DynamicMusicUpdate( void )
+// coop: the threat scan around one player (was inline in G_DynamicMusicUpdate);
+// every living player is scanned and the results add up, so a fight around
+// either of them brings the action music
+static void G_DynamicMusicScan( gentity_t *player, int &danger, int &battle )
 {
 	gentity_t	*ent;
 	gentity_t	*entityList[MAX_GENTITIES];
@@ -255,65 +258,16 @@ static void G_DynamicMusicUpdate( void )
 	int			i, e;
 	int			distSq, radius = 2048;
 	vec3_t		center;
-	int			danger = 0;
-	int			battle = 0;
 	int			entTeam;
-	//qboolean	dangerNear = qfalse;
-	//qboolean	suspicious = qfalse;
 	qboolean	LOScalced = qfalse, clearLOS = qfalse;
-
-	//FIXME: intro and/or other cues? (one-shot music sounds)
-
-	//loops
-
-	//player-based
-	if ( !player )
-	{//WTF?
-		player = &g_entities[0];
-		return;
-	}
-
-	if ( !G_PlayerSpawned() )
-	{//player hasn't spawned yet!
-		return;
-	}
-
-	if ( player->health <= 0 && player->max_health > 0 )
-	{//defeat music
-		if ( level.dmState != DM_DEATH )
-		{
-			level.dmState = DM_DEATH;
-		}
-	}
-
-	if ( level.dmState == DM_DEATH )
-	{
-		gi.SetConfigstring( CS_DYNAMIC_MUSIC_STATE, "death" );
-		return;
-	}
-
-	if ( level.dmState == DM_BOSS )
-	{
-		gi.SetConfigstring( CS_DYNAMIC_MUSIC_STATE, "boss" );
-		return;
-	}
-
-	if ( level.dmState == DM_SILENCE )
-	{
-		gi.SetConfigstring( CS_DYNAMIC_MUSIC_STATE, "silence" );
-		return;
-	}
-
-	if ( level.dmBeatTime > level.time )
-	{//not on a beat
-		return;
-	}
-
-	level.dmBeatTime = level.time + 1000;//1 second beats
 
 	if ( player->health <= 20 )
 	{
 		danger = 1;
+	}
+	if ( player->health <= 0 )
+	{
+		return;
 	}
 
 	//enemy-based
@@ -370,12 +324,12 @@ static void G_DynamicMusicUpdate( void )
 		}
 
 		LOScalced = clearLOS = qfalse;
-		if ( (ent->enemy==player&&(!ent->NPC||ent->NPC->confusionTime<level.time)) || (ent->client&&ent->client->ps.weaponTime) || (!ent->client&&ent->attackDebounceTime>level.time))
+		if ( (G_CoopIsPlayer( ent->enemy )&&(!ent->NPC||ent->NPC->confusionTime<level.time)) || (ent->client&&ent->client->ps.weaponTime) || (!ent->client&&ent->attackDebounceTime>level.time))
 		{//mad
 			if ( ent->health > 0 )
 			{//alive
 				//FIXME: do I really need this check?
-				if ( ent->s.weapon == WP_SABER && ent->client && !ent->client->ps.SaberActive() && ent->enemy != player )
+				if ( ent->s.weapon == WP_SABER && ent->client && !ent->client->ps.SaberActive() && !G_CoopIsPlayer( ent->enemy ) )
 				{//a Jedi who has not yet gotten made at me
 					continue;
 				}
@@ -467,6 +421,73 @@ static void G_DynamicMusicUpdate( void )
 					break;
 				}
 			}
+		}
+	}
+
+}
+
+static void G_DynamicMusicUpdate( void )
+{
+	int			danger = 0;
+	int			battle = 0;
+	//qboolean	dangerNear = qfalse;
+	//qboolean	suspicious = qfalse;
+
+	//FIXME: intro and/or other cues? (one-shot music sounds)
+
+	//loops
+
+	//player-based
+	if ( !player )
+	{//WTF?
+		player = &g_entities[0];
+		return;
+	}
+
+	if ( !G_PlayerSpawned() )
+	{//player hasn't spawned yet!
+		return;
+	}
+
+	if ( !G_CoopAnyPlayerAlive() && player->max_health > 0 )
+	{//defeat music
+		if ( level.dmState != DM_DEATH )
+		{
+			level.dmState = DM_DEATH;
+		}
+	}
+
+	if ( level.dmState == DM_DEATH )
+	{
+		gi.SetConfigstring( CS_DYNAMIC_MUSIC_STATE, "death" );
+		return;
+	}
+
+	if ( level.dmState == DM_BOSS )
+	{
+		gi.SetConfigstring( CS_DYNAMIC_MUSIC_STATE, "boss" );
+		return;
+	}
+
+	if ( level.dmState == DM_SILENCE )
+	{
+		gi.SetConfigstring( CS_DYNAMIC_MUSIC_STATE, "silence" );
+		return;
+	}
+
+	if ( level.dmBeatTime > level.time )
+	{//not on a beat
+		return;
+	}
+
+	level.dmBeatTime = level.time + 1000;//1 second beats
+
+	for ( int slot = 0; slot < MAX_CLIENTS; slot++ )
+	{
+		gentity_t *pl = G_CoopPlayerSlot( slot );
+		if ( pl && pl->health > 0 )
+		{
+			G_DynamicMusicScan( pl, danger, battle );
 		}
 	}
 
