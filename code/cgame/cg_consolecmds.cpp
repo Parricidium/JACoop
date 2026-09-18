@@ -245,6 +245,7 @@ static consoleCommand_t	commands[] = {
 	{ "testlistbones",		CG_ListModelBones_f},
 	{ "testlistsurfaces",	CG_ListModelSurfaces_f},
 	{ "testmodel",			CG_TestModel_f },
+	{ "coop_ents",			CG_CoopEnts_f },
 	{ "testsurface",		CG_TestModelSurfaceOnOff_f },
 	{ "viewpos",			CG_Viewpos_f },
 	{ "weapnext",			CG_NextWeapon_f },

@@ -576,7 +576,7 @@ const netField_t	entityStateFields[] =
 { NETF(loopSound), 16 },
 { NETF(modelindex), 9 },	//0 to 511
 { NETF(modelindex2), 8 },
-{ NETF(modelindex3), 8 },
+{ NETF(modelindex3), 9 },	// coop: also a CS_MODELS index on items
 { NETF(clientNum), 32 },
 { NETF(frame), 16 },
 

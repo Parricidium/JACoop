@@ -397,8 +397,9 @@ static void SV_AddEntitiesVisibleFromPoint( vec3_t origin, clientSnapshot_t *fra
 			continue;
 		}
 
-		if (ent->s.eFlags & EF_PERMANENT)
-		{	// he's permanent, so don't send him down!
+		if ( ( ent->s.eFlags & EF_PERMANENT ) && frame->ps.clientNum == 0 )
+		{	// permanent: the host's cgame takes it from the server baselines (CG_TransitionPermanent);
+			// coop: a remote client has no baselines, so it gets them like any other entity
 			continue;
 		}
 
@@ -633,6 +634,11 @@ static clientSnapshot_t *SV_BuildClientSnapshot( client_t *client ) {
 		ent = SV_GentityNum(entityNumbers.snapshotEntities[i]);
 		state = &svs.snapshotEntities[svs.nextSnapshotEntities % svs.numSnapshotEntities];
 		*state = ent->s;
+		if ( ent->client && frame->ps.clientNum != 0 )
+		{	// coop: SP never puts a client's velocity on the wire; the remote cgame
+			// scales the walk/run animations by it (PM_SetAnimFinal, resultspeed)
+			VectorCopy( ent->client->velocity, state->pos.trDelta );
+		}
 		svs.nextSnapshotEntities++;
 		frame->num_entities++;
 	}

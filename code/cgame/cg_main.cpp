@@ -320,6 +320,7 @@ vmCvar_t	cg_thirdPersonHorzOffset;
 
 vmCvar_t	cg_stereoSeparation;
 vmCvar_t 	cg_developer;
+vmCvar_t	cg_coopCameraLag;	// coop: ms the remote client renders the cutscene camera in the past
 vmCvar_t 	cg_timescale;
 vmCvar_t	cg_skippingcin;
 
@@ -449,6 +450,7 @@ static cvarTable_t cvarTable[] = {
 
 	{ &cg_paused, "cl_paused", "0", CVAR_ROM },
 	{ &cg_developer, "developer", "", 0 },
+	{ &cg_coopCameraLag, "cg_coopCameraLag", "100", CVAR_ARCHIVE },
 	{ &cg_timescale, "timescale", "1", 0 },
 	{ &cg_skippingcin, "skippingCinematic", "0", CVAR_ROM},
 	{ &cg_missionInfoFlashTime, "cg_missionInfoFlashTime", "10000", 0  },

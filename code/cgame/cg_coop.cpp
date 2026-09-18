@@ -236,6 +236,113 @@ static void CG_CoopEnsureCharacter( centity_t *cent )
 
 /*
 ================
+CG_CoopEnsureG2Model
+
+Non-character entities whose model is a ghoul2 .glm (misc_model_ghoul,
+turrets, det packs / trip mines, saber pickups): the host built their ghoul2
+in the game, and the renderer draws nothing for a .glm handle without an
+instance. Build one here from the model the entity names. Items name it in
+modelindex3 (g_items.cpp), everything else in modelindex.
+================
+*/
+static int coopG2Key[MAX_GENTITIES];	// CS_MODELS index the ghoul2 in this slot was built from (0 = none)
+
+static void CG_CoopEnsureG2Model( centity_t *cent )
+{
+	gentity_t			*gent = cent->gent;
+	const entityState_t	*s = &cent->currentState;
+	const int			entNum = s->number;
+	int					modelIndex = 0;
+	int					key = 0;
+
+	if ( s->eType == ET_ITEM )
+	{
+		modelIndex = s->modelindex3;
+	}
+	else if ( s->eType != ET_PLAYER && s->eType < ET_EVENTS && s->solid != SOLID_BMODEL )
+	{
+		modelIndex = s->modelindex;
+	}
+	if ( modelIndex > 0 && modelIndex < MAX_MODELS )
+	{
+		const char	*name = CG_ConfigString( CS_MODELS + modelIndex );
+		const int	len = strlen( name );
+		if ( len > 4 && !Q_stricmp( name + len - 4, ".glm" ) )
+		{
+			key = modelIndex;
+		}
+	}
+	if ( key == coopG2Key[entNum] && ( !key || gent->ghoul2.size() ) )
+	{
+		return;
+	}
+	if ( coopChar[entNum].specIndex )
+	{	// the slot held a character
+		CG_CoopTearDown( cent );
+	}
+	else if ( coopG2Key[entNum] && gent->ghoul2.size() )
+	{
+		gi.G2API_CleanGhoul2Models( gent->ghoul2 );
+	}
+	coopG2Key[entNum] = key;
+	if ( !key )
+	{
+		return;
+	}
+	const char *name = CG_ConfigString( CS_MODELS + key );
+	gent->s.number = entNum;
+	gent->inuse = qtrue;
+	gent->playerModel = gi.G2API_InitGhoul2Model( gent->ghoul2, name, key, NULL_HANDLE, NULL_HANDLE, 0, 0 );
+	if ( cg_developer.integer )
+	{
+		Com_Printf( "coop: ent %i built ghoul2 '%s' (type %i) -> %i\n", entNum, name, s->eType, gent->playerModel );
+	}
+}
+
+/*
+================
+CG_CoopEnts_f
+
+"coop_ents": what the last snapshot holds, to find an object the host sees
+and we do not.
+================
+*/
+void CG_CoopEnts_f( void )
+{
+	if ( !cg.snap )
+	{
+		return;
+	}
+	for ( int i = 0; i < cg.snap->numEntities; i++ )
+	{
+		const entityState_t	*es = &cg.snap->entities[i];
+		const centity_t		*cent = &cg_entities[es->number];
+		const char			*name;
+		if ( es->eType == ET_ITEM )
+		{
+			name = ( es->modelindex > 0 && es->modelindex < bg_numItems ) ? bg_itemlist[es->modelindex].classname : "?";
+		}
+		else if ( es->solid == SOLID_BMODEL )
+		{
+			name = va( "*%i", es->modelindex );
+		}
+		else if ( es->eType == ET_PLAYER )
+		{
+			name = va( "spec %i", es->modelindex3 );
+		}
+		else
+		{
+			name = CG_ConfigString( CS_MODELS + es->modelindex );
+		}
+		Com_Printf( "%4i type %2i model %3i %-40s ghoul2 %i%s%s at %.0f %.0f %.0f %s\n", es->number, es->eType, es->modelindex, name,
+			cent->gent ? (int)cent->gent->ghoul2.size() : -1, ( es->eFlags & EF_NODRAW ) ? " NODRAW" : "", ( es->eFlags & EF_PERMANENT ) ? " PERMANENT" : "",
+			es->pos.trBase[0], es->pos.trBase[1], es->pos.trBase[2], ( cent->gent && cent->gent->classname ) ? cent->gent->classname : "" );
+	}
+	Com_Printf( "%i entities in the snapshot\n", cg.snap->numEntities );
+}
+
+/*
+================
 CG_CoopDriveAnim
 
 Play the networked animation on the ghoul2 skeleton through the same
@@ -277,7 +384,7 @@ static void CG_CoopDriveAnim( centity_t *cent )
 		float cur = 0, spd = 0; int sf = 0, ef = 0, fl = 0;
 		const qboolean playing = gi.G2API_GetBoneAnimIndex( &gent->ghoul2[gent->playerModel], gent->rootBone, cg.time, &cur, &sf, &ef, &fl, &spd, NULL );
 		const animation_t *anims = level.knownAnimFileSets[gent->client->clientInfo.animFileIndex].animations;
-		Com_Printf( "coop: ent %i anim net %i/%i ps %i/%i root bone %i playing %i frames %i-%i animFile %i glaOffset %i animGla %i numFrames %i\n", cent->currentState.number, s->legsAnim, s->torsoAnim, ps->legsAnim, ps->torsoAnim, gent->rootBone, playing, sf, ef, gent->client->clientInfo.animFileIndex, gi.G2API_GetAnimIndex( &gent->ghoul2[gent->playerModel] ), anims[s->legsAnim].glaIndex, anims[s->legsAnim].numFrames );
+		Com_Printf( "coop: ent %i anim net %i/%i ps %i/%i root bone %i playing %i speed %.2f frames %i-%i animFile %i glaOffset %i animGla %i numFrames %i vel %.0f at %.0f %.0f %.0f\n", cent->currentState.number, s->legsAnim, s->torsoAnim, ps->legsAnim, ps->torsoAnim, gent->rootBone, playing, spd, sf, ef, gent->client->clientInfo.animFileIndex, gi.G2API_GetAnimIndex( &gent->ghoul2[gent->playerModel] ), anims[s->legsAnim].glaIndex, anims[s->legsAnim].numFrames, gent->resultspeed, cent->lerpOrigin[0], cent->lerpOrigin[1], cent->lerpOrigin[2] );
 		st->lastDebugTime = cg.time;
 	}
 	st->legsTimer = s->legsAnimTimer;
@@ -386,6 +493,11 @@ void CG_CoopSyncEntity( centity_t *cent )
 	{
 		return;
 	}
+	// the placeholder stands for an entity that exists on the host; CG_Item
+	// & co skip a gentity that is not "inuse" (every pickup was invisible)
+	cent->gent->inuse = qtrue;
+	cent->gent->s.number = cent->currentState.number;
+	CG_CoopEnsureG2Model( cent );
 	CG_CoopEnsureCharacter( cent );
 }
 
@@ -483,6 +595,64 @@ extern void CG_CalcEntityLerpPositions( centity_t *cent );
 
 static qboolean coopCameraActive = qfalse;
 
+// The camera only reaches us at the snapshot rate (sv_fps, 20 Hz), and our
+// clock sits right at the newest snapshot, so following it directly steps
+// and stalls. Keep the last samples and render the camera cg_coopCameraLag
+// ms in the past, between two of them.
+#define COOP_CAM_SAMPLES	32
+typedef struct coopCamSample_s {
+	int			time;
+	vec3_t		origin;
+	vec3_t		angles;
+	float		fov;
+	float		bar;
+	vec4_t		fade;
+	qboolean	cut;		// a jump from the previous sample: never interpolate into it
+} coopCamSample_t;
+static coopCamSample_t	coopCam[COOP_CAM_SAMPLES];
+static int				coopCamCount;		// samples in the ring
+static int				coopCamHead;		// next slot to write
+static int				coopCamLastTime;	// serverTime of the newest sample
+
+static const coopCamSample_t *CG_CoopCamAt( int i )	// 0 = oldest
+{
+	return &coopCam[( coopCamHead - coopCamCount + i + COOP_CAM_SAMPLES ) % COOP_CAM_SAMPLES];
+}
+
+static void CG_CoopCamPush( const entityState_t *s, int time )
+{
+	if ( coopCamCount && time <= coopCamLastTime )
+	{
+		return;
+	}
+	coopCamSample_t *c = &coopCam[coopCamHead];
+	c->time = time;
+	VectorCopy( s->pos.trBase, c->origin );
+	VectorCopy( s->apos.trBase, c->angles );
+	c->fov = s->origin2[0];
+	c->bar = s->origin2[1];
+	VectorCopy( s->angles2, c->fade );
+	c->fade[3] = s->origin2[2];
+	c->cut = qfalse;
+	if ( coopCamCount )
+	{
+		const coopCamSample_t *p = CG_CoopCamAt( coopCamCount - 1 );
+		const int dt = time - p->time;
+		if ( dt > 500 || Distance( p->origin, c->origin ) > 400.0f
+			|| fabsf( AngleSubtract( p->angles[YAW], c->angles[YAW] ) ) > 60.0f
+			|| fabsf( AngleSubtract( p->angles[PITCH], c->angles[PITCH] ) ) > 60.0f )
+		{
+			c->cut = qtrue;
+		}
+	}
+	coopCamHead = ( coopCamHead + 1 ) % COOP_CAM_SAMPLES;
+	if ( coopCamCount < COOP_CAM_SAMPLES )
+	{
+		coopCamCount++;
+	}
+	coopCamLastTime = time;
+}
+
 void CG_CoopSyncCamera( void )
 {
 	if ( !cg_remoteClient || !cg.snap )
@@ -512,10 +682,38 @@ void CG_CoopSyncCamera( void )
 			client_camera.bar_height = 0.0f;
 			client_camera.fade_color[3] = 0.0f;
 		}
+		coopCamCount = coopCamHead = coopCamLastTime = 0;
 		return;
 	}
 
-	CG_CalcEntityLerpPositions( cam );
+	// new samples: this snapshot's, and the next one's when we already have it
+	CG_CoopCamPush( &cam->currentState, cg.snap->serverTime );
+	if ( cg.nextSnap && cam->interpolate && cam->nextState )
+	{
+		CG_CoopCamPush( cam->nextState, cg.nextSnap->serverTime );
+	}
+
+	// the two samples around our (delayed) render time
+	const int t = cg.time - cg_coopCameraLag.integer;
+	const coopCamSample_t *a = CG_CoopCamAt( 0 ), *b = a;
+	for ( int i = 1; i < coopCamCount; i++ )
+	{
+		b = CG_CoopCamAt( i );
+		if ( b->time >= t )
+		{
+			break;
+		}
+		a = b;
+	}
+	float f = 0.0f;
+	if ( b->cut )
+	{
+		f = ( t >= b->time ) ? 1.0f : 0.0f;
+	}
+	else if ( b->time > a->time && t > a->time )
+	{
+		f = Com_Clamp( 0.0f, 1.0f, ( t - a->time ) / (float)( b->time - a->time ) );
+	}
 
 	if ( !coopCameraActive )
 	{
@@ -525,18 +723,26 @@ void CG_CoopSyncCamera( void )
 		cg.zoomMode = 0;
 	}
 	client_camera.info_state = 0;
-	VectorCopy( cam->lerpOrigin, client_camera.origin );
-	VectorCopy( cam->lerpAngles, client_camera.angles );
-	client_camera.FOV = cam->currentState.origin2[0];
+	for ( int i = 0; i < 3; i++ )
+	{
+		client_camera.origin[i] = a->origin[i] + f * ( b->origin[i] - a->origin[i] );
+		client_camera.angles[i] = LerpAngle( a->angles[i], b->angles[i], f );
+		client_camera.fade_color[i] = a->fade[i] + f * ( b->fade[i] - a->fade[i] );
+	}
+	client_camera.FOV = a->fov + f * ( b->fov - a->fov );
 	client_camera.FOV2 = client_camera.FOV;
-	client_camera.bar_alpha = cam->currentState.origin2[1] > 0.0f ? 1.0f : 0.0f;
-	client_camera.bar_height = cam->currentState.origin2[1];
+	const float bar = a->bar + f * ( b->bar - a->bar );
+	client_camera.bar_alpha = bar > 0.0f ? 1.0f : 0.0f;
+	client_camera.bar_height = bar;
 	// CGCam_UpdateBarFade snaps to the *_dest values once bar_time is stale; keep them equal
 	client_camera.bar_alpha_dest = client_camera.bar_alpha_source = client_camera.bar_alpha;
 	client_camera.bar_height_dest = client_camera.bar_height_source = client_camera.bar_height;
 	client_camera.bar_time = cg.time;
-	VectorCopy( cam->currentState.angles2, client_camera.fade_color );
-	client_camera.fade_color[3] = cam->currentState.origin2[2];
+	client_camera.fade_color[3] = a->fade[3] + f * ( b->fade[3] - a->fade[3] );
+	if ( cg_developer.integer > 1 )
+	{
+		Com_Printf( "coopcam %i t %i a %i b %i f %.2f n %i org %.1f %.1f %.1f yaw %.1f%s\n", cg.time, t, a->time, b->time, f, coopCamCount, client_camera.origin[0], client_camera.origin[1], client_camera.origin[2], client_camera.angles[YAW], b->cut ? " cut" : "" );
+	}
 }
 
 /*
@@ -697,6 +903,7 @@ void CG_CoopFixLocalEntityState( centity_t *cent )
 	{
 		return;
 	}
+	VectorCopy( cg.snap->ps.velocity, cent->currentState.pos.trDelta );	// PM_SetAnimFinal scales walk/run anims by it
 	for ( int i = 0; i < cg.snap->numEntities; i++ )
 	{
 		const entityState_t *es = &cg.snap->entities[i];
