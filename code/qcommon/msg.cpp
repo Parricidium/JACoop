@@ -1039,6 +1039,31 @@ static const netField_t	playerStateFields[] =
 #ifndef JK2_MODE
 { PSF(forceRageRecoveryTime), 32 },
 #endif // !JK2_MODE
+
+// coop: a remote client's own force powers, mana and saber styles (menus, HUD, allocation screen)
+{ PSF(forcePowersKnown), 32 },
+{ PSF(forcePower), 16 },
+{ PSF(forcePowerMax), 16 },
+{ PSF(saberStylesKnown), 16 },
+{ PSF(saberAnimLevel), 8 },
+{ PSF(forcePowerLevel[0]), 4 },
+{ PSF(forcePowerLevel[1]), 4 },
+{ PSF(forcePowerLevel[2]), 4 },
+{ PSF(forcePowerLevel[3]), 4 },
+{ PSF(forcePowerLevel[4]), 4 },
+{ PSF(forcePowerLevel[5]), 4 },
+{ PSF(forcePowerLevel[6]), 4 },
+{ PSF(forcePowerLevel[7]), 4 },
+{ PSF(forcePowerLevel[8]), 4 },
+{ PSF(forcePowerLevel[9]), 4 },
+{ PSF(forcePowerLevel[10]), 4 },
+{ PSF(forcePowerLevel[11]), 4 },
+{ PSF(forcePowerLevel[12]), 4 },
+{ PSF(forcePowerLevel[13]), 4 },
+{ PSF(forcePowerLevel[14]), 4 },
+{ PSF(forcePowerLevel[15]), 4 },
+{ PSF(forcePowerLevel[16]), 4 },
+{ PSF(forcePowerLevel[17]), 4 },
 };
 
 /*

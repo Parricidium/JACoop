@@ -366,6 +366,7 @@ void G_CoopForceCommand( gentity_t *ent )
 		}
 	}
 	G_CoopStoreState( ent );
+	gi.Printf( "coop: %s allocated its force points (%i of %i)\n", ent->client->pers.netname, total, G_CoopAllocTotal( &host->ps ) );
 }
 
 /*
