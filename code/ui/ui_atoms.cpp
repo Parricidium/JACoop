@@ -66,6 +66,24 @@ void UI_SetActiveMenu( const char* menuname,const char *menuID )
 {
 	// this should be the ONLY way the menu system is brought up (besides the UI_ConsoleCommand below)
 
+	// coopMenu, coopLobby, coopForceSelect: every co-op page, allowed even
+	// where the game forbids saving (right after a level load, in the lobby).
+	// A remote client never pauses (the host runs the game); the host pauses
+	// unless others are connected (SV_CheckPaused sorts that out).
+	if ( menuname && Q_stricmpn (menuname, "coop", 4) == 0 )
+	{
+		if ( cls.state == CA_ACTIVE ) {
+			ui.Cvar_Set( "cl_paused", "1" );
+		}
+		Cvar_SetValue( "timescale", 1.0f );
+		UI_Cursor_Show(qtrue);
+		Menu_Cache();
+		Menus_CloseAll();
+		Menus_ActivateByName(menuname);
+		ui.Key_SetCatcher( KEYCATCH_UI );
+		return;
+	}
+
 	if (cls.state != CA_DISCONNECTED && !ui.SG_GameAllowedToSaveHere(qtrue))	//don't check full sytem, only if incamera
 	{
 		return;
@@ -100,16 +118,6 @@ void UI_SetActiveMenu( const char* menuname,const char *menuID )
 	// D3: the Co-op page. Activate it directly (like missionfailed_menu) so it
 	// works whether reached from the main menu or in-game, and pause if a game is
 	// running so it overlays cleanly.
-	if ( Q_stricmp (menuname, "coopMenu") == 0 )
-	{
-		if ( cls.state == CA_ACTIVE ) {
-			ui.Cvar_Set( "cl_paused", "1" );
-		}
-		Menus_CloseAll();
-		Menus_ActivateByName("coopMenu");
-		ui.Key_SetCatcher( KEYCATCH_UI );
-		return;
-	}
 
 	if ( Q_stricmp (menuname, "datapad") == 0 )
 	{

@@ -727,7 +727,8 @@ Ghoul2 Insert End
 #define MAX_COOP_MODELSPECS		128
 #define CS_COOP_MODELSPECS		(CS_WORLD_FX + MAX_WORLD_FX)
 #define CS_COOP_OBJECTIVES		(CS_COOP_MODELSPECS + MAX_COOP_MODELSPECS)	// coop: host mission objectives (one char per objective)
-#define CS_MAX					(CS_COOP_OBJECTIVES + 1)
+#define CS_COOP_LOBBY			(CS_COOP_OBJECTIVES + 1)	// coop: "L|name\tready\tmodel|..." (L = lobby, G = in game)
+#define CS_MAX					(CS_COOP_LOBBY + 1)
 
 #if (CS_MAX) > MAX_CONFIGSTRINGS
 #error overflow: (CS_MAX) > MAX_CONFIGSTRINGS

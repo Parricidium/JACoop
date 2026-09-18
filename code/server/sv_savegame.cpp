@@ -114,6 +114,7 @@ void SG_WipeSavegame(
 {
 	ojk::SavedGame::remove(
 		psPathlessBaseName);
+	FS_HomeRemove( va( "saves/%s.coop", psPathlessBaseName ) );	// coop sidecar
 }
 
 // called from the ERR_DROP stuff just in case the error occured during loading of a saved game, because if
@@ -1233,6 +1234,15 @@ qboolean SG_WriteSavegame(const char *psPathlessBaseName, qboolean qbAutosave)
 		"current",
 		psPathlessBaseName);
 
+	// coop: the joiners' progression rides next to the savegame
+	if ( ge->CoopSaveState ) {
+		static char coopBuf[65536];
+		const int n = ge->CoopSaveState( coopBuf, sizeof( coopBuf ) );
+		if ( n > 0 ) {
+			FS_WriteFile( va( "saves/%s.coop", psPathlessBaseName ), coopBuf, n );
+		}
+	}
+
 	sv_testsave->integer = iPrevTestSave;
 	return qtrue;
 }
@@ -1348,6 +1358,18 @@ qboolean SG_ReadSavegame(
 	::ge->ReadLevel(
 		qbAutosave,
 		qbLoadTransition);
+
+	// coop: bring back the joiners' progression saved with this game
+	if ( ge->CoopLoadState ) {
+		void *coopBuf = NULL;
+		const long n = FS_ReadFile( va( "saves/%s.coop", psPathlessBaseName ), &coopBuf );
+		if ( n > 0 && coopBuf ) {
+			ge->CoopLoadState( coopBuf, (int)n );
+		}
+		if ( coopBuf ) {
+			FS_FreeFile( coopBuf );
+		}
+	}
 
 	return qtrue;
 }

@@ -1095,7 +1095,7 @@ void G_SpawnGEntityFromSpawnVars( void ) {
 	}
 
 	G_SpawnInt( "notsingle", "0", &i );
-	if ( i || !SpawnForCurrentDifficultySetting( ent ) ) {
+	if ( i || !SpawnForCurrentDifficultySetting( ent ) || G_CoopLobbySkipEntity( ent ) ) {
 		G_FreeEntity( ent );
 		return;
 	}

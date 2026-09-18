@@ -69,6 +69,7 @@ set(SPGameGameFiles
 	"${SPDir}/game/g_camera.cpp"
 	"${SPDir}/game/g_client.cpp"
 	"${SPDir}/game/g_coop.cpp"
+	"${SPDir}/game/g_coop_lobby.cpp"
 	"${SPDir}/game/g_cmds.cpp"
 	"${SPDir}/game/g_combat.cpp"
 	"${SPDir}/game/g_emplaced.cpp"

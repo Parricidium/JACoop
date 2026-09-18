@@ -739,6 +739,7 @@ void ClientBegin( int clientNum, usercmd_t *cmd, SavedGameJustLoaded_e eSavedGam
 		{
 			// coop: a joiner lands beside the host, who may be deep into the level (join in progress, load)
 			G_CoopPlaceBeside( ent, G_CoopLivingTeammate( ent ) );
+			G_CoopOnJoinerBegin( ent );	// coop: saved progression, or start level with the host
 		}
 		client->ps.inventory[INV_GOODIE_KEY] = 0;
 		client->ps.inventory[INV_SECURITY_KEY] = 0;
@@ -2626,6 +2627,7 @@ void ClientDisconnect( int clientNum ) {
 	if ( !ent->client ) {
 		return;
 	}
+	G_CoopStoreState( ent );	// coop: keep the character for a reconnection
 
 	// send effect if they were completely connected
 /*	if ( ent->client->pers.connected == CON_CONNECTED ) {

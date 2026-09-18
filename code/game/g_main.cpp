@@ -768,6 +768,7 @@ void InitGame(  const char *mapname, const char *spawntarget, int checkSum, cons
 	// set some level globals
 	memset( &level, 0, sizeof( level ) );
 	level.time = levelTime;
+	G_CoopLobbyInit();	// coop: lobby map? fresh campaign?
 	level.globalTime = globalTime;
 	Q_strncpyz( level.mapname, mapname, sizeof(level.mapname) );
 	if ( spawntarget != NULL && spawntarget[0] )
@@ -852,6 +853,7 @@ ShutdownGame
 */
 void ShutdownGame( void )
 {
+	G_CoopStoreAll();		// coop: joiners carry their progression to the next level
 	G_CoopResetCamera();	// coop: the camera entity dies with the level
 	// write all the client session data so we can get it back
 	G_WriteSessionData();
@@ -938,6 +940,8 @@ extern "C" Q_EXPORT game_export_t* QDECL GetGameAPI( game_import_t *import ) {
 	//globals.ValidateAnimRange = PM_ValidateAnimRange;
 
 	globals.GameSpawnRMGEntity = G_GameSpawnRMGEntity;
+	globals.CoopSaveState = G_CoopSaveState;
+	globals.CoopLoadState = G_CoopLoadState;
 
 	globals.gentitySize = sizeof(gentity_t);
 
@@ -2174,6 +2178,7 @@ void G_RunFrame( int levelTime ) {
 	G_CoopUpdateCamera();
 	G_CoopUpdateObjectives();
 	G_CoopUpdateMissionFailed();
+	G_CoopLobbyFrame();
 	if( g_numEntities->integer )
 	{
 		gi.Printf( S_COLOR_WHITE"Number of Entities in use : %d\n", ents_inuse );

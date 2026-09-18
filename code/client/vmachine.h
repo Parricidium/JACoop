@@ -59,7 +59,8 @@ Ghoul2 Insert End
 	CG_DRAW_DATAPAD_OBJECTIVES,
 	CG_DRAW_DATAPAD_WEAPONS,
 	CG_DRAW_DATAPAD_INVENTORY,
-	CG_DRAW_DATAPAD_FORCEPOWERS
+	CG_DRAW_DATAPAD_FORCEPOWERS,
+	CG_COOP_LOCAL_PS		// coop: a remote client's own playerState (the menus edit force powers through it)
 
 } cgameExport_t;
 

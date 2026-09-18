@@ -49,6 +49,8 @@ extern stringID_table_t animTable [MAX_ANIMATIONS+1];
 #include "../qcommon/stringed_ingame.h"
 #include "../qcommon/q_shared.h"
 #include "../qcommon/game_version.h"
+#include "../client/client.h"		// coop: cls/cl for the lobby feeder and the remote player state
+#include "../client/vmachine.h"
 
 extern qboolean ItemParse_model_g2anim_go( itemDef_t *item, const char *animName );
 extern qboolean ItemParse_asset_model_go( itemDef_t *item, const char *name );
@@ -103,6 +105,73 @@ qboolean Item_SetFocus(itemDef_t *item, float x, float y);
 extern int         CL_GetCoopServerCount( void );
 extern const char *CL_GetCoopServerText( int index );
 extern qboolean    CL_GetCoopServerAddress( int index, char *out, int outSize );
+extern int         CL_GetCoopLobbyCount( void );
+extern const char *CL_GetCoopLobbyText( int index );
+
+// coop: the player whose state the menus read and edit (force allocation,
+// saber styles, datapad). The host's is the local server's client 0; a remote
+// client has no server, so it asks its cgame for the placeholder playerState
+// that mirrors the snapshot. NULL outside a game.
+static client_t *UI_LocalClient( void )
+{
+	static client_t		remoteClient;
+	static gentity_t	remoteEntity;
+
+	if ( com_sv_running && com_sv_running->integer )
+	{
+		return &svs.clients[0];
+	}
+	if ( cls.state == CA_ACTIVE && cgvm.entryPoint )
+	{
+		playerState_t *ps = (playerState_t *)VM_Call( CG_COOP_LOCAL_PS );
+		if ( ps )
+		{
+			remoteEntity.client = ps;
+			remoteClient.gentity = &remoteEntity;
+			return &remoteClient;
+		}
+	}
+	return NULL;
+}
+
+// coop: a remote client edits a copy; the host owns the real state and checks the budget
+static void UI_CoopSendForce( const playerState_t *ps )
+{
+	if ( ( com_sv_running && com_sv_running->integer ) || !ps )
+	{
+		return;
+	}
+	char cmd[256] = "cmd coopforce";
+	for ( int fp = 0; fp < NUM_FORCE_POWERS; fp++ )
+	{
+		Q_strcat( cmd, sizeof( cmd ), va( " %i", ps->forcePowerLevel[fp] ) );
+	}
+	Q_strcat( cmd, sizeof( cmd ), "\n" );
+	ui.Cmd_ExecuteText( EXEC_APPEND, cmd );
+}
+
+// coop: one cvar the lobby menu can test: "host", or the ready flag ("0"/"1")
+static void UI_CoopLobbyState( void )
+{
+	if ( com_sv_running && com_sv_running->integer )
+	{
+		Cvar_Set( "ui_coopLobbyState", "host" );
+	}
+	else
+	{
+		Cvar_Set( "ui_coopLobbyState", Cvar_VariableIntegerValue( "coop_ready" ) ? "1" : "0" );
+	}
+}
+
+// coop: remember the host to join, then go through the character screens
+// (startgame connects instead of starting a game while ui_coopJoin is set)
+static void UI_CoopStartJoin( const char *addr )
+{
+	Cvar_Set( "ui_coopJoin", addr );
+	Cvar_Set( "ui_coopMode", "join" );
+	Menus_CloseAll();
+	Menus_ActivateByName( "newgamefirstMenu" );
+}
 // The row currently selected in the co-op server feeder (tracked below).
 static int ui_coopServerSelection = 0;
 static float UI_GetCoopServerSelection( void ) { return (float)ui_coopServerSelection; }
@@ -693,6 +762,10 @@ const char *UI_FeederItemText(float feederID, int index, int column, qhandle_t *
 	{
 		return CL_GetCoopServerText( index );
 	}
+	else if (feederID == FEEDER_COOP_PLAYERS)
+	{
+		return CL_GetCoopLobbyText( index );
+	}
 	else if (feederID == FEEDER_SAVEGAMES)
 	{
 		if (column==0)
@@ -1080,7 +1153,17 @@ static qboolean UI_RunMenuScript ( const char **args )
 			Cvar_VariableStringBuffer( "ui_coopJoin", coopJoin, sizeof( coopJoin ) );
 			if ( coopJoin[0] )
 			{
+				Cvar_Set( "ui_coopJoin", "" );
+				Cvar_Set( "ui_coopMode", "" );
 				ui.Cmd_ExecuteText( EXEC_APPEND, va( "connect %s\n", coopJoin ) );
+				return qtrue;
+			}
+			char coopMode[32];
+			Cvar_VariableStringBuffer( "ui_coopMode", coopMode, sizeof( coopMode ) );
+			if ( !Q_stricmp( coopMode, "host" ) )
+			{
+				Cvar_Set( "ui_coopMode", "" );
+				ui.Cmd_ExecuteText( EXEC_APPEND, "coop_lobby\n" );
 				return qtrue;
 			}
 #ifdef JK2_MODE
@@ -1611,23 +1694,58 @@ static qboolean UI_RunMenuScript ( const char **args )
 		}
 		else if ( Q_stricmp( name, "coopJoin" ) == 0 )
 		{
-			// Connect to the host selected in the server-list feeder.
+			// Join the host selected in the server-list feeder (character screens first).
 			int sel = (int)UI_GetCoopServerSelection();
 			char addr[64];
 			if ( CL_GetCoopServerAddress( sel, addr, sizeof( addr ) ) )
 			{
-				ui.Cmd_ExecuteText( EXEC_APPEND, va( "connect %s\n", addr ) );
+				UI_CoopStartJoin( addr );
 			}
 		}
 		else if ( Q_stricmp( name, "coopConnect" ) == 0 )
 		{
-			// Direct-connect to the address typed into the ui_coopAddress field.
+			// Join the address typed into the ui_coopAddress field.
 			char addr[64];
 			Cvar_VariableStringBuffer( "ui_coopAddress", addr, sizeof( addr ) );
 			if ( addr[0] )
 			{
-				ui.Cmd_ExecuteText( EXEC_APPEND, va( "connect %s\n", addr ) );
+				UI_CoopStartJoin( addr );
 			}
+		}
+		else if ( Q_stricmp( name, "coopCreate" ) == 0 )
+		{
+			// Host: character screens, then the lobby (see startgame).
+			Cvar_Set( "ui_coopJoin", "" );
+			Cvar_Set( "ui_coopMode", "host" );
+			Menus_CloseAll();
+			Menus_ActivateByName( "newgamefirstMenu" );
+		}
+		else if ( Q_stricmp( name, "coopNewGame" ) == 0 )
+		{
+			// Lobby host: start the campaign for everyone.
+			Menus_CloseAll();
+			ui.Cmd_ExecuteText( EXEC_APPEND, "set g_coopLobby 0 ; map yavin1\n" );
+		}
+		else if ( Q_stricmp( name, "coopContinue" ) == 0 )
+		{
+			// Lobby host: pick a savegame (joiners get their characters back from its sidecar).
+			Cvar_Set( "g_coopLobby", "0" );
+			Menus_CloseAll();
+			Menus_ActivateByName( "ingameloadMenu" );
+		}
+		else if ( Q_stricmp( name, "coopReadyToggle" ) == 0 )
+		{
+			Cvar_Set( "coop_ready", Cvar_VariableIntegerValue( "coop_ready" ) ? "0" : "1" );
+			UI_CoopLobbyState();
+		}
+		else if ( Q_stricmp( name, "coopLobbyOpen" ) == 0 )
+		{
+			UI_CoopLobbyState();
+		}
+		else if ( Q_stricmp( name, "coopLeave" ) == 0 )
+		{
+			Menus_CloseAll();
+			ui.Cmd_ExecuteText( EXEC_APPEND, "disconnect\n" );
 		}
 		else
 		{
@@ -1684,19 +1802,14 @@ static void UI_CalcForceStatus(void)
 	short		who, index=FW_VERY_LIGHT;
 	qboolean	lukeFlag=qtrue;
 	float		percent;
-	client_t*	cl = &svs.clients[0];	// 0 because only ever us as a player
+	client_t *cl = UI_LocalClient();	// 0 because only ever us as a player
 	char		value[256];
 
-	if (!cl)
+	if (!cl || !cl->gentity || !cl->gentity->client)
 	{
 		return;
 	}
 	playerState_t*		pState = cl->gentity->client;
-
-	if (!cl->gentity || !cl->gentity->client)
-	{
-		return;
-	}
 
 	memset(value, 0, sizeof(value));
 
@@ -1867,6 +1980,10 @@ static int UI_FeederCount(float feederID)
 	if (feederID == FEEDER_COOP_SERVERS )	// D3
 	{
 		return CL_GetCoopServerCount();
+	}
+	else if (feederID == FEEDER_COOP_PLAYERS)
+	{
+		return CL_GetCoopLobbyCount();
 	}
 	else if (feederID == FEEDER_SAVEGAMES )
 	{
@@ -4446,7 +4563,7 @@ static void UI_UpdateFightingStyleChoices ( void )
 	else
 	{
 		// Get player state
-		client_t	*cl = &svs.clients[0];	// 0 because only ever us as a player
+		client_t *cl = UI_LocalClient();	// 0 because only ever us as a player
 		playerState_t	*pState;
 
 		if (cl && cl->gentity && cl->gentity->client)
@@ -4618,7 +4735,7 @@ static void UI_InitAllocForcePowers ( const char *forceName )
 		return;
 	}
 
-	client_t* cl = &svs.clients[0];	// 0 because only ever us as a player
+	client_t *cl = UI_LocalClient();	// 0 because only ever us as a player
 
 	// NOTE: this UIScript can be called outside the running game now, so handle that case
 	// by getting info frim UIInfo instead of PlayerState
@@ -4708,7 +4825,7 @@ static void UI_SetPowerTitleText ( qboolean showAllocated )
 
 #ifndef JK2_MODE
 static int UI_CountForcePowers( void ) {
-	const client_t *cl = &svs.clients[0];
+	const client_t *cl = UI_LocalClient();
 
 	if ( cl && cl->gentity ) {
 		const playerState_t *ps = cl->gentity->client;
@@ -4844,7 +4961,7 @@ static void	UI_DemoSetForceLevels( void )
 
 	char	buffer[MAX_STRING_CHARS];
 
-	client_t* cl = &svs.clients[0];	// 0 because only ever us as a player
+	client_t *cl = UI_LocalClient();	// 0 because only ever us as a player
 	playerState_t*		pState = NULL;
 	if( cl )
 	{
@@ -5023,7 +5140,7 @@ static void UI_ShutdownForceHelp( void )
 		}
 
 		// Get player state
-		client_t* cl = &svs.clients[0];	// 0 because only ever us as a player
+		client_t *cl = UI_LocalClient();	// 0 because only ever us as a player
 
 		if (!cl)	// No client, get out
 		{
@@ -5092,7 +5209,7 @@ static void UI_DecrementCurrentForcePower ( void )
 	}
 
 	// Get player state
-	client_t* cl = &svs.clients[0];	// 0 because only ever us as a player
+	client_t *cl = UI_LocalClient();	// 0 because only ever us as a player
 	playerState_t*		pState = NULL;
 	int forcelevel;
 
@@ -5118,6 +5235,7 @@ static void UI_DecrementCurrentForcePower ( void )
 		if( pState )
 		{
 			pState->forcePowerLevel[powerEnums[uiInfo.forcePowerUpdated].powerEnum]--;	// Decrement it
+			UI_CoopSendForce( pState );	// coop
 			forcelevel = pState->forcePowerLevel[powerEnums[uiInfo.forcePowerUpdated].powerEnum];
 			// Turn off power if level is 0
 			if (pState->forcePowerLevel[powerEnums[uiInfo.forcePowerUpdated].powerEnum]<1)
@@ -5197,7 +5315,7 @@ static void UI_AffectForcePowerLevel ( const char *forceName )
 	}
 
 	// Get player state
-	client_t* cl = &svs.clients[0];	// 0 because only ever us as a player
+	client_t *cl = UI_LocalClient();	// 0 because only ever us as a player
 	playerState_t*		pState = NULL;
 	int	forcelevel;
 	if( cl )
@@ -5225,6 +5343,7 @@ static void UI_AffectForcePowerLevel ( const char *forceName )
 	{
 		pState->forcePowerLevel[powerEnums[forcePowerI].powerEnum]++;	// Increment it
 		pState->forcePowersKnown |= ( 1 << powerEnums[forcePowerI].powerEnum );
+		UI_CoopSendForce( pState );	// coop
 		forcelevel = pState->forcePowerLevel[powerEnums[forcePowerI].powerEnum];
 	}
 	else
@@ -5286,7 +5405,7 @@ static void UI_DecrementForcePowerLevel( void )
 {
 	int	forcePowerI = Cvar_VariableIntegerValue( "ui_forcepower_inc" );
 	// Get player state
-	client_t* cl = &svs.clients[0];	// 0 because only ever us as a player
+	client_t *cl = UI_LocalClient();	// 0 because only ever us as a player
 
 	if (!cl)	// No client, get out
 	{
@@ -5319,7 +5438,7 @@ static void UI_ShowForceLevelDesc ( const char *forceName )
 	}
 
 	// Get player state
-	client_t* cl = &svs.clients[0];	// 0 because only ever us as a player
+	client_t *cl = UI_LocalClient();	// 0 because only ever us as a player
 
 	if (!cl)	// No client, get out
 	{
@@ -5354,7 +5473,7 @@ static void UI_ResetForceLevels ( void )
 	if (uiInfo.forcePowerUpdated!=FP_UPDATED_NONE)
 	{
 		// Get player state
-		client_t* cl = &svs.clients[0];	// 0 because only ever us as a player
+		client_t *cl = UI_LocalClient();	// 0 because only ever us as a player
 
 		if (!cl)	// No client, get out
 		{
@@ -5438,7 +5557,7 @@ static void UI_UpdateFightingStyle ( void )
 	}
 
 	// Get player state
-	client_t	*cl = &svs.clients[0];	// 0 because only ever us as a player
+	client_t *cl = UI_LocalClient();	// 0 because only ever us as a player
 
 	// No client, get out
 	if (cl && cl->gentity && cl->gentity->client)
@@ -5514,7 +5633,7 @@ static void UI_ResetCharacterListBoxes( void )
 static void UI_ClearInventory ( void )
 {
 	// Get player state
-	client_t* cl = &svs.clients[0];	// 0 because only ever us as a player
+	client_t *cl = UI_LocalClient();	// 0 because only ever us as a player
 
 	if (!cl)	// No client, get out
 	{
@@ -5537,7 +5656,7 @@ static void UI_ClearInventory ( void )
 static void UI_GiveInventory ( const int itemIndex, const int amount )
 {
 	// Get player state
-	client_t* cl = &svs.clients[0];	// 0 because only ever us as a player
+	client_t *cl = UI_LocalClient();	// 0 because only ever us as a player
 
 	if (!cl)	// No client, get out
 	{
@@ -5645,7 +5764,7 @@ static void UI_InitWeaponSelect( void )
 static void UI_ClearWeapons ( void )
 {
 	// Get player state
-	client_t* cl = &svs.clients[0];	// 0 because only ever us as a player
+	client_t *cl = UI_LocalClient();	// 0 because only ever us as a player
 
 	if (!cl)	// No client, get out
 	{
@@ -5668,7 +5787,7 @@ static void UI_ClearWeapons ( void )
 static void UI_GiveWeapon ( const int weaponIndex )
 {
 	// Get player state
-	client_t* cl = &svs.clients[0];	// 0 because only ever us as a player
+	client_t *cl = UI_LocalClient();	// 0 because only ever us as a player
 
 	if (!cl)	// No client, get out
 	{
@@ -5689,7 +5808,7 @@ static void UI_GiveWeapon ( const int weaponIndex )
 static void UI_EquipWeapon ( const int weaponIndex )
 {
 	// Get player state
-	client_t* cl = &svs.clients[0];	// 0 because only ever us as a player
+	client_t *cl = UI_LocalClient();	// 0 because only ever us as a player
 
 	if (!cl)	// No client, get out
 	{
@@ -5830,7 +5949,7 @@ static void	UI_AddWeaponSelection ( const int weaponIndex, const int ammoIndex, 
 	}
 
 	// Get player state
-	client_t* cl = &svs.clients[0];	// 0 because only ever us as a player
+	client_t *cl = UI_LocalClient();	// 0 because only ever us as a player
 
 	// NOTE : this UIScript can now be run from outside the game, so don't
 	// return out here, just skip this part
@@ -5934,7 +6053,7 @@ static void UI_RemoveWeaponSelection ( const int weaponSelectionIndex )
 	}
 
 	// Get player state
-	client_t* cl = &svs.clients[0];	// 0 because only ever us as a player
+	client_t *cl = UI_LocalClient();	// 0 because only ever us as a player
 
 	// NOTE : this UIScript can now be run from outside the game, so don't
 	// return out here, just skip this part
@@ -6121,7 +6240,7 @@ static void	UI_AddThrowWeaponSelection ( const int weaponIndex, const int ammoIn
 
 	// Get player state
 
-	client_t* cl = &svs.clients[0];	// 0 because only ever us as a player
+	client_t *cl = UI_LocalClient();	// 0 because only ever us as a player
 
 	// NOTE : this UIScript can now be run from outside the game, so don't
 	// return out here, just skip this part
@@ -6200,7 +6319,7 @@ static void UI_RemoveThrowWeaponSelection ( void )
 
 	// Get player state
 
-	client_t* cl = &svs.clients[0];	// 0 because only ever us as a player
+	client_t *cl = UI_LocalClient();	// 0 because only ever us as a player
 
 	// NOTE : this UIScript can now be run from outside the game, so don't
 	// return out here, just skip this part

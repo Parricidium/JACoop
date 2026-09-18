@@ -428,6 +428,10 @@ typedef struct {
 	qboolean	(*ConsoleCommand)( void );
 
 	void		(*GameSpawnRMGEntity)(char *s);
+
+	// coop: joiner progression kept next to the host's savegame (saves/<name>.coop)
+	int			(*CoopSaveState)( void *buf, int bufSize );
+	void		(*CoopLoadState)( const void *buf, int len );
 	//
 	// global variables shared between game and server
 	//

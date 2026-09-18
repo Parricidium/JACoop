@@ -559,6 +559,24 @@ static void SV_CoopHost_f( void ) {
 	}
 }
 
+/*
+==================
+SV_CoopLobby_f
+
+coop_lobby — host a co-op game from the menu: open the network, allow four
+players and load the lobby map with g_coopLobby set (the game then skips the
+map's scripts, triggers and cinematic cast, and opens the lobby menu).
+==================
+*/
+static void SV_CoopLobby_f( void ) {
+	Cvar_Set( "sv_maxclients", "4" );
+	Cvar_Set( "net_enabled", "1" );
+	NET_Restart();
+	Cvar_Set( "g_coopLobby", "1" );
+	Com_Printf( "coop_lobby: opening the lobby (t1_inter), port %i\n", Cvar_VariableIntegerValue( "net_port" ) );
+	Cbuf_ExecuteText( EXEC_INSERT, "map t1_inter\n" );
+}
+
 void SV_AddOperatorCommands( void ) {
 	static qboolean	initialized;
 
@@ -568,6 +586,7 @@ void SV_AddOperatorCommands( void ) {
 	initialized = qtrue;
 
 	Cmd_AddCommand ("coop_host", SV_CoopHost_f);
+	Cmd_AddCommand ("coop_lobby", SV_CoopLobby_f);
 	Cmd_AddCommand ("status", SV_Status_f);
 	Cmd_AddCommand ("serverinfo", SV_Serverinfo_f);
 	Cmd_AddCommand ("systeminfo", SV_Systeminfo_f);

@@ -1376,6 +1376,12 @@ void ClientCommand( int clientNum ) {
 
 	cmd = gi.argv(0);
 
+	if (Q_stricmp (cmd, "coopforce") == 0)
+	{
+		G_CoopForceCommand( ent );	// coop: a joiner allocated its force points
+		return;
+	}
+
 	if (Q_stricmp (cmd, "spawn") == 0)
 	{
 		Cmd_Spawn( ent );

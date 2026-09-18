@@ -479,6 +479,7 @@ A client (re)entered the world: forget what we told the previous occupant.
 */
 void G_CoopClientBegin( const gentity_t *ent )
 {
+	G_CoopLobbyClientBegin( ent );
 	if ( ent->s.number >= 0 && ent->s.number < MAX_CLIENTS )
 	{
 		coopMissionFailedSent[ent->s.number] = qfalse;

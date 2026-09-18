@@ -113,6 +113,13 @@ extern "C" Q_EXPORT intptr_t QDECL vmMain( int command, intptr_t arg0, intptr_t 
 		return 0;
 	case CG_CONSOLE_COMMAND:
 		return CG_ConsoleCommand();
+	case CG_COOP_LOCAL_PS:
+		// coop: the UI edits force powers through this on a remote client
+		if ( cg_remoteClient && cg_localEntNum > 0 && cg_localEntNum < MAX_CLIENTS && g_entities[cg_localEntNum].client )
+		{
+			return (intptr_t)&g_entities[cg_localEntNum].client->ps;
+		}
+		return 0;
 	case CG_DRAW_ACTIVE_FRAME:
 		CG_DrawActiveFrame( arg0, (stereoFrame_t) arg1 );
 		return 0;

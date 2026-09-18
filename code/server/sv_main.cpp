@@ -412,6 +412,15 @@ qboolean SV_CheckPaused( void ) {
 	if ( !cl_paused->integer ) {
 		return qfalse;
 	}
+	// coop: the host's menus must not freeze the other players (nor the lobby)
+	for ( int i = 1; i < MAX_CLIENTS; i++ ) {
+		if ( svs.clients && svs.clients[i].state >= CS_CONNECTED ) {
+			return qfalse;
+		}
+	}
+	if ( Cvar_VariableIntegerValue( "g_coopLobby" ) ) {
+		return qfalse;
+	}
 
 	Cvar_Set("sv_paused", "1");
 	return qtrue;

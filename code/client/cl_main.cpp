@@ -26,6 +26,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "../server/exe_headers.h"
 
+#include <time.h>
 #include "client.h"
 #include "client_ui.h"
 #include <limits.h>
@@ -728,6 +729,43 @@ const char *CL_GetCoopServerText( int index ) {
 	return line;
 }
 
+// coop lobby feeder: the host publishes "L|name\tready\tmodel|..." in
+// CS_COOP_LOBBY (L = lobby, G = playing); one row per connected player.
+static int CL_CoopLobbyRows( char rows[MAX_CLIENTS][96] ) {
+	int n = 0;
+	if ( cls.state < CA_LOADING || !cl.gameState.stringOffsets[CS_COOP_LOBBY] ) {
+		return 0;
+	}
+	const char *s = cl.gameState.stringData + cl.gameState.stringOffsets[CS_COOP_LOBBY];
+	const char *p = strchr( s, '|' );
+	while ( p && n < MAX_CLIENTS ) {
+		p++;
+		const char *end = strchr( p, '|' );
+		char row[96];
+		Q_strncpyz( row, p, end ? Q_min( (int)( end - p ) + 1, (int)sizeof( row ) ) : (int)sizeof( row ) );
+		char *tab = strchr( row, '\t' );
+		int ready = 0;
+		if ( tab ) {
+			*tab = '\0';
+			ready = atoi( tab + 1 );
+		}
+		Com_sprintf( rows[n++], 96, "%s%s", row, ready == 2 ? "   (hote)" : ready == 1 ? "   -  pret" : "   -  pas pret" );
+		p = end;
+	}
+	return n;
+}
+
+int CL_GetCoopLobbyCount( void ) {
+	char rows[MAX_CLIENTS][96];
+	return CL_CoopLobbyRows( rows );
+}
+
+const char *CL_GetCoopLobbyText( int index ) {
+	static char rows[MAX_CLIENTS][96];
+	const int n = CL_CoopLobbyRows( rows );
+	return ( index >= 0 && index < n ) ? rows[index] : "";
+}
+
 // Fill 'out' with "ip:port" for row 'index'. Returns qfalse if out of range.
 qboolean CL_GetCoopServerAddress( int index, char *out, int outSize ) {
 	if ( index < 0 || index >= cls.numLocalServers || !out || outSize <= 0 ) {
@@ -915,6 +953,8 @@ qboolean CL_CheckPaused(void)
 	// if cl_paused->modified is set, the cvar has only been changed in
 	// this frame. Keep paused in this frame to ensure the server doesn't
 	// lag behind.
+	if ( !com_sv_running->integer )
+		return qfalse;	// coop: a remote client never pauses (the host runs the game)
 	if(cl_paused->integer || cl_paused->modified)
 		return qtrue;
 
@@ -1528,6 +1568,15 @@ void CL_Init( void ) {
 	Cvar_Get ("g_saber_color", "yellow", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART );
 	Cvar_Get ("g_saber2_color", "yellow", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART );
 	Cvar_Get ("g_fighting_style", "0", CVAR_USERINFO | CVAR_ARCHIVE );
+	// coop: a stable per-install id so the host recognises a returning joiner
+	// (its progression is kept under it), and the lobby "ready" flag
+	{
+		cvar_t *guid = Cvar_Get( "coop_guid", "", CVAR_USERINFO | CVAR_ARCHIVE );
+		if ( !guid->string[0] ) {
+			Cvar_Set( "coop_guid", va( "%08x%08x", (unsigned)time( NULL ) ^ ( (unsigned)rand() << 16 ), (unsigned)Sys_Milliseconds() ^ (unsigned)rand() ) );
+		}
+	}
+	Cvar_Get( "coop_ready", "0", CVAR_USERINFO );
 
 	//
 	// register our commands

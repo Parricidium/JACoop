@@ -221,6 +221,7 @@ static int svcmdcmp( const void *a, const void *b ) {
 static serverCommand_t	commands[] = {
 	{ "chat",				CG_Print_f },
 	{ "clientLevelShot",	CG_ClientLevelShot_f },
+	{ "coopmenu",			CG_CoopMenu_f },		// coop: host asks us to open a menu (lobby)
 	{ "cp",					CG_CenterPrint_f },
 	{ "cs",					CG_ConfigStringModified },
 	{ "ct",					CG_CaptionText_f },

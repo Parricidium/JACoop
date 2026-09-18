@@ -734,6 +734,18 @@ void CG_CoopMissionFailed_f( void )
 
 /*
 ================
+CG_CoopMenu_f
+
+"coopmenu <name>": the host wants this menu on our screen (the lobby).
+================
+*/
+void CG_CoopMenu_f( void )
+{
+	cgi_UI_SetActive_Menu( (char *)CG_Argv( 1 ) );
+}
+
+/*
+================
 CG_CoopSound_f
 
 "snd <ent> <channel> <index> <customSet> <path>" from the host: a sound the
