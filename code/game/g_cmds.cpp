@@ -1381,6 +1381,13 @@ void ClientCommand( int clientNum ) {
 		G_CoopForceCommand( ent );	// coop: a joiner allocated its force points
 		return;
 	}
+	if (Q_stricmp (cmd, "coop_use") == 0)
+	{	// coop dev: "use" every entity with this targetname, as a script would (needs cheats)
+		if ( !CheatsOk( ent ) ) return;
+		if ( gi.argc() < 2 ) { gi.SendServerCommand( ent - g_entities, "print \"usage: coop_use <targetname>\\n\"" ); return; }
+		G_UseTargets2( ent, ent, gi.argv( 1 ) );
+		return;
+	}
 
 	if (Q_stricmp (cmd, "spawn") == 0)
 	{

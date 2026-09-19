@@ -52,6 +52,7 @@ typedef struct coopCharState_s {
 	int		legsTimer;		// last networked timers, to detect a restarted anim
 	int		torsoTimer;
 	int		lastDebugTime;
+	qboolean inFlight;		// s.saberInFlight we last acted on (hand hilt removed / restored)
 } coopCharState_t;
 
 static coopCharState_t	coopChar[MAX_GENTITIES];
@@ -293,6 +294,12 @@ static void CG_CoopEnsureG2Model( centity_t *cent )
 	gent->s.number = entNum;
 	gent->inuse = qtrue;
 	gent->playerModel = gi.G2API_InitGhoul2Model( gent->ghoul2, name, key, NULL_HANDLE, NULL_HANDLE, 0, 0 );
+	if ( s->eType == ET_GENERAL && s->weapon == WP_SABER && gent->playerModel >= 0 )
+	{	// a thrown saber: CG_General draws its blade from bolt 0 ("*flash") of model weaponModel[0]
+		gi.G2API_AddBolt( &gent->ghoul2[gent->playerModel], "*flash" );
+		gent->weaponModel[0] = gent->playerModel;
+		gent->classname = "lightsaber";
+	}
 	if ( cg_developer.integer )
 	{
 		Com_Printf( "coop: ent %i built ghoul2 '%s' (type %i) -> %i\n", entNum, name, s->eType, gent->playerModel );
@@ -324,7 +331,9 @@ void CG_CoopEnts_f( void )
 		}
 		else if ( es->solid == SOLID_BMODEL )
 		{
-			name = va( "*%i", es->modelindex );
+			name = va( "*%i (draw %i) pos %i base %.0f %.0f %.0f lerpOrg %.0f %.0f %.0f interp %i curState.number %i apos %i lerpAng %.0f %.0f %.0f", es->modelindex, cgs.inlineDrawModel[es->modelindex],
+				es->pos.trType, es->pos.trBase[0], es->pos.trBase[1], es->pos.trBase[2], cent->lerpOrigin[0], cent->lerpOrigin[1], cent->lerpOrigin[2],
+				cent->interpolate, cent->currentState.number, es->apos.trType, cent->lerpAngles[0], cent->lerpAngles[1], cent->lerpAngles[2] );
 		}
 		else if ( es->eType == ET_PLAYER )
 		{
@@ -449,6 +458,26 @@ void CG_CoopSyncCharacter( centity_t *cent )
 			G_CreateG2AttachedWeaponModel( gent, weaponData[s->weapon].weaponMdl, gent->handRBolt, 0 );
 		}
 		st->weapon = s->weapon;
+		st->inFlight = qfalse;
+	}
+
+	// saber throw: the hilt leaves the hand (the thrown entity carries it and
+	// its blade, drawn from our saber[0] data), and comes back on the catch
+	if ( s->weapon == WP_SABER && (qboolean)( s->saberInFlight != 0 ) != st->inFlight )
+	{
+		st->inFlight = (qboolean)( s->saberInFlight != 0 );
+		if ( st->inFlight )
+		{
+			if ( gent->weaponModel[0] > 0 )
+			{
+				gi.G2API_RemoveGhoul2Model( gent->ghoul2, gent->weaponModel[0] );
+				gent->weaponModel[0] = -1;
+			}
+		}
+		else
+		{
+			WP_SaberAddG2SaberModels( gent, 0 );
+		}
 	}
 
 	// blades ignite / retract with s.saberActive
@@ -459,7 +488,7 @@ void CG_CoopSyncCharacter( centity_t *cent )
 		{
 			continue;
 		}
-		const qboolean on = (qboolean)( s->weapon == WP_SABER && s->saberActive && !( saberNum == 0 && s->saberInFlight ) );
+		const qboolean on = (qboolean)( s->weapon == WP_SABER && s->saberActive );
 		for ( int b = 0; b < saber->numBlades; b++ )
 		{
 			bladeInfo_t *blade = &saber->blade[b];
@@ -499,6 +528,11 @@ void CG_CoopSyncEntity( centity_t *cent )
 	cent->gent->s.number = cent->currentState.number;
 	CG_CoopEnsureG2Model( cent );
 	CG_CoopEnsureCharacter( cent );
+	if ( cent->currentState.eType == ET_GENERAL && cent->currentState.weapon == WP_SABER )
+	{	// thrown saber: the blade is drawn from its owner's saber data (CG_General)
+		const int owner = cent->currentState.otherEntityNum;
+		cent->gent->owner = ( owner >= 0 && owner < MAX_CLIENTS && g_entities[owner].client ) ? &g_entities[owner] : NULL;
+	}
 }
 
 /*

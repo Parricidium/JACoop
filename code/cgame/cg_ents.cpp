@@ -1758,7 +1758,9 @@ Ghoul2 Insert End
 	{
 		gentity_t *ent = &g_entities[cent->currentState.number];
 
-		if ( ent && ent->inuse)
+		// coop: a remote client has no server gentities (placeholders at the
+		// origin); everything it knows is in currentState, so never read them here
+		if ( !cg_remoteClient && ent && ent->inuse)
 		{
 			if ( ent->s.eFlags & EF_BLOCKED_MOVER || ent->s.pos.trType == TR_STATIONARY )
 			{//this mover has stopped moving and is going to wig out if we predict it
@@ -1874,7 +1876,9 @@ OutputDebugString(va("[%3d] nonext %4.2f t=%6d  st = %6d  nst = %6d     b=%6.2f 
 	{
 		gentity_t *ent = &g_entities[cent->currentState.number];
 
-		if ( ent && ent->inuse)
+		// coop: a remote client has no server gentities (placeholders at the
+		// origin); everything it knows is in currentState, so never read them here
+		if ( !cg_remoteClient && ent && ent->inuse)
 		{
 			if ( ent->s.eFlags & EF_BLOCKED_MOVER || ent->s.pos.trType == TR_STATIONARY )
 			{//this mover has stopped moving and is going to wig out if we predict it
