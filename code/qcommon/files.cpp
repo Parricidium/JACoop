@@ -469,7 +469,15 @@ char *FS_BuildOSPath( const char *base, const char *game, const char *qpath ) {
 		game = fs_gamedir;
 	}
 
-	Com_sprintf( temp, sizeof(temp), "/%s/%s", game, qpath );
+	// coop: savegames (saves/*.sav, saves/*.coop, saves/hub/*) live at the
+	// root of the home folder - <JACoop>\saves - instead of <JACoop>\base\saves,
+	// like a portable game. Every save path goes through here (open, write,
+	// remove, directory listing), so the game dir is simply left out.
+	if ( !Q_stricmpn( qpath, "saves", 5 ) && ( qpath[5] == '\0' || qpath[5] == '/' || qpath[5] == '\\' ) ) {
+		Com_sprintf( temp, sizeof(temp), "/%s", qpath );
+	} else {
+		Com_sprintf( temp, sizeof(temp), "/%s/%s", game, qpath );
+	}
 	FS_ReplaceSeparators( temp );
 	Com_sprintf( ospath[toggle], sizeof( ospath[0] ), "%s%s", base, temp );
 
