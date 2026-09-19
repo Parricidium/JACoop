@@ -167,10 +167,31 @@ static void UI_CoopLobbyState( void )
 // (startgame connects instead of starting a game while ui_coopJoin is set)
 static void UI_CoopStartJoin( const char *addr )
 {
+	Menus_CloseAll();
+	if ( Cvar_VariableIntegerValue( "coop_charDone" ) )
+	{	// this install already has a character (archived g_char_* / g_saber* cvars)
+		Cvar_Set( "ui_coopJoin", "" );
+		Cvar_Set( "ui_coopMode", "" );
+		ui.Cmd_ExecuteText( EXEC_APPEND, va( "connect %s\n", addr ) );
+		return;
+	}
 	Cvar_Set( "ui_coopJoin", addr );
 	Cvar_Set( "ui_coopMode", "join" );
-	Menus_CloseAll();
 	Menus_ActivateByName( "newgamefirstMenu" );
+}
+
+// Launcher path: "Rejoindre.cmd ADRESSE" starts the game with ui_coopJoin set;
+// the main menu calls this once it is up.
+void UI_CoopAutoJoin( void )
+{
+	static qboolean done = qfalse;	// once per launch (backing out of the screens must not restart it)
+	char addr[128];
+	Cvar_VariableStringBuffer( "ui_coopJoin", addr, sizeof( addr ) );
+	if ( addr[0] && !done )
+	{
+		done = qtrue;
+		UI_CoopStartJoin( addr );
+	}
 }
 // The row currently selected in the co-op server feeder (tracked below).
 static int ui_coopServerSelection = 0;
@@ -467,6 +488,7 @@ typedef struct cvarTable_s {
 } cvarTable_t;
 
 vmCvar_t	ui_menuFiles;
+vmCvar_t	ui_coopCharDone;	// coop: "coop_charDone", set once the character screens were completed
 vmCvar_t	ui_hudFiles;
 
 vmCvar_t	ui_char_anim;
@@ -521,6 +543,7 @@ static void UI_UpdateScreenshot( void )
 static cvarTable_t cvarTable[] =
 {
 	{ &ui_menuFiles,			"ui_menuFiles",			"ui/menus.txt", NULL, CVAR_ARCHIVE },
+	{ &ui_coopCharDone,		"coop_charDone",		"0", NULL, CVAR_ARCHIVE },
 #ifdef JK2_MODE
 	{ &ui_hudFiles,				"cg_hudFiles",			"ui/jk2hud.txt", NULL, CVAR_ARCHIVE},
 #else
@@ -1151,6 +1174,7 @@ static qboolean UI_RunMenuScript ( const char **args )
 			// instead of starting its own game (the launcher sets ui_coopJoin to the host address)
 			char coopJoin[128];
 			Cvar_VariableStringBuffer( "ui_coopJoin", coopJoin, sizeof( coopJoin ) );
+			Cvar_Set( "coop_charDone", "1" );	// the screens were completed once: next time, straight in
 			if ( coopJoin[0] )
 			{
 				Cvar_Set( "ui_coopJoin", "" );
@@ -1160,10 +1184,16 @@ static qboolean UI_RunMenuScript ( const char **args )
 			}
 			char coopMode[32];
 			Cvar_VariableStringBuffer( "ui_coopMode", coopMode, sizeof( coopMode ) );
-			if ( !Q_stricmp( coopMode, "host" ) )
-			{
+			if ( !Q_stricmp( coopMode, "hostnew" ) )
+			{	// lobby host, NOUVELLE PARTIE: character done, start the campaign for everyone
 				Cvar_Set( "ui_coopMode", "" );
-				ui.Cmd_ExecuteText( EXEC_APPEND, "coop_lobby\n" );
+				ui.Cmd_ExecuteText( EXEC_APPEND, "set g_coopLobby 0 ; map yavin1\n" );
+				return qtrue;
+			}
+			if ( !Q_stricmp( coopMode, "char" ) )
+			{	// lobby guest changing its character: back to the lobby (the host rebuilds it from the userinfo)
+				Cvar_Set( "ui_coopMode", "" );
+				Menus_ActivateByName( "coopLobby" );
 				return qtrue;
 			}
 #ifdef JK2_MODE
@@ -1714,17 +1744,28 @@ static qboolean UI_RunMenuScript ( const char **args )
 		}
 		else if ( Q_stricmp( name, "coopCreate" ) == 0 )
 		{
-			// Host: character screens, then the lobby (see startgame).
+			// Host: straight to the lobby with the current character; the
+			// character screens come with NOUVELLE PARTIE (a save brings its own).
 			Cvar_Set( "ui_coopJoin", "" );
-			Cvar_Set( "ui_coopMode", "host" );
+			Cvar_Set( "ui_coopMode", "" );
 			Menus_CloseAll();
-			Menus_ActivateByName( "newgamefirstMenu" );
+			ui.Cmd_ExecuteText( EXEC_APPEND, "coop_lobby\n" );
 		}
 		else if ( Q_stricmp( name, "coopNewGame" ) == 0 )
 		{
-			// Lobby host: start the campaign for everyone.
+			// Lobby host: difficulty + character screens, then the campaign (see startgame).
+			Cvar_Set( "ui_coopJoin", "" );
+			Cvar_Set( "ui_coopMode", "hostnew" );
 			Menus_CloseAll();
-			ui.Cmd_ExecuteText( EXEC_APPEND, "set g_coopLobby 0 ; map yavin1\n" );
+			Menus_ActivateByName( "newgamefirstMenu" );
+		}
+		else if ( Q_stricmp( name, "coopCharacter" ) == 0 )
+		{
+			// Lobby guest: change its character, then back to the lobby (see startgame).
+			Cvar_Set( "ui_coopJoin", "" );
+			Cvar_Set( "ui_coopMode", "char" );
+			Menus_CloseAll();
+			Menus_ActivateByName( "newgamefirstMenu" );
 		}
 		else if ( Q_stricmp( name, "coopContinue" ) == 0 )
 		{

@@ -62,6 +62,8 @@ UI_SetActiveMenu -
 
 =================
 */
+extern void UI_CoopAutoJoin( void );	// ui_main.cpp
+
 void UI_SetActiveMenu( const char* menuname,const char *menuID )
 {
 	// this should be the ONLY way the menu system is brought up (besides the UI_ConsoleCommand below)
@@ -105,6 +107,7 @@ void UI_SetActiveMenu( const char* menuname,const char *menuID )
 	if ( Q_stricmp (menuname, "mainMenu") == 0 )
 	{
 		UI_MainMenu();
+		UI_CoopAutoJoin();	// coop: launched with "join <adresse>" (ui_coopJoin)
 		return;
 	}
 
