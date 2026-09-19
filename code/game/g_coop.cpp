@@ -122,10 +122,20 @@ void G_CoopUpdateAppearance( gentity_t *ent )
 	ent->s.coopLookTarget = ( ent->client->renderInfo.lookMode == LM_ENT ) ? ent->client->renderInfo.lookTarget : ENTITYNUM_NONE;
 	if ( !a->modelName[0] )
 	{
-		return;
+		// A few NPCs (remote_sp, mouse, seeker) still use the pre-ghoul2 md3
+		// legs/torso/head models: no G_SetG2PlayerModel, so nothing recorded.
+		// Describe them as "@legs;torso;head" for the remote cgame.
+		const renderInfo_t *ri = &ent->client->renderInfo;
+		if ( ent->ghoul2.size() || !ri->legsModelName[0] )
+		{
+			return;
+		}
+		Com_sprintf( spec, sizeof( spec ), "@%s;%s;%s;", ri->legsModelName, ri->torsoModelName, ri->headModelName );
 	}
-
-	Com_sprintf( spec, sizeof( spec ), "%s;%s;%s;%s", a->modelName, a->customSkin, a->surfOff, a->surfOn );
+	else
+	{
+		Com_sprintf( spec, sizeof( spec ), "%s;%s;%s;%s", a->modelName, a->customSkin, a->surfOff, a->surfOn );
+	}
 	G_CoopAppendSaber( spec, sizeof( spec ), &ent->client->ps.saber[0] );
 	G_CoopAppendSaber( spec, sizeof( spec ), ent->client->ps.dualSabers ? &ent->client->ps.saber[1] : NULL );
 	Q_strcat( spec, sizeof( spec ), va( ";%i", (int)ent->client->NPC_class ) );
@@ -148,6 +158,31 @@ Stock SP hardcodes "the player" as g_entities[0]. With several clients the AI
 must consider all of them; these helpers replace those sites.
 ==============================================================================
 */
+
+/*
+================
+G_CoopFixClientScriptName
+
+ICARUS resolves script names through a map with one entity per name, and the
+mission scripts only know the host as "player". Client slots get fixed names:
+slot 0 is "player", the joiners are "player2".."player4". Called wherever an
+entity is (re)associated with ICARUS and after a savegame load, so a save
+written by an older build (joiner saved as "player") cannot steal the host's
+scripts.
+================
+*/
+void G_CoopFixClientScriptName( gentity_t *ent )
+{
+	if ( !ent || ent->s.number >= MAX_CLIENTS || !ent->client )
+	{
+		return;
+	}
+	const char *want = ( ent->s.number == 0 ) ? "player" : va( "player%i", ent->s.number + 1 );
+	if ( !ent->script_targetname || Q_stricmp( ent->script_targetname, want ) )
+	{
+		ent->script_targetname = ( ent->s.number == 0 ) ? (char *)"player" : G_NewString( want );
+	}
+}
 
 // true for any human player's entity (slots [0, MAX_CLIENTS) are reserved for clients)
 qboolean G_CoopIsPlayer( const gentity_t *ent )
@@ -379,20 +414,44 @@ void G_CoopGatherJoiners( qboolean all )
 	}
 }
 
-// "coop_tp": a joiner asks to be brought beside the host (stuck behind a locked door...)
+// "coop_tp": a joiner asks to be brought beside the host (stuck behind a locked
+// door...); the host asks to be brought beside its nearest joiner (a script
+// locked a door with the joiner on the far side).
 void G_CoopTeleportCommand( gentity_t *ent )
 {
-	if ( !ent || !ent->client || ent->s.number == 0 || ent->s.number >= MAX_CLIENTS || ent->health <= 0 )
+	if ( !ent || !ent->client || ent->s.number >= MAX_CLIENTS || ent->health <= 0 )
 	{
 		return;
 	}
-	gentity_t *host = &g_entities[0];
-	if ( !host->inuse || !host->client )
+	gentity_t *target = NULL;
+	if ( ent->s.number == 0 )
+	{
+		float best = 0;
+		for ( int i = 1; i < MAX_CLIENTS; i++ )
+		{
+			gentity_t *other = &g_entities[i];
+			if ( !other->inuse || !other->client || other->client->pers.connected != CON_CONNECTED || other->health <= 0 )
+			{
+				continue;
+			}
+			const float d = DistanceSquared( ent->currentOrigin, other->currentOrigin );
+			if ( !target || d < best )
+			{
+				target = other;
+				best = d;
+			}
+		}
+	}
+	else
+	{
+		target = &g_entities[0];
+	}
+	if ( !target || !target->inuse || !target->client )
 	{
 		return;
 	}
-	G_CoopPlaceBeside( ent, host );
-	gi.Printf( "coop: %s teleported to the host on request\n", ent->client->pers.netname );
+	G_CoopPlaceBeside( ent, target );
+	gi.Printf( "coop: %s teleported to %s on request\n", ent->client->pers.netname, target->client->pers.netname );
 }
 
 static void G_CoopRespawn( gentity_t *ent )

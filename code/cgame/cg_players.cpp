@@ -3127,7 +3127,8 @@ static void CG_PlayerAngles( centity_t *cent, vec3_t legs[3], vec3_t torso[3], v
 			legsYawSwingTolMax = 0;
 		}
 
-		yawSpeed = maxYawSpeed = cent->gent->NPC->stats.yawSpeed/150;//about 0.33 normally
+		// coop: the remote client's placeholder NPCs (md3 droids) have no NPC_t
+		yawSpeed = maxYawSpeed = cent->gent->NPC ? cent->gent->NPC->stats.yawSpeed/150 : 0.8f;//about 0.33 normally
 	}
 	else
 	{

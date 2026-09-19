@@ -45,6 +45,7 @@ extern void G_SetG2PlayerModel( gentity_t * const ent, const char *modelName, co
 extern void G_CreateG2AttachedWeaponModel( gentity_t *ent, const char *psWeaponModel, int boltNum, int weaponNum );
 extern void G_RemoveWeaponModels( gentity_t *ent );
 extern int WP_SaberInitBladeData( gentity_t *ent );
+extern void CG_RegisterClientRenderInfo( clientInfo_t *ci, renderInfo_t *ri );
 
 typedef struct coopCharState_s {
 	int		specIndex;		// modelindex3 the current ghoul2 was built from (0 = none)
@@ -53,6 +54,7 @@ typedef struct coopCharState_s {
 	int		torsoTimer;
 	int		lastDebugTime;
 	qboolean inFlight;		// s.saberInFlight we last acted on (hand hilt removed / restored)
+	qboolean legacyMd3;		// pre-ghoul2 md3 legs/torso/head model (remote_sp, mouse, seeker): no ghoul2 to build
 } coopCharState_t;
 
 static coopCharState_t	coopChar[MAX_GENTITIES];
@@ -168,6 +170,10 @@ static void CG_CoopEnsureCharacter( centity_t *cent )
 	{
 		return;
 	}
+	if ( specIndex == st->specIndex && st->legacyMd3 && gent->client && gent->client->clientInfo.infoValid )
+	{	// legacy md3 model registered
+		return;
+	}
 	if ( specIndex == st->specIndex && gent->playerModel >= 0
 		&& gent->playerModel < gent->ghoul2.size() && strstr( gent->ghoul2[gent->playerModel].mFileName, "models/players/" ) )
 	{	// built, and the skeleton slot still holds the body
@@ -223,6 +229,26 @@ static void CG_CoopEnsureCharacter( centity_t *cent )
 	}
 	gent->playerModel = -1;
 	gent->weaponModel[0] = gent->weaponModel[1] = -1;
+
+	if ( modelName[0] == '@' )
+	{	// "@legs;torso;head": pre-ghoul2 md3 model, drawn by CG_Player's legacy path from clientInfo
+		renderInfo_t *ri = &gent->client->renderInfo;
+		Q_strncpyz( ri->legsModelName, modelName + 1, sizeof( ri->legsModelName ) );
+		Q_strncpyz( ri->torsoModelName, skin, sizeof( ri->torsoModelName ) );
+		Q_strncpyz( ri->headModelName, surfOff, sizeof( ri->headModelName ) );
+		ri->legsFpsMod = ri->torsoFpsMod = 1.0f;
+		CG_RegisterClientRenderInfo( &gent->client->clientInfo, ri );
+		gent->client->clientInfo.infoValid = qtrue;
+		st->specIndex = specIndex;
+		st->legacyMd3 = qtrue;
+		st->weapon = -1;
+		if ( cg_developer.integer )
+		{
+			Com_Printf( "coop: ent %i built legacy model legs '%s' torso '%s' head '%s' class %s -> legs %i torso %i head %i\n", entNum, modelName + 1, skin, surfOff, f[8],
+				gent->client->clientInfo.legsModel, gent->client->clientInfo.torsoModel, gent->client->clientInfo.headModel );
+		}
+		return;
+	}
 
 	G_SetG2PlayerModel( gent, modelName, skin[0] ? skin : NULL, surfOff[0] ? surfOff : NULL, surfOn[0] ? surfOn : NULL );
 	if ( gent->playerModel < 0 )
@@ -498,7 +524,7 @@ void CG_CoopSyncCharacter( centity_t *cent )
 	coopCharState_t	*st = &coopChar[cent->currentState.number];
 	const entityState_t *s = &cent->currentState;
 
-	if ( !gent || !gent->client || gent->playerModel < 0 )
+	if ( !gent || !gent->client || ( gent->playerModel < 0 && !st->legacyMd3 ) )
 	{
 		return;
 	}
@@ -518,6 +544,15 @@ void CG_CoopSyncCharacter( centity_t *cent )
 	gent->client->ps.saberInFlight = s->saberInFlight;
 	VectorCopy( cent->lerpOrigin, gent->currentOrigin );
 	VectorCopy( cent->lerpAngles, gent->currentAngles );
+
+	if ( st->legacyMd3 )
+	{	// md3 legs/torso frames come from ps.legsAnim/torsoAnim (CG_PlayerAnimation); no ghoul2 to dress
+		gent->client->ps.legsAnim = s->legsAnim;
+		gent->client->ps.torsoAnim = s->torsoAnim;
+		gent->client->ps.legsAnimTimer = s->legsAnimTimer;
+		gent->client->ps.torsoAnimTimer = s->torsoAnimTimer;
+		return;
+	}
 
 	// weapon / saber hilt models follow s.weapon
 	if ( s->weapon != st->weapon )

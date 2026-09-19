@@ -404,6 +404,7 @@ int G_ModelIndex( const char *name );
 void G_CoopRecordModel( const gentity_t *ent, const char *modelName, const char *customSkin, const char *surfOff, const char *surfOn );
 void G_CoopClearAppearance( const gentity_t *ent );
 void G_CoopUpdateAppearance( gentity_t *ent );
+void G_CoopFixClientScriptName( gentity_t *ent );
 qboolean G_CoopIsPlayer( const gentity_t *ent );
 int G_CoopNumPlayers( void );
 gentity_t *G_CoopNearestPlayer( const vec3_t org, qboolean aliveOnly );

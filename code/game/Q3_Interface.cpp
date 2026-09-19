@@ -7596,6 +7596,13 @@ void CQuake3GameInterface::AssociateEntity( gentity_t *pEntity )
 {
 	char	temp[1024];
 
+	// coop: the name -> entity map holds ONE entity per name, and every mission
+	// script addresses the host as "player". Client slots always get their
+	// fixed names here (player, player2..player4) so nothing else - a joiner
+	// spawn, or a savegame written by an older build where joiners were still
+	// called "player" - can hijack the host's scripts on load.
+	G_CoopFixClientScriptName( pEntity );
+
 	if ( VALIDSTRING( pEntity->script_targetname ) == false )
 		return;
 
@@ -7603,6 +7610,10 @@ void CQuake3GameInterface::AssociateEntity( gentity_t *pEntity )
 	temp[ 1023 ] = 0;
 
 	m_EntityList[ Q_strupr( (char *) temp ) ] = pEntity->s.number;
+	if ( g_developer->integer && pEntity->s.number < MAX_CLIENTS )
+	{
+		Com_Printf( "coop: script name '%s' -> ent %d\n", temp, pEntity->s.number );
+	}
 }
 
 // Make a valid script name.

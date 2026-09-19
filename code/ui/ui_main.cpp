@@ -1792,6 +1792,15 @@ static qboolean UI_RunMenuScript ( const char **args )
 			Menus_CloseAll();
 			ui.Cmd_ExecuteText( EXEC_APPEND, "cmd coop_tp\n" );
 		}
+		else if ( Q_stricmp( name, "coopGather" ) == 0 )
+		{
+			// Host: bring every joiner beside us, and go back to the game.
+			trap_Key_SetCatcher( trap_Key_GetCatcher() & ~KEYCATCH_UI );
+			trap_Key_ClearStates();
+			Cvar_Set( "cl_paused", "0" );
+			Menus_CloseAll();
+			ui.Cmd_ExecuteText( EXEC_APPEND, "cmd coop_gather\n" );
+		}
 		else if ( Q_stricmp( name, "coopLeave" ) == 0 )
 		{
 			Menus_CloseAll();

@@ -1214,6 +1214,9 @@ static void ReadGEntities(qboolean qbAutosave)
 		// NPCs and other ents store waypoints that aren't valid after a load
 		pEnt->waypoint = 0;
 
+		// coop: a save from an older build may carry a joiner named "player"
+		G_CoopFixClientScriptName( pEnt );
+
 		qboolean qbLinked = pEnt->linked;
 		pEnt->linked = qfalse;
 		if (qbLinked)

@@ -1409,7 +1409,15 @@ void ClientCommand( int clientNum ) {
 	}
 	if (Q_stricmp (cmd, "coop_tp") == 0)
 	{
-		G_CoopTeleportCommand( ent );	// coop: joiner asks to rejoin the host
+		G_CoopTeleportCommand( ent );	// coop: joiner asks to rejoin the host (or the host its nearest joiner)
+		return;
+	}
+	if (Q_stricmp (cmd, "coop_gather") == 0)
+	{	// coop: the host brings every joiner beside it
+		if ( ent->s.number == 0 )
+		{
+			G_CoopGatherJoiners( qtrue );
+		}
 		return;
 	}
 	if (Q_stricmp (cmd, "coop_killclass") == 0)
