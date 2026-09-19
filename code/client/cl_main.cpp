@@ -361,6 +361,8 @@ CA_CHALLENGING directly rather than requesting a challenge first -- exactly
 as CL_MapLoading does for localhost.
 ==================
 */
+extern void Menus_CloseAll( void );	// ui_shared.cpp
+
 void CL_Connect_f( void ) {
 	const char	*server;
 
@@ -392,6 +394,10 @@ void CL_Connect_f( void ) {
 
 	cls.state = CA_CHALLENGING;		// so the connect screen is drawn
 	Key_SetCatcher( 0 );
+	// coop: CL_Disconnect's UI_SetActiveMenu(NULL) only drops the key catcher (and is a no-op while the menu's
+	// intro video plays); a main menu left visible makes SCR_DrawScreenField skip the connect screen
+	// while nothing paints it: the swap buffers alternated logo / menu until the host answered
+	Menus_CloseAll();
 	SCR_UpdateScreen();
 	clc.connectTime = -RETRANSMIT_TIMEOUT;	// send the connect packet immediately
 

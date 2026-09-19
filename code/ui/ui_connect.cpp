@@ -79,6 +79,15 @@ void UI_DrawConnect( const char *servername, const char *updateInfoString ) {
 	}
 #else
 	UI_DrawHandlePic( 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, uis.menuBackShader );
+	// coop: say what we are waiting for. The host may not be in its lobby yet;
+	// the connect packet is resent every few seconds until it answers.
+	{
+		extern void Text_Paint( float x, float y, float scale, vec4_t color, const char *text, int iMaxPixelWidth, int style, int iFontIndex );
+		vec4_t white = { 1.0f, 1.0f, 1.0f, 1.0f };
+		vec4_t grey = { 0.7f, 0.7f, 0.7f, 1.0f };
+		Text_Paint( 40, 395, 0.8f, white, va( "Connexion a l'hote %s %s", servername, connectionDialogString ), 0, 0, 3 );
+		Text_Paint( 40, 422, 0.55f, grey, "En attente de l'hote (il doit etre dans son salon : COOPERATION > CREER). Echap pour annuler.", 0, 0, 3 );
+	}
 #endif
 }
 
