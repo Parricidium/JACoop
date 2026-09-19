@@ -2588,7 +2588,12 @@ void CG_Weapon_f( void )
 		}
 		else if ( num == cg.snap->ps.weapon )
 		{//already have it up, let's try to toggle it
-			if ( !in_camera )
+			if ( cg_remoteClient )
+			{	// coop: the host owns our playerState; it toggles the blade (and
+				// the sounds) and we see it through the snapshot (g_cmds.cpp)
+				cgi_SendClientCommand( "sabertoggle" );
+			}
+			else if ( !in_camera )
 			{//player can't activate/deactivate saber when in a cinematic
 				//can't toggle it if not holding it and not controlling it or dead
 				if ( cg.predicted_player_state.stats[STAT_HEALTH] > 0 && (!cg_entities[cg_localEntNum].gent->client->ps.saberInFlight || (&g_entities[cg_entities[cg_localEntNum].gent->client->ps.saberEntityNum] != NULL && g_entities[cg_entities[cg_localEntNum].gent->client->ps.saberEntityNum].s.pos.trType == TR_LINEAR) ) )

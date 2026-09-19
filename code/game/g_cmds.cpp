@@ -1381,6 +1381,32 @@ void ClientCommand( int clientNum ) {
 		G_CoopForceCommand( ent );	// coop: a joiner allocated its force points
 		return;
 	}
+	if (Q_stricmp (cmd, "sabertoggle") == 0)
+	{	// coop: a joiner's saber key (CG_Weapon_f cannot touch its playerState from there)
+		if ( ent->client && ent->health > 0 && ent->client->ps.weapon == WP_SABER
+			&& ( !ent->client->ps.saberInFlight
+				|| ( ent->client->ps.saberEntityNum > 0 && ent->client->ps.saberEntityNum < ENTITYNUM_WORLD
+					&& g_entities[ent->client->ps.saberEntityNum].s.pos.trType == TR_LINEAR ) ) )
+		{
+			if ( ent->client->ps.SaberActive() )
+			{
+				if ( ent->client->ps.dualSabers && ent->client->ps.saber[1].Active() )
+				{
+					ent->client->ps.saber[1].Deactivate();
+				}
+				ent->client->ps.saber[0].Deactivate();
+				if ( ent->client->ps.saber[0].soundOff )
+				{
+					G_Sound( ent->client->ps.saberInFlight ? &g_entities[ent->client->ps.saberEntityNum] : ent, ent->client->ps.saber[0].soundOff );
+				}
+			}
+			else
+			{
+				ent->client->ps.SaberActivate();
+			}
+		}
+		return;
+	}
 	if (Q_stricmp (cmd, "coop_use") == 0)
 	{	// coop dev: "use" every entity with this targetname, as a script would (needs cheats)
 		if ( !CheatsOk( ent ) ) return;
