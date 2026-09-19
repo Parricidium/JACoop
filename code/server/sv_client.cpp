@@ -489,6 +489,16 @@ static void SV_UserMove( client_t *cl, msg_t *msg ) {
 	if ( cl->state == CS_PRIMED ) {
 
 		SV_ClientEnterWorld( cl, &cmds[0], eSavedGameJustLoaded );
+		// coop: the level-start autosave and the "save just loaded" state are
+		// the host's. A joiner often enters the world first (its usercmd is
+		// already on the wire while the local client is still reconnecting),
+		// and an autosave taken then would record the host before it exists:
+		// its level-transition carry-over (weapons, force, health) was wiped.
+		if ( cl != &svs.clients[0] )
+		{
+			// the moves can be processed normaly
+		}
+		else
 		if ( sv_mapname->string[0]!='_' )
 		{
 			char savename[MAX_QPATH];
@@ -508,7 +518,10 @@ static void SV_UserMove( client_t *cl, msg_t *msg ) {
 				SG_WriteSavegame( "auto", qfalse );//need a copy for auto, too
 			}
 		}
-		eSavedGameJustLoaded = eNO;
+		if ( cl == &svs.clients[0] )
+		{
+			eSavedGameJustLoaded = eNO;
+		}
 		// the moves can be processed normaly
 	}
 

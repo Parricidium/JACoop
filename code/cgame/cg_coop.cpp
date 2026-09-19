@@ -409,6 +409,17 @@ void CG_CoopEnts_f( void )
 	}
 	Com_Printf( "coop: timescale %.2f cl_paused %i in_camera %i fov_y %.1f mouseSpeed %.2f (fov %.1f ts %.2f at that point) viewEntity %i zoom %i\n",
 		cg_timescale.value, cg_paused.integer, in_camera ? 1 : 0, cg.refdef.fov_y, coopLastMouseSpeed, coopLastMouseFov, coopLastMouseTs, cg.snap->ps.viewEntity, cg.zoomMode );
+	{
+		const playerState_t *ps = &cg.snap->ps;
+		char levels[NUM_FORCE_POWERS * 2 + 1];
+		for ( int fp = 0; fp < NUM_FORCE_POWERS; fp++ )
+		{
+			levels[fp * 2] = (char)( '0' + ps->forcePowerLevel[fp] );
+			levels[fp * 2 + 1] = ( fp == NUM_FORCE_POWERS - 1 ) ? '\0' : ' ';
+		}
+		Com_Printf( "coop: ps weapon %i weapons 0x%x force %i/%i known 0x%x levels [%s] styles 0x%x\n",
+			ps->weapon, ps->stats[STAT_WEAPONS], ps->forcePower, ps->forcePowerMax, ps->forcePowersKnown, levels, ps->saberStylesKnown );
+	}
 	for ( int i = 0; i < cg.snap->numEntities; i++ )
 	{
 		const entityState_t	*es = &cg.snap->entities[i];

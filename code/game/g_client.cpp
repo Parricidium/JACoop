@@ -2575,7 +2575,11 @@ qboolean ClientSpawn(gentity_t *ent, SavedGameJustLoaded_e eSavedGameJustLoaded 
 			G_CreateG2AttachedWeaponModel( ent, weaponData[ent->client->ps.weapon].weaponMdl, ent->handRBolt, 0 );
 		}
 
-		{
+		if ( index == 0 )
+		{	// coop: the spawn point's targets are the level's setup of "the
+			// player" (scripts with a use count, e.g. yavin2's tut_start that
+			// gives the Force powers): the host fires them, a joiner spawning
+			// first would burn them on a script that cannot find "player" yet
 			// fire the targets of the spawn point
 			G_UseTargets( spawnPoint, ent );
 			//Designers needed them to fire off target2's as well... this is kind of messy

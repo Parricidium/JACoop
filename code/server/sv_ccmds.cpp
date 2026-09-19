@@ -118,11 +118,16 @@ void SV_Player_EndOfLevelSave(void)
 	client_t* cl = &svs.clients[slot];
 
 	// blank this slot's carry-over so a slot that is not currently a connected
-	// player doesn't restore a stale player from an earlier transition.
-	Cvar_Set( SV_PlayerSaveCvarName( sCVARNAME_PLAYERSAVE, slot ), "" );
-	Cvar_Set( SV_PlayerSaveCvarName( "playerammo", slot ), "" );
-	Cvar_Set( SV_PlayerSaveCvarName( "playerinv", slot ), "" );
-	Cvar_Set( SV_PlayerSaveCvarName( "playerfplvl", slot ), "" );
+	// player doesn't restore a stale player from an earlier transition. A
+	// connected client that has not entered the world yet (the level-start
+	// autosave runs on the first usercmd) keeps what the transition recorded.
+	if ( !cl || cl->state < CS_CONNECTED )
+	{
+		Cvar_Set( SV_PlayerSaveCvarName( sCVARNAME_PLAYERSAVE, slot ), "" );
+		Cvar_Set( SV_PlayerSaveCvarName( "playerammo", slot ), "" );
+		Cvar_Set( SV_PlayerSaveCvarName( "playerinv", slot ), "" );
+		Cvar_Set( SV_PlayerSaveCvarName( "playerfplvl", slot ), "" );
+	}
 
 	if (cl
 		&& cl->state >= CS_CONNECTED	// only slots that are actually connected players

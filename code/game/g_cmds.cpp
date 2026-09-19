@@ -43,6 +43,16 @@ extern void G_CreateG2AttachedWeaponModel( gentity_t *ent, const char *psWeaponM
 extern void G_StartMatrixEffect( gentity_t *ent, int meFlags = 0, int length = 1000, float timeScale = 0.0f, int spinTime = 0 );
 extern void ItemUse_Bacta(gentity_t *ent);
 extern gentity_t *G_GetSelfForPlayerCmd( void );
+// coop: a force key from a joiner acts on the joiner; the host keeps the
+// stock rule (the NPC it is controlling, else itself)
+static gentity_t *G_CoopSelfForCmd( gentity_t *ent )
+{
+	if ( ent && ent->s.number != 0 )
+	{
+		return ent;
+	}
+	return G_GetSelfForPlayerCmd();
+}
 
 /*
 ==================
@@ -1484,57 +1494,57 @@ void ClientCommand( int clientNum ) {
 		Cmd_ViewObjective_f( ent );
 	else if (Q_stricmp (cmd, "force_throw") == 0)
 	{
-		ent = G_GetSelfForPlayerCmd();
+		ent = G_CoopSelfForCmd( ent );
 		ForceThrow( ent, qfalse );
 	}
 	else if (Q_stricmp (cmd, "force_pull") == 0)
 	{
-		ent = G_GetSelfForPlayerCmd();
+		ent = G_CoopSelfForCmd( ent );
 		ForceThrow( ent, qtrue );
 	}
 	else if (Q_stricmp (cmd, "force_speed") == 0)
 	{
-		ent = G_GetSelfForPlayerCmd();
+		ent = G_CoopSelfForCmd( ent );
 		ForceSpeed( ent );
 	}
 	else if (Q_stricmp (cmd, "force_heal") == 0)
 	{
-		ent = G_GetSelfForPlayerCmd();
+		ent = G_CoopSelfForCmd( ent );
 		ForceHeal( ent );
 	}
 	else if (Q_stricmp (cmd, "force_grip") == 0)
 	{
-		ent = G_GetSelfForPlayerCmd();
+		ent = G_CoopSelfForCmd( ent );
 		ForceGrip( ent );
 	}
 	else if (Q_stricmp (cmd, "force_distract") == 0)
 	{
-		ent = G_GetSelfForPlayerCmd();
+		ent = G_CoopSelfForCmd( ent );
 		ForceTelepathy( ent );
 	}
 	else if (Q_stricmp (cmd, "force_rage") == 0)
 	{
-		ent = G_GetSelfForPlayerCmd();
+		ent = G_CoopSelfForCmd( ent );
 		ForceRage(ent);
 	}
 	else if (Q_stricmp (cmd, "force_protect") == 0)
 	{
-		ent = G_GetSelfForPlayerCmd();
+		ent = G_CoopSelfForCmd( ent );
 		ForceProtect(ent);
 	}
 	else if (Q_stricmp (cmd, "force_absorb") == 0)
 	{
-		ent = G_GetSelfForPlayerCmd();
+		ent = G_CoopSelfForCmd( ent );
 		ForceAbsorb(ent);
 	}
 	else if (Q_stricmp (cmd, "force_sight") == 0)
 	{
-		ent = G_GetSelfForPlayerCmd();
+		ent = G_CoopSelfForCmd( ent );
 		ForceSeeing(ent);
 	}
 	else if (Q_stricmp (cmd, "addsaberstyle") == 0)
 	{
-		ent = G_GetSelfForPlayerCmd();
+		ent = G_CoopSelfForCmd( ent );
 		if ( !ent || !ent->client )
 		{//wtf?
 			return;
@@ -1554,7 +1564,7 @@ void ClientCommand( int clientNum ) {
 	}
 	else if (Q_stricmp (cmd, "setsaberstyle") == 0)
 	{
-		ent = G_GetSelfForPlayerCmd();
+		ent = G_CoopSelfForCmd( ent );
 		if ( !ent || !ent->client )
 		{//wtf?
 			return;
@@ -1575,28 +1585,28 @@ void ClientCommand( int clientNum ) {
 	}
 	else if (Q_stricmp (cmd, "taunt") == 0)
 	{
-		ent = G_GetSelfForPlayerCmd();
+		ent = G_CoopSelfForCmd( ent );
 //		G_Taunt( ent );
 		G_SetTauntAnim( ent, TAUNT_TAUNT );
 	}
 	else if (Q_stricmp (cmd, "bow") == 0)
 	{
-		ent = G_GetSelfForPlayerCmd();
+		ent = G_CoopSelfForCmd( ent );
 		G_SetTauntAnim( ent, TAUNT_BOW );
 	}
 	else if (Q_stricmp (cmd, "meditate") == 0)
 	{
-		ent = G_GetSelfForPlayerCmd();
+		ent = G_CoopSelfForCmd( ent );
 		G_SetTauntAnim( ent, TAUNT_MEDITATE );
 	}
 	else if (Q_stricmp (cmd, "flourish") == 0)
 	{
-		ent = G_GetSelfForPlayerCmd();
+		ent = G_CoopSelfForCmd( ent );
 		G_SetTauntAnim( ent, TAUNT_FLOURISH );
 	}
 	else if (Q_stricmp (cmd, "gloat") == 0)
 	{
-		ent = G_GetSelfForPlayerCmd();
+		ent = G_CoopSelfForCmd( ent );
 		G_SetTauntAnim( ent, TAUNT_GLOAT );
 	}
 	/*
