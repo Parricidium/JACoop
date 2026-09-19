@@ -217,6 +217,8 @@ static int svcmdcmp( const void *a, const void *b ) {
 	return Q_stricmp( (const char *)a, ((serverCommand_t*)b)->cmd );
 }
 
+extern void CG_CoopSelectWeapon_f( void );	// cg_coop.cpp
+
 /* This array MUST be sorted correctly by alphabetical name field */
 static serverCommand_t	commands[] = {
 	{ "chat",				CG_Print_f },
@@ -231,6 +233,7 @@ static serverCommand_t	commands[] = {
 	{ "print",				CG_Print_f },
 	{ "snd",				CG_CoopSound_f },	// coop: host-side sound forwarded to remote clients
 	{ "st",					CG_ScrollText_f },
+	{ "wp",					CG_CoopSelectWeapon_f },	// coop: host put a weapon in our hand (saber sync)
 };
 
 static const size_t numCommands = ARRAY_LEN( commands );

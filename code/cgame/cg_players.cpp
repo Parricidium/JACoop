@@ -4640,6 +4640,14 @@ void CG_AddRefEntityWithPowerups( refEntity_t *ent, int powerups, centity_t *cen
 		!gent->client->ps.powerups[PW_UNCLOAKING] &&
 		!gent->client->ps.powerups[PW_DISRUPTION] )
 	{
+		if ( cg_developer.integer > 2 && gent->s.number > MAX_CLIENTS && ( cg.time / 1000 ) != ( gent->painDebounceTime / 1000 ) )
+		{	// coop dev: what the renderer gets for this character
+			gent->painDebounceTime = cg.time;
+			Com_Printf( "coop: refent %i rgba %i,%i,%i,%i renderfx 0x%x customShader %i customSkin %i skin %i scale %.2f %.2f %.2f org %.0f %.0f %.0f lightorg %.0f %.0f %.0f g2 %i\n",
+				gent->s.number, ent->shaderRGBA[0], ent->shaderRGBA[1], ent->shaderRGBA[2], ent->shaderRGBA[3], ent->renderfx, ent->customShader, ent->customSkin,
+				( gent->playerModel >= 0 && gent->playerModel < gent->ghoul2.size() ) ? gent->ghoul2[gent->playerModel].mCustomSkin : -1,
+				ent->modelScale[0], ent->modelScale[1], ent->modelScale[2], ent->origin[0], ent->origin[1], ent->origin[2], ent->lightingOrigin[0], ent->lightingOrigin[1], ent->lightingOrigin[2], (int)gent->ghoul2.size() );
+		}
 		cgi_R_AddRefEntityToScene( ent );
 	}
 

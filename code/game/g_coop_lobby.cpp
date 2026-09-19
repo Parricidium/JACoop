@@ -299,6 +299,24 @@ static void G_CoopSyncForce( gentity_t *ent )
 	}
 	ps->saberStylesKnown |= host->ps.saberStylesKnown;
 
+	// the saber follows the host: the scripts hand it to "player" only
+	// (yavin2's tut_start after the weaponless academy), so a joiner that lost
+	// it on a level change gets it back here, in hand if it holds nothing
+	if ( ( host->ps.stats[STAT_WEAPONS] & ( 1 << WP_SABER ) ) && !( ps->stats[STAT_WEAPONS] & ( 1 << WP_SABER ) ) )
+	{
+		ps->stats[STAT_WEAPONS] |= ( 1 << WP_SABER );
+		WP_SaberInitBladeData( ent );
+		if ( ps->weapon == WP_NONE )
+		{
+			ps->weapon = WP_SABER;
+			ps->weaponstate = WEAPON_READY;
+			G_RemoveWeaponModels( ent );
+			WP_SaberAddG2SaberModels( ent );
+			gi.SendServerCommand( ent->s.number, "wp %i", WP_SABER );	// the joiner's cgame selects it too
+		}
+		gi.Printf( "coop: %s gets the saber back from the host\n", ent->client->pers.netname );
+	}
+
 	// the host may have loaded an older save: never keep more points than it has
 	int over = -G_CoopForcePointsAvailable( ent );
 	for ( int fp = NUM_FORCE_POWERS - 1; over > 0 && fp >= 0; fp-- )

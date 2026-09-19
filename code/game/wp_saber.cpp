@@ -964,6 +964,22 @@ int WP_SaberInitBladeData( gentity_t *ent )
 		}
 		ent->client->ps.saberAttackChainCount = 0;
 
+		static cvar_t *coopRemote = NULL;
+		if ( !coopRemote )
+		{
+			coopRemote = gi.cvar( "cg_remoteClient", "0", 0 );
+		}
+		if ( coopRemote->integer )
+		{	// coop: a remote client only mirrors the host's entities. G_Spawn()
+			// here would hand out a slot that belongs to a networked entity
+			// (its placeholder is only marked in use while it is in the
+			// snapshot) and the saber .glm would land in that character's
+			// ghoul2, replacing its body: black/white students, the lobby's
+			// "Ghoul2 Model has no mdxa saber_7.glm" crash. The thrown saber is
+			// a networked entity of its own (CG_CoopEnsureG2Model).
+			ent->client->ps.saberEntityNum = ENTITYNUM_NONE;
+		}
+		else
 		if ( ent->client->ps.saberEntityNum <= 0 || ent->client->ps.saberEntityNum >= ENTITYNUM_WORLD )
 		{//FIXME: if you do have a saber already, be sure to re-set the model if it's changed (say, via a script).
 			gentity_t *saberent = G_Spawn();

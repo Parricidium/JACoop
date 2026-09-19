@@ -55,6 +55,7 @@ typedef struct coopCharState_s {
 	int		lastDebugTime;
 	qboolean inFlight;		// s.saberInFlight we last acted on (hand hilt removed / restored)
 	qboolean legacyMd3;		// pre-ghoul2 md3 legs/torso/head model (remote_sp, mouse, seeker): no ghoul2 to build
+	byte	tint[4];		// customRGBA the spec gave (debug: detect it being clobbered)
 } coopCharState_t;
 
 static coopCharState_t	coopChar[MAX_GENTITIES];
@@ -265,8 +266,12 @@ static void CG_CoopEnsureCharacter( centity_t *cent )
 	st->weapon = -1;		// force the weapon models to be (re)attached
 	if ( cg_developer.integer )
 	{
-		Com_Printf( "coop: ent %i built model '%s' skin '%s' class %s rgba %s -> playerModel %i animFile %i\n", entNum, modelName, skin, f[8], f[9], gent->playerModel, gent->client->clientInfo.animFileIndex );
+		const int skinIdx = gent->ghoul2[gent->playerModel].mCustomSkin;
+		Com_Printf( "coop: ent %i built model '%s' skin '%s' class %s rgba %s -> playerModel %i animFile %i skinIdx %i cs '%s' handle %i\n", entNum, modelName, skin, f[8], f[9], gent->playerModel, gent->client->clientInfo.animFileIndex,
+			skinIdx, ( skinIdx > 0 && skinIdx < MAX_CHARSKINS ) ? CG_ConfigString( CS_CHARSKINS + skinIdx ) : "?", ( skinIdx > 0 && skinIdx < MAX_CHARSKINS ) ? cgs.skins[skinIdx] : -1 );
+		Com_Printf( "coop: ent %i tint now %i,%i,%i,%i\n", entNum, gent->client->renderInfo.customRGBA[0], gent->client->renderInfo.customRGBA[1], gent->client->renderInfo.customRGBA[2], gent->client->renderInfo.customRGBA[3] );
 	}
+	memcpy( st->tint, gent->client->renderInfo.customRGBA, 4 );
 	st->legsTimer = st->torsoTimer = 0;
 	gent->client->ps.legsAnim = gent->client->ps.torsoAnim = -1;
 }
@@ -437,7 +442,9 @@ void CG_CoopEnts_f( void )
 		}
 		else if ( es->eType == ET_PLAYER )
 		{
-			name = va( "spec %i hp %i/%i", es->modelindex3, es->coopHealth, es->coopMaxHealth );
+			vec3_t amb, dir, ldir;
+			cgi_R_GetLighting( cent->lerpOrigin, amb, dir, ldir );
+			name = va( "spec %i hp %i/%i pw 0x%x ef 0x%x light amb %.0f %.0f %.0f dir %.0f %.0f %.0f", es->modelindex3, es->coopHealth, es->coopMaxHealth, es->powerups, es->eFlags, amb[0], amb[1], amb[2], dir[0], dir[1], dir[2] );
 		}
 		else
 		{
@@ -540,6 +547,13 @@ void CG_CoopSyncCharacter( centity_t *cent )
 		return;
 	}
 
+	if ( cg_developer.integer && memcmp( st->tint, gent->client->renderInfo.customRGBA, 4 ) && st->specIndex )
+	{
+		Com_Printf( "coop: ent %i tint clobbered: %i,%i,%i,%i (spec had %i,%i,%i,%i)\n", s->number,
+			gent->client->renderInfo.customRGBA[0], gent->client->renderInfo.customRGBA[1], gent->client->renderInfo.customRGBA[2], gent->client->renderInfo.customRGBA[3],
+			st->tint[0], st->tint[1], st->tint[2], st->tint[3] );
+		memcpy( st->tint, gent->client->renderInfo.customRGBA, 4 );
+	}
 	VectorCopy( s->pos.trDelta, gent->client->ps.velocity );
 	gent->client->ps.groundEntityNum = s->groundEntityNum;
 	if ( cent->currentState.number != cg_localEntNum )
@@ -1085,6 +1099,19 @@ CG_CoopMissionFailed_f
 Same screen as the host; it goes away with the host's next level load.
 ================
 */
+// "wp <weapon>": the host put a weapon in our hand (saber handed by the host);
+// our usercmd would switch straight back to the old selection otherwise
+void CG_CoopSelectWeapon_f( void )
+{
+	const int wp = atoi( CG_Argv( 1 ) );
+	if ( wp <= WP_NONE || wp >= WP_NUM_WEAPONS )
+	{
+		return;
+	}
+	cg.weaponSelect = wp;
+	cg.weaponSelectTime = cg.time;
+}
+
 void CG_CoopMissionFailed_f( void )
 {
 	extern int statusTextIndex;
