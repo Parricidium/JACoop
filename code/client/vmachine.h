@@ -60,7 +60,8 @@ Ghoul2 Insert End
 	CG_DRAW_DATAPAD_WEAPONS,
 	CG_DRAW_DATAPAD_INVENTORY,
 	CG_DRAW_DATAPAD_FORCEPOWERS,
-	CG_COOP_LOCAL_PS		// coop: a remote client's own playerState (the menus edit force powers through it)
+	CG_COOP_LOCAL_PS,		// coop: a remote client's own playerState (the menus edit force powers through it)
+	CG_COOP_CUTSCENE_POS	// coop: the cutscene camera origin, 1 only while a scripted camera runs (joiners' PVS)
 
 } cgameExport_t;
 

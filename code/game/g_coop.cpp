@@ -115,6 +115,19 @@ void G_CoopUpdateAppearance( gentity_t *ent )
 	{
 		return;
 	}
+	if ( ent->s.number > 0 && ent->s.number < MAX_CLIENTS )
+	{
+		// A joiner's eyePoint/headPoint are only refreshed by the host's cgame
+		// while the host can see it; keep them at its eyes from the server
+		// side (Force push/pull, LOS and targeting trace from eyePoint).
+		renderInfo_t *ri = &ent->client->renderInfo;
+		VectorCopy( ent->currentOrigin, ri->eyePoint );
+		ri->eyePoint[2] += ent->client->ps.viewheight;
+		VectorCopy( ent->client->ps.viewangles, ri->eyeAngles );
+		VectorCopy( ri->eyePoint, ri->headPoint );
+		VectorCopy( ent->currentOrigin, ri->torsoPoint );
+		ri->torsoPoint[2] += ent->client->ps.viewheight * 0.6f;
+	}
 	// the wire has no health; faces, health bars and corpse handling read it
 	ent->s.coopHealth = ent->health;
 	ent->s.coopMaxHealth = ent->max_health;

@@ -358,7 +358,10 @@ float sv_sightRangeForLevel[6] =
 	4096.0f//FORCE_LEVEL_5
 };
 
-qboolean SV_PlayerCanSeeEnt( gentity_t *ent, int sightLevel )
+// coop: Force Sight is evaluated from the eyes of the client the snapshot is
+// for (the host's camera used to serve everyone); a joiner's eyes are the
+// view origin computed by SV_BuildClientSnapshot and its own view angles
+qboolean SV_PlayerCanSeeEnt( gentity_t *ent, int sightLevel, const clientSnapshot_t *frame, const gentity_t *clent )
 {//return true if this ent is in view
 	//NOTE: this is similar to the func CG_PlayerCanSeeCent in cg_players
 	vec3_t viewOrg, viewAngles, viewFwd, dir2Ent;
@@ -366,9 +369,19 @@ qboolean SV_PlayerCanSeeEnt( gentity_t *ent, int sightLevel )
 	{
 		return qfalse;
 	}
-	if ( VM_Call( CG_CAMERA_POS, viewOrg))
+	qboolean haveView = qfalse;
+	if ( frame->ps.clientNum == 0 )
 	{
-		if ( VM_Call( CG_CAMERA_ANG, viewAngles))
+		haveView = (qboolean)( VM_Call( CG_CAMERA_POS, viewOrg ) && VM_Call( CG_CAMERA_ANG, viewAngles ) );
+	}
+	else if ( clent && clent->client )
+	{
+		VectorCopy( frame->ps.serverViewOrg, viewOrg );
+		VectorCopy( clent->client->viewangles, viewAngles );
+		haveView = qtrue;
+	}
+	if ( haveView )
+	{
 		{
 			float dot = 0.25f;//1.0f;
 			float range = sv_sightRangeForLevel[sightLevel];
@@ -506,7 +519,7 @@ static void SV_AddEntitiesVisibleFromPoint( vec3_t origin, clientSnapshot_t *fra
 #ifndef JK2_MODE
 		if ( sightOn )
 		{//force sight is on, sees through portals, so draw them always if in radius
-			if ( SV_PlayerCanSeeEnt( ent, frame->ps.forcePowerLevel[FP_SEE] ) )
+			if ( SV_PlayerCanSeeEnt( ent, frame->ps.forcePowerLevel[FP_SEE], frame, SV_GentityNum( frame->ps.clientNum ) ) )
 			{//entity is visible
 				SV_AddEntToSnapshot( svEnt, ent, eNums );
 				continue;
@@ -624,7 +637,12 @@ static clientSnapshot_t *SV_BuildClientSnapshot( client_t *client ) {
 	// find the client's viewpoint
 
 	//if in camera mode use camera position instead
-	if ( VM_Call( CG_CAMERA_POS, org))
+	// coop: CG_CAMERA_POS is the HOST's camera (cutscene, third person, first
+	// person saber...). A joiner's snapshot was built from it, so a joiner away
+	// from the host received the host's surroundings and nothing of its own
+	// room (no NPCs, no switches to pull). Joiners use the cutscene camera only
+	// while a scripted camera runs, and their own eyes otherwise.
+	if ( VM_Call( ( frame->ps.clientNum == 0 ) ? CG_CAMERA_POS : CG_COOP_CUTSCENE_POS, org ) )
 	{
 		//org[2] += clent->client->viewheight;
 	}

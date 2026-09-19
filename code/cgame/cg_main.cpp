@@ -127,6 +127,17 @@ extern "C" Q_EXPORT intptr_t QDECL vmMain( int command, intptr_t arg0, intptr_t 
 		return CG_CrosshairPlayer();
 	case CG_CAMERA_POS:
 		return CG_GetCameraPos( (float*)arg0);
+	case CG_COOP_CUTSCENE_POS:
+		// coop: the server builds a joiner's snapshot from here only during a
+		// scripted cutscene (everyone watches the same camera); otherwise from
+		// the joiner's own eyes. CG_CAMERA_POS also answers with the host's
+		// third-person/saber view, which is right for the host alone.
+		if ( in_camera )
+		{
+			VectorCopy( client_camera.origin, (float *)arg0 );
+			return 1;
+		}
+		return 0;
 	case CG_CAMERA_ANG:
 		return CG_GetCameraAng( (float*)arg0);
 /*
