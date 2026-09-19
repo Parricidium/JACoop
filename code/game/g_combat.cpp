@@ -2228,6 +2228,19 @@ static qboolean G_Dismember( gentity_t *ent, vec3_t point,
 	limb->startRGBA[1] = ent->client->renderInfo.customRGBA[1];
 	limb->startRGBA[2] = ent->client->renderInfo.customRGBA[2];
 
+	// coop: the limb's ghoul2 (a cut of the victim's) and the victim's missing
+	// surfaces never travel; the joiners rebuild both from this (cg_coop.cpp
+	// CG_CoopLimb_f) when the limb entity reaches their snapshot
+	for ( int i = 1; i < MAX_CLIENTS; i++ )
+	{
+		if ( g_entities[i].inuse && g_entities[i].client && g_entities[i].client->pers.connected == CON_CONNECTED )
+		{
+			gi.SendServerCommand( i, "limb %i %i \"%s\" \"%s\" \"%s\" \"%s\" %i %i", limb->s.number, ent->s.number,
+				limbName, limbCapName ? limbCapName : "", stubCapName ? stubCapName : "", rotateBone ? rotateBone : "",
+				limbAnim, ( limbBone && hitLoc == HL_WAIST && ent->client->NPC_class == CLASS_PROTOCOL ) ? 1 : 0 );
+		}
+	}
+
 	return qtrue;
 }
 

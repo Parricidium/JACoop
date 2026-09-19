@@ -3034,6 +3034,10 @@ static void CG_ScanForCrosshairEntity( qboolean scanAll )
 			}
 		}
 	}
+	if ( cg_developer.integer > 1 && cg_forceCrosshair && ( cg.time / 1000 ) != ( cg.forceCrosshairStartTime / 1000 ) )
+	{
+		Com_Printf( "coop: force hint on ent %i (%s)\n", trace.entityNum, traceEnt ? traceEnt->classname : "?" );
+	}
 	if ( !cg_forceCrosshair )
 	{
 		if ( cg_dynamicCrosshair.integer && !cg_remoteClient )	// coop: the 100% accurate path needs the server gentity

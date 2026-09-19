@@ -29,6 +29,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "FxScheduler.h"
 
 #include "../game/anims.h"
+extern void CG_Chunks( int owner, vec3_t origin, const vec3_t normal, const vec3_t mins, const vec3_t maxs,
+						float speed, int numChunks, material_t chunkType, int customChunk, float baseScale, int customSound );
 
 extern qboolean CG_TryPlayCustomSound( vec3_t origin, int entityNum, soundChannel_t channel, const char *soundName, int customSoundSet );
 extern void FX_KothosBeam( vec3_t start, vec3_t end );
@@ -736,6 +738,17 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 		{
 			s = CG_ConfigString( CS_SOUNDS + es->eventParm );
 			CG_TryPlayCustomSound(NULL, es->number, CHAN_AUTO, s, CS_BASIC );
+		}
+		break;
+
+	case EV_COOP_CHUNKS:	// coop: debris the host spawned straight into its own cgame (G_CoopChunks)
+		DEBUGNAME("EV_COOP_CHUNKS");
+		if ( cg_remoteClient )
+		{
+			vec3_t chunkOrg;
+			VectorCopy( position, chunkOrg );
+			CG_Chunks( es->otherEntityNum, chunkOrg, es->origin2, es->angles, es->angles2, (float)es->time, es->eventParm,
+				(material_t)es->weapon, es->modelindex, es->time2 / 100.0f, es->modelindex2 );
 		}
 		break;
 

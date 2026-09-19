@@ -2335,6 +2335,10 @@ typedef struct usercmd_s {
 // if entityState->solid == SOLID_BMODEL, modelindex is an inline model number
 #define	SOLID_BMODEL	0xffffff
 
+// coop: what a mover's s.coopHealth says about it to the remote cgame
+#define COOP_MOVER_DOOR		0x100	// func_door, low byte = spawnflags (2 = MOVER_FORCE_ACTIVATE)
+#define COOP_MOVER_STATIC	0x200	// func_static, low byte = spawnflags (1 = F_PUSH, 2 = F_PULL)
+
 typedef enum {// !!!!!!!!!!! LOADSAVE-affecting struct !!!!!!!!!!
 	TR_STATIONARY,
 	TR_INTERPOLATE,				// non-parametric, but interpolate between snapshots
@@ -2463,6 +2467,7 @@ Ghoul2 Insert End
 	int		coopHealth;
 	int		coopMaxHealth;
 	int		coopLookTarget;	// entity the head turns to (renderInfo.lookTarget), ENTITYNUM_NONE if none
+							// (movers: coopHealth carries COOP_MOVER_* | spawnflags for the remote crosshair scan)
 
 
 	void sg_export(

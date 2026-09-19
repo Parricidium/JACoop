@@ -218,6 +218,7 @@ static int svcmdcmp( const void *a, const void *b ) {
 }
 
 extern void CG_CoopSelectWeapon_f( void );	// cg_coop.cpp
+extern void CG_CoopLimb_f( void );			// cg_coop.cpp
 
 /* This array MUST be sorted correctly by alphabetical name field */
 static serverCommand_t	commands[] = {
@@ -228,6 +229,7 @@ static serverCommand_t	commands[] = {
 	{ "cs",					CG_ConfigStringModified },
 	{ "ct",					CG_CaptionText_f },
 	{ "cts",				CG_CaptionTextStop },
+	{ "limb",				CG_CoopLimb_f },			// coop: a dismembered limb (host describes the cut)
 	{ "lt",					CG_LCARSText_f },
 	{ "mf",					CG_CoopMissionFailed_f },	// coop: host raised the mission-failed screen
 	{ "print",				CG_Print_f },

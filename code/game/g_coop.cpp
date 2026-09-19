@@ -785,6 +785,43 @@ voice volume). Forward them as a "snd" server command to every remote client.
 */
 extern qboolean CG_TryPlayCustomSound( vec3_t origin, int entityNum, soundChannel_t channel, const char *soundName, int customSoundSet );
 
+/*
+================
+G_CoopChunks
+
+CG_Chunks is a direct game -> cgame call: the debris of a func_breakable, a
+misc_model_breakable or a shattered wall only ever appeared on the host.
+Spawn the chunks locally as before and broadcast the same parameters as an
+unreliable temp entity for the remote clients (cg_event.cpp EV_COOP_CHUNKS):
+  origin = origin, origin2 = normal, angles = mins, angles2 = maxs,
+  time = speed, eventParm = numChunks, weapon = material,
+  modelindex = custom chunk model (CS_MODELS), time2 = scale x 100,
+  modelindex2 = custom sound (CS_SOUNDS), otherEntityNum = owner
+================
+*/
+extern void CG_Chunks( int owner, vec3_t origin, const vec3_t normal, const vec3_t mins, const vec3_t maxs,
+						float speed, int numChunks, material_t chunkType, int customChunk, float baseScale, int customSound );
+void G_CoopChunks( int owner, vec3_t origin, const vec3_t normal, const vec3_t mins, const vec3_t maxs,
+						float speed, int numChunks, material_t chunkType, int customChunk, float baseScale, int customSound )
+{
+	CG_Chunks( owner, origin, normal, mins, maxs, speed, numChunks, chunkType, customChunk, baseScale, customSound );
+	if ( G_CoopNumPlayers() < 2 || chunkType == MAT_NONE )
+	{
+		return;
+	}
+	gentity_t *te = G_TempEntity( origin, EV_COOP_CHUNKS );
+	te->s.otherEntityNum = owner;
+	VectorCopy( normal, te->s.origin2 );
+	VectorCopy( mins, te->s.angles );
+	VectorCopy( maxs, te->s.angles2 );
+	te->s.time = (int)speed;
+	te->s.eventParm = Q_min( numChunks, 255 );
+	te->s.weapon = (int)chunkType;
+	te->s.modelindex = customChunk;
+	te->s.time2 = (int)( baseScale * 100.0f );
+	te->s.modelindex2 = ( customSound > 0 && customSound < 256 ) ? customSound : 0;
+}
+
 void G_CoopForwardSound( int entNum, int channel, int index, const char *path, int customSet )
 {
 	if ( G_CoopNumPlayers() < 2 )

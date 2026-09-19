@@ -442,6 +442,8 @@ void G_CoopLoadState( const void *buf, int len );
 void G_CoopForwardSound( int entNum, int channel, int index, const char *path, int customSet );
 qboolean G_CoopCustomSound( vec3_t origin, int entityNum, soundChannel_t channel, const char *soundName, int customSoundSet );
 void G_CoopSoundPath( const vec3_t origin, int entityNum, int channel, const char *path );
+void G_CoopChunks( int owner, vec3_t origin, const vec3_t normal, const vec3_t mins, const vec3_t maxs,
+						float speed, int numChunks, material_t chunkType, int customChunk, float baseScale, int customSound = 0 );
 int	G_SoundIndex( const char *name );
 /*
 Ghoul2 Insert Start

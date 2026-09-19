@@ -287,7 +287,115 @@ instance. Build one here from the model the entity names. Items name it in
 modelindex3 (g_items.cpp), everything else in modelindex.
 ================
 */
-static int coopG2Key[MAX_GENTITIES];	// CS_MODELS index the ghoul2 in this slot was built from (0 = none)
+static int coopG2Key[MAX_GENTITIES];	// CS_MODELS index the ghoul2 in this slot was built from (0 = none, -1 = a limb)
+
+// Dismemberment: the host cuts the victim's ghoul2 into a limb entity
+// (ET_THINKER) and turns the limb's surfaces off on the victim - all of it in
+// ghoul2 data that never travels. The host sends "limb" with the names it
+// used (g_combat.cpp G_Dismember); when that entity reaches the snapshot the
+// same cut is made here from the victim's placeholder.
+typedef struct coopLimb_s {
+	qboolean	pending;
+	int			owner;
+	char		limbName[MAX_QPATH];
+	char		limbCapName[MAX_QPATH];
+	char		stubCapName[MAX_QPATH];
+	char		rotateBone[MAX_QPATH];
+	int			limbAnim;
+	int			protocolWaist;
+} coopLimb_t;
+static coopLimb_t coopLimb[MAX_GENTITIES];
+
+void CG_CoopLimb_f( void )
+{
+	const int num = atoi( CG_Argv( 1 ) );
+	if ( !cg_remoteClient || num <= 0 || num >= MAX_GENTITIES )
+	{
+		return;
+	}
+	coopLimb_t *l = &coopLimb[num];
+	memset( l, 0, sizeof( *l ) );
+	l->pending = qtrue;
+	l->owner = atoi( CG_Argv( 2 ) );
+	Q_strncpyz( l->limbName, CG_Argv( 3 ), sizeof( l->limbName ) );
+	Q_strncpyz( l->limbCapName, CG_Argv( 4 ), sizeof( l->limbCapName ) );
+	Q_strncpyz( l->stubCapName, CG_Argv( 5 ), sizeof( l->stubCapName ) );
+	Q_strncpyz( l->rotateBone, CG_Argv( 6 ), sizeof( l->rotateBone ) );
+	l->limbAnim = atoi( CG_Argv( 7 ) );
+	l->protocolWaist = atoi( CG_Argv( 8 ) );
+}
+
+extern void CG_Limb( centity_t *cent );
+
+// the limb entity is in the snapshot and its victim has a body: cut it
+static void CG_CoopBuildLimb( centity_t *cent )
+{
+	const int	entNum = cent->currentState.number;
+	coopLimb_t	*l = &coopLimb[entNum];
+	gentity_t	*limb = cent->gent;
+
+	if ( l->owner < 0 || l->owner >= MAX_GENTITIES )
+	{
+		l->pending = qfalse;
+		return;
+	}
+	gentity_t *owner = &g_entities[l->owner];
+	if ( !owner->client || owner->playerModel < 0 || owner->playerModel >= owner->ghoul2.size() )
+	{
+		return;	// victim not built yet, try next frame
+	}
+	if ( limb->ghoul2.size() )
+	{
+		gi.G2API_CleanGhoul2Models( limb->ghoul2 );
+	}
+	gi.G2API_CopyGhoul2Instance( owner->ghoul2, limb->ghoul2, 0 );
+	limb->playerModel = 0;
+	limb->craniumBone = owner->craniumBone;
+	limb->cervicalBone = owner->cervicalBone;
+	limb->thoracicBone = owner->thoracicBone;
+	limb->upperLumbarBone = owner->upperLumbarBone;
+	limb->lowerLumbarBone = owner->lowerLumbarBone;
+	limb->hipsBone = owner->hipsBone;
+	limb->rootBone = owner->rootBone;
+	gi.G2API_StopBoneAnimIndex( &limb->ghoul2[0], limb->hipsBone );
+	gi.G2API_SetRootSurface( limb->ghoul2, 0, l->limbName );
+	if ( l->protocolWaist && ValidAnimFileIndex( owner->client->clientInfo.animFileIndex ) )
+	{
+		gi.G2API_StopBoneAnim( &limb->ghoul2[0], "model_root" );
+		gi.G2API_StopBoneAnim( &limb->ghoul2[0], "motion" );
+		gi.G2API_StopBoneAnim( &limb->ghoul2[0], "pelvis" );
+		gi.G2API_StopBoneAnim( &limb->ghoul2[0], "upper_lumbar" );
+		animation_t *animations = level.knownAnimFileSets[owner->client->clientInfo.animFileIndex].animations;
+		gi.G2API_SetBoneAnim( &limb->ghoul2[0], 0, animations[l->limbAnim].firstFrame,
+			animations[l->limbAnim].numFrames + animations[l->limbAnim].firstFrame, BONE_ANIM_OVERRIDE_FREEZE, 1, cg.time, -1, -1 );
+	}
+	if ( l->rotateBone[0] )
+	{
+		gi.G2API_SetNewOrigin( &limb->ghoul2[0], gi.G2API_AddBolt( &limb->ghoul2[0], l->rotateBone ) );
+	}
+	if ( l->limbCapName[0] )
+	{
+		gi.G2API_SetSurfaceOnOff( &limb->ghoul2[0], l->limbCapName, 0 );
+	}
+	limb->s.number = entNum;
+	limb->inuse = qtrue;
+	limb->classname = "limb";
+	limb->owner = owner;
+	limb->target2 = G_NewString( l->limbName );
+	limb->target3 = l->stubCapName[0] ? G_NewString( l->stubCapName ) : NULL;
+	limb->count = l->limbAnim;
+	limb->aimDebounceTime = 0;
+	limb->startRGBA[0] = owner->client->renderInfo.customRGBA[0];
+	limb->startRGBA[1] = owner->client->renderInfo.customRGBA[1];
+	limb->startRGBA[2] = owner->client->renderInfo.customRGBA[2];
+	CG_Limb( cent );	// takes the limb off the victim, caps the stub
+	coopG2Key[entNum] = -1;
+	l->pending = qfalse;
+	if ( cg_developer.integer )
+	{
+		Com_Printf( "coop: ent %i limb '%s' cut from ent %i\n", entNum, l->limbName, l->owner );
+	}
+}
 
 /*
 ================
@@ -301,6 +409,7 @@ everything; the snapshot rebuilds it.
 */
 void CG_CoopReset( void )
 {
+	memset( coopLimb, 0, sizeof( coopLimb ) );
 	if ( !cg_remoteClient )
 	{
 		return;
@@ -351,6 +460,17 @@ static void CG_CoopEnsureG2Model( centity_t *cent )
 		if ( len > 4 && !Q_stricmp( name + len - 4, ".glm" ) )
 		{
 			key = modelIndex;
+		}
+	}
+	if ( s->eType == ET_THINKER && ( coopLimb[entNum].pending || coopG2Key[entNum] == -1 ) )
+	{	// a dismembered limb (built from the "limb" command, kept while the entity lives)
+		if ( coopLimb[entNum].pending )
+		{
+			CG_CoopBuildLimb( cent );
+		}
+		if ( coopG2Key[entNum] == -1 )
+		{
+			return;
 		}
 	}
 	if ( key == coopG2Key[entNum] && ( !key || gent->ghoul2.size() ) )
@@ -630,6 +750,10 @@ void CG_CoopSyncCharacter( centity_t *cent )
 			blade->lengthOld = blade->length;
 			if ( on )
 			{
+				if ( blade->length <= 0.0f && b == 0 && step > 0.0f && saber->soundOn > 0 && saber->soundOn < MAX_SOUNDS )
+				{	// ignition: CG_Player plays it when it grows the blade itself, but we grow it here first
+					cgi_S_StartSound( NULL, s->number, CHAN_AUTO, cgs.sound_precache[saber->soundOn] );
+				}
 				blade->length = Q_min( blade->lengthMax, blade->length + step );
 			}
 			else
@@ -660,6 +784,11 @@ void CG_CoopSyncEntity( centity_t *cent )
 	// & co skip a gentity that is not "inuse" (every pickup was invisible)
 	cent->gent->inuse = qtrue;
 	cent->gent->s.number = cent->currentState.number;
+	if ( cent->currentState.eType == ET_MOVER && ( cent->currentState.coopHealth & ( COOP_MOVER_DOOR | COOP_MOVER_STATIC ) ) )
+	{	// the crosshair scan reads classname/spawnflags (Force push/pull hint)
+		cent->gent->classname = ( cent->currentState.coopHealth & COOP_MOVER_DOOR ) ? "func_door" : "func_static";
+		cent->gent->spawnflags = cent->currentState.coopHealth & 0xff;
+	}
 	CG_CoopEnsureG2Model( cent );
 	CG_CoopEnsureCharacter( cent );
 	if ( cent->currentState.eType == ET_GENERAL && cent->currentState.weapon == WP_SABER )

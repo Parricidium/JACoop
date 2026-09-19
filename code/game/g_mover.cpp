@@ -1532,6 +1532,10 @@ void SP_func_door (gentity_t *ent)
 			ent->e_ThinkFunc = thinkF_Think_SpawnNewDoorTrigger;
 		}
 	}
+	// coop: the remote cgame's crosshair scan (Force push/pull hint) reads
+	// classname and spawnflags, which never travel: pack them for movers in
+	// coopHealth, a field only characters use otherwise (cg_coop.cpp)
+	ent->s.coopHealth = COOP_MOVER_DOOR | ( ent->spawnflags & 0xff );
 }
 
 /*
@@ -2224,6 +2228,7 @@ void SP_func_static( gentity_t *ent )
 	{	// this means that this guy will never be updated, moved, changed, etc.
 		ent->s.eFlags = EF_PERMANENT;
 	}
+	ent->s.coopHealth = COOP_MOVER_STATIC | ( ent->spawnflags & 0xff );	// coop: see SP_func_door
 }
 
 void func_static_use ( gentity_t *self, gentity_t *other, gentity_t *activator )

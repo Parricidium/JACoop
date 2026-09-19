@@ -123,16 +123,116 @@ static int CL_CG_Stub_EntitiesInBox( const vec3_t mins, const vec3_t maxs, genti
 static qboolean CL_CG_Stub_EntityContact( const vec3_t mins, const vec3_t maxs, const gentity_t *ent ) {
 	CL_CG_STUB_WARN(EntityContact); return qfalse;
 }
-static void CL_CG_Stub_trace( trace_t *results, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end,
-		const int passEntityNum, const int contentmask, const EG2_Collision eG2TraceType, const int useLod ) {
-	CL_CG_STUB_WARN(trace);
-	if ( results ) {
-		memset( results, 0, sizeof( *results ) );
-		results->fraction = 1.0f;
-		results->entityNum = ENTITYNUM_NONE;
+// Collision on the remote client: the world through the client-loaded clip
+// map, the entities through the latest snapshot (a bmodel by its inline
+// model, anything else by the box packed in entityState_t::solid), the way a
+// Q3 client predicts. This is what the crosshair scan (Force push/pull hint,
+// the "use" icon), the sight checks and the local effects trace with.
+// bg_misc's EvaluateTrajectory lives in the game module; enough of it here
+static void CL_CG_EvalTrajectory( const trajectory_t *tr, int atTime, vec3_t result ) {
+	float deltaTime, phase;
+	switch ( tr->trType ) {
+	case TR_LINEAR:
+		deltaTime = ( atTime - tr->trTime ) * 0.001f;
+		VectorMA( tr->trBase, deltaTime, tr->trDelta, result );
+		break;
+	case TR_SINE:
+		deltaTime = ( atTime - tr->trTime ) / (float)tr->trDuration;
+		phase = sinf( deltaTime * M_PI * 2 );
+		VectorMA( tr->trBase, phase, tr->trDelta, result );
+		break;
+	case TR_LINEAR_STOP:
+	case TR_NONLINEAR_STOP:
+		if ( atTime > tr->trTime + tr->trDuration ) {
+			atTime = tr->trTime + tr->trDuration;
+		}
+		deltaTime = ( atTime - tr->trTime ) * 0.001f;
+		if ( deltaTime < 0 ) {
+			deltaTime = 0;
+		}
+		VectorMA( tr->trBase, deltaTime, tr->trDelta, result );
+		break;
+	case TR_GRAVITY:
+		deltaTime = ( atTime - tr->trTime ) * 0.001f;
+		VectorMA( tr->trBase, deltaTime, tr->trDelta, result );
+		result[2] -= 0.5f * 800 * deltaTime * deltaTime;
+		break;
+	default:
+		VectorCopy( tr->trBase, result );
+		break;
 	}
 }
-static int CL_CG_Stub_pointcontents( const vec3_t point, int passEntityNum ) { CL_CG_STUB_WARN(pointcontents); return 0; }
+static void CL_CG_ClipToEntities( trace_t *results, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end,
+		const int passEntityNum, const int contentmask ) {
+	const clSnapshot_t *snap = &cl.frame;
+	if ( !snap->valid ) {
+		return;
+	}
+	for ( int i = 0; i < snap->numEntities; i++ ) {
+		const entityState_t *es = &cl.parseEntities[ ( snap->parseEntitiesNum + i ) & ( MAX_PARSE_ENTITIES - 1 ) ];
+		if ( es->number == passEntityNum || !es->solid ) {
+			continue;
+		}
+		clipHandle_t	cmodel;
+		vec3_t			origin, angles, bmins, bmaxs;
+		if ( es->solid == SOLID_BMODEL ) {
+			cmodel = CM_InlineModel( es->modelindex );
+			CL_CG_EvalTrajectory( &es->apos, cl.serverTime, angles );
+			CL_CG_EvalTrajectory( &es->pos, cl.serverTime, origin );
+		} else {
+			const int x = ( es->solid & 255 );
+			const int zd = ( ( es->solid >> 8 ) & 255 );
+			const int zu = ( ( es->solid >> 16 ) & 255 ) - 32;
+			VectorSet( bmins, -x, -x, -zd );
+			VectorSet( bmaxs, x, x, zu );
+			cmodel = CM_TempBoxModel( bmins, bmaxs );
+			VectorClear( angles );
+			CL_CG_EvalTrajectory( &es->pos, cl.serverTime, origin );
+		}
+		trace_t tr;
+		CM_TransformedBoxTrace( &tr, start, end, mins, maxs, cmodel, contentmask, origin, angles );
+		if ( tr.allsolid || tr.fraction < results->fraction ) {
+			tr.entityNum = es->number;
+			*results = tr;
+		} else if ( tr.startsolid ) {
+			results->startsolid = qtrue;
+		}
+		if ( results->allsolid ) {
+			return;
+		}
+	}
+}
+static void CL_CG_Trace( trace_t *results, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end,
+		const int passEntityNum, const int contentmask, const EG2_Collision eG2TraceType, const int useLod ) {
+	if ( !results ) {
+		return;
+	}
+	if ( !mins ) mins = vec3_origin;
+	if ( !maxs ) maxs = vec3_origin;
+	CM_BoxTrace( results, start, end, mins, maxs, 0, contentmask );
+	results->entityNum = results->fraction != 1.0f ? ENTITYNUM_WORLD : ENTITYNUM_NONE;
+	if ( results->startsolid ) {
+		results->entityNum = ENTITYNUM_WORLD;
+	}
+	CL_CG_ClipToEntities( results, start, mins, maxs, end, passEntityNum, contentmask );
+}
+static int CL_CG_PointContents( const vec3_t point, int passEntityNum ) {
+	int contents = CM_PointContents( point, 0 );
+	const clSnapshot_t *snap = &cl.frame;
+	if ( snap->valid ) {
+		for ( int i = 0; i < snap->numEntities; i++ ) {
+			const entityState_t *es = &cl.parseEntities[ ( snap->parseEntitiesNum + i ) & ( MAX_PARSE_ENTITIES - 1 ) ];
+			if ( es->number == passEntityNum || es->solid != SOLID_BMODEL ) {
+				continue;
+			}
+			vec3_t origin, angles;
+			CL_CG_EvalTrajectory( &es->apos, cl.serverTime, angles );
+			CL_CG_EvalTrajectory( &es->pos, cl.serverTime, origin );
+			contents |= CM_TransformedPointContents( point, CM_InlineModel( es->modelindex ), origin, angles );
+		}
+	}
+	return contents;
+}
 static void CL_CG_Stub_SetBrushModel( gentity_t *ent, const char *name ) { CL_CG_STUB_WARN(SetBrushModel); }
 static qboolean CL_CG_Stub_inPVS( const vec3_t p1, const vec3_t p2 ) { CL_CG_STUB_WARN(inPVS); return qtrue; }
 static qboolean CL_CG_Stub_inPVSIgnorePortals( const vec3_t p1, const vec3_t p2 ) { CL_CG_STUB_WARN(inPVSIgnorePortals); return qtrue; }
@@ -177,8 +277,8 @@ static void CL_BuildCGameImport( game_import_t &import ) {
 	import.unlinkentity = CL_CG_Stub_unlinkentity;
 	import.EntitiesInBox = CL_CG_Stub_EntitiesInBox;
 	import.EntityContact = CL_CG_Stub_EntityContact;
-	import.trace = CL_CG_Stub_trace;
-	import.pointcontents = CL_CG_Stub_pointcontents;
+	import.trace = CL_CG_Trace;					// world + snapshot entities (see CL_CG_ClipToEntities)
+	import.pointcontents = CL_CG_PointContents;
 	import.totalMapContents = CM_TotalMapContents;	// collision model (client-loaded)
 	import.SetBrushModel = CL_CG_Stub_SetBrushModel;
 

@@ -175,7 +175,7 @@ void funcBBrushDieGo (gentity_t *self)
 	}
 
 	//FIXME: base numChunks off size?
-	CG_Chunks( self->s.number, org, dir, self->absmin, self->absmax, 300, numChunks, chunkType, 0, scale, self->noise_index );
+	G_CoopChunks( self->s.number, org, dir, self->absmin, self->absmax, 300, numChunks, chunkType, 0, scale, self->noise_index );
 
 	self->e_ThinkFunc = thinkF_G_FreeEntity;
 	self->nextthink = level.time + 50;
@@ -250,7 +250,7 @@ void funcBBrushPain(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, 
 		{
 			VectorSet( dir, 0, 0, 1 );
 		}
-		CG_Chunks( self->s.number, org, dir, self->absmin, self->absmax, 300, Q_irand( 1, 3 ), self->material, 0, scale );
+		G_CoopChunks( self->s.number, org, dir, self->absmin, self->absmax, 300, Q_irand( 1, 3 ), self->material, 0, scale );
 	}
 
 	if ( self->wait == -1 )
@@ -531,7 +531,7 @@ void misc_model_breakable_die( gentity_t *self, gentity_t *inflictor, gentity_t 
 	VectorAdd( self->absmax, self->absmin, dis );
 	VectorScale( dis, 0.5f, dis );
 
-	CG_Chunks( self->s.number, dis, dir, self->absmin, self->absmax, 300, numChunks, self->material, self->s.modelindex3, scale );
+	G_CoopChunks( self->s.number, dis, dir, self->absmin, self->absmax, 300, numChunks, self->material, self->s.modelindex3, scale );
 
 	self->e_PainFunc = painF_NULL;
 	self->e_DieFunc  = dieF_NULL;
