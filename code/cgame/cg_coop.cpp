@@ -542,8 +542,8 @@ void CG_CoopEnts_f( void )
 			levels[fp * 2] = (char)( '0' + ps->forcePowerLevel[fp] );
 			levels[fp * 2 + 1] = ( fp == NUM_FORCE_POWERS - 1 ) ? '\0' : ' ';
 		}
-		Com_Printf( "coop: ps weapon %i weapons 0x%x force %i/%i known 0x%x levels [%s] styles 0x%x\n",
-			ps->weapon, ps->stats[STAT_WEAPONS], ps->forcePower, ps->forcePowerMax, ps->forcePowersKnown, levels, ps->saberStylesKnown );
+		Com_Printf( "coop: ps weapon %i weapons 0x%x force %i/%i known 0x%x levels [%s] styles 0x%x view %.0f %.0f\n",
+			ps->weapon, ps->stats[STAT_WEAPONS], ps->forcePower, ps->forcePowerMax, ps->forcePowersKnown, levels, ps->saberStylesKnown, ps->viewangles[PITCH], ps->viewangles[YAW] );
 	}
 	for ( int i = 0; i < cg.snap->numEntities; i++ )
 	{

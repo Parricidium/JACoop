@@ -1399,7 +1399,9 @@ void PM_UpdateViewAngles( playerState_t *ps, usercmd_t *cmd, gentity_t *gent )
 //	{//can't turn
 //		return;
 //	}
-	if ( ps->clientNum != 0 && gent != NULL && gent->client != NULL )
+	// coop: NPC pitch limits (renderInfo head/torso ranges) apply to NPCs only;
+	// a joiner (clientNum 1..3) has no such ranges and was clamped to pitch 0
+	if ( ps->clientNum >= MAX_CLIENTS && gent != NULL && gent->client != NULL )
 	{
 		if(gent->client->renderInfo.renderFlags & RF_LOCKEDANGLE)
 		{
