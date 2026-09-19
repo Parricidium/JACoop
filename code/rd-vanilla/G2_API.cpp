@@ -2239,6 +2239,8 @@ bool G2_TestModelPointers(CGhoul2Info *ghlInfo) // returns true if the model is 
 					G2ERROR(ghlInfo->aHeader,va("Model has no mdxa (gla) %s",ghlInfo->mFileName));
 					if (!ghlInfo->aHeader)
 					{
+						Com_Printf( "coopdbg: %s animIndex %i offset %i -> handle %i '%s' numModels %i\n", ghlInfo->mFileName, ghlInfo->currentModel->mdxm->animIndex, ghlInfo->animModelIndexOffset,
+							ghlInfo->currentModel->mdxm->animIndex + ghlInfo->animModelIndexOffset, ghlInfo->animModel->name, tr.numModels );
 						Com_Error(ERR_DROP, "Ghoul2 Model has no mdxa (gla) %s",ghlInfo->mFileName);
 					}
 					if (ghlInfo->currentAnimModelSize)
@@ -2303,6 +2305,8 @@ bool G2_SetupModelPointers(CGhoul2Info *ghlInfo) // returns true if the model is
 					G2ERROR(ghlInfo->aHeader,va("Model has no mdxa (gla) %s",ghlInfo->mFileName));
 					if (!ghlInfo->aHeader)
 					{
+						Com_Printf( "coopdbg: %s animIndex %i offset %i -> handle %i '%s' numModels %i\n", ghlInfo->mFileName, ghlInfo->currentModel->mdxm->animIndex, ghlInfo->animModelIndexOffset,
+							ghlInfo->currentModel->mdxm->animIndex + ghlInfo->animModelIndexOffset, ghlInfo->animModel->name, tr.numModels );
 						Com_Error(ERR_DROP, "Ghoul2 Model has no mdxa (gla) %s",ghlInfo->mFileName);
 					}
 					if (ghlInfo->currentAnimModelSize)

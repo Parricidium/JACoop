@@ -258,7 +258,7 @@ extern Vehicle_t *G_IsRidingVehicle( gentity_t *ent );
 qboolean CG_CheckModifyUCmd( usercmd_t *cmd, vec3_t viewangles )
 {
 	qboolean overridAngles = qfalse;
-	if ( cg.snap->ps.viewEntity > 0 && cg.snap->ps.viewEntity < ENTITYNUM_WORLD )
+	if ( !cg_remoteClient && cg.snap->ps.viewEntity > 0 && cg.snap->ps.viewEntity < ENTITYNUM_WORLD )
 	{//controlling something else
 		memset( cmd, 0, sizeof( usercmd_t ) );
 		/*
@@ -291,7 +291,11 @@ qboolean CG_CheckModifyUCmd( usercmd_t *cmd, vec3_t viewangles )
 		*/
 	}
 
-	if ( g_entities[cg_localEntNum].inuse && g_entities[cg_localEntNum].client )
+	// coop: on a remote client the local gentity is a placeholder mirroring the
+	// snapshot; these server-side clamps read fields it does not carry and would
+	// force the view angles back every command (dead mouse). The host applies
+	// them to us in its own ClientThink anyway.
+	if ( !cg_remoteClient && g_entities[cg_localEntNum].inuse && g_entities[cg_localEntNum].client )
 	{
 		if ( !PM_AdjustAnglesToGripper( &g_entities[cg_localEntNum], cmd ) )
 		{

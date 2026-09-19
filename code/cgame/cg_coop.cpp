@@ -69,6 +69,10 @@ static void CG_CoopTearDown( centity_t *cent )
 {
 	gentity_t *gent = cent->gent;
 
+	if ( cg_developer.integer )
+	{
+		Com_Printf( "coop: ent %i torn down (type %i spec %i, %i models)\n", cent->currentState.number, cent->currentState.eType, cent->currentState.modelindex3, (int)gent->ghoul2.size() );
+	}
 	if ( gent->ghoul2.size() )
 	{
 		gi.G2API_CleanGhoul2Models( gent->ghoul2 );
@@ -164,9 +168,15 @@ static void CG_CoopEnsureCharacter( centity_t *cent )
 	{
 		return;
 	}
-	if ( specIndex == st->specIndex && gent->playerModel >= 0 )
-	{
+	if ( specIndex == st->specIndex && gent->playerModel >= 0
+		&& gent->playerModel < gent->ghoul2.size() && strstr( gent->ghoul2[gent->playerModel].mFileName, "models/players/" ) )
+	{	// built, and the skeleton slot still holds the body
 		return;
+	}
+	if ( cg_developer.integer && st->specIndex )
+	{
+		Com_Printf( "coop: ent %i rebuilding: spec %i->%i playerModel %i slot '%s' of %i models weaponModel %i/%i\n", entNum, st->specIndex, specIndex, gent->playerModel,
+			( gent->playerModel >= 0 && gent->playerModel < gent->ghoul2.size() ) ? gent->ghoul2[gent->playerModel].mFileName : "?", (int)gent->ghoul2.size(), gent->weaponModel[0], gent->weaponModel[1] );
 	}
 
 	char spec[MAX_STRING_CHARS];
@@ -283,7 +293,16 @@ static void CG_CoopEnsureG2Model( centity_t *cent )
 	}
 	else if ( coopG2Key[entNum] && gent->ghoul2.size() )
 	{
+		if ( cg_developer.integer )
+		{
+			Com_Printf( "coop: ent %i object ghoul2 cleaned (key %i -> %i, type %i)\n", entNum, coopG2Key[entNum], key, s->eType );
+		}
 		gi.G2API_CleanGhoul2Models( gent->ghoul2 );
+		// a character built later in this slot must start from scratch (its
+		// body would otherwise be believed present, and sabers land in slot 0)
+		gent->playerModel = -1;
+		gent->weaponModel[0] = gent->weaponModel[1] = -1;
+		memset( &coopChar[entNum], 0, sizeof( coopChar[0] ) );
 	}
 	coopG2Key[entNum] = key;
 	if ( !key )
@@ -314,12 +333,17 @@ CG_CoopEnts_f
 and we do not.
 ================
 */
+float coopLastMouseSpeed = -1.0f, coopLastMouseFov = -1.0f, coopLastMouseTs = -1.0f;
+extern bool in_camera;
+
 void CG_CoopEnts_f( void )
 {
 	if ( !cg.snap )
 	{
 		return;
 	}
+	Com_Printf( "coop: timescale %.2f cl_paused %i in_camera %i fov_y %.1f mouseSpeed %.2f (fov %.1f ts %.2f at that point) viewEntity %i zoom %i\n",
+		cg_timescale.value, cg_paused.integer, in_camera ? 1 : 0, cg.refdef.fov_y, coopLastMouseSpeed, coopLastMouseFov, coopLastMouseTs, cg.snap->ps.viewEntity, cg.zoomMode );
 	for ( int i = 0; i < cg.snap->numEntities; i++ )
 	{
 		const entityState_t	*es = &cg.snap->entities[i];
@@ -370,6 +394,17 @@ static void CG_CoopDriveAnim( centity_t *cent )
 
 	if ( !ValidAnimFileIndex( gent->client->clientInfo.animFileIndex ) || !gi.G2API_HaveWeGhoul2Models( gent->ghoul2 ) )
 	{
+		return;
+	}
+	if ( gent->playerModel < 0 || gent->playerModel >= gent->ghoul2.size() || !strstr( gent->ghoul2[gent->playerModel].mFileName, "models/players/" ) )
+	{	// the skeleton slot does not hold a character model: animating it (anim index offsets) would break its ghoul2
+		static int lastWarn = 0;
+		if ( cg.time - lastWarn > 2000 )
+		{
+			lastWarn = cg.time;
+			Com_Printf( "coop: ent %i (type %i spec %i) playerModel %i is '%s' of %i models, not animating\n", cent->currentState.number, cent->currentState.eType, cent->currentState.modelindex3,
+				gent->playerModel, ( gent->playerModel >= 0 && gent->playerModel < gent->ghoul2.size() ) ? gent->ghoul2[gent->playerModel].mFileName : "?", (int)gent->ghoul2.size() );
+		}
 		return;
 	}
 

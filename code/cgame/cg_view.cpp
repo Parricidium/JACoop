@@ -2086,6 +2086,10 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 		}
 	}
 	cgi_SetUserCmdValue( cg.weaponSelect, speed, mPitchOverride, mYawOverride );
+	extern float coopLastMouseSpeed, coopLastMouseFov, coopLastMouseTs;
+	coopLastMouseSpeed = speed;	// coop: shown by coop_ents (mouse dead = sensitivity 0)
+	coopLastMouseFov = cg.refdef.fov_y;
+	coopLastMouseTs = cg_timescale.value;
 
 	// this counter will be bumped for every valid scene we generate
 	cg.clientFrame++;

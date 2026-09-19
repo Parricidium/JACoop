@@ -362,6 +362,29 @@ as CL_MapLoading does for localhost.
 ==================
 */
 extern void Menus_CloseAll( void );	// ui_shared.cpp
+extern qboolean _UI_IsFullscreen( void );
+
+// coop dev: press and release a key by name, as the keyboard would
+static void CL_CoopKey_f( void ) {
+	if ( Cmd_Argc() < 2 ) { Com_Printf( "usage: coop_key <keyname>\n" ); return; }
+	const int key = Key_StringToKeynum( (char *)Cmd_Argv( 1 ) );
+	if ( key < 0 ) { Com_Printf( "coop_key: unknown key %s\n", Cmd_Argv( 1 ) ); return; }
+	CL_KeyEvent( key, qtrue, cls.realtime );
+	CL_KeyEvent( key, qfalse, cls.realtime );
+}
+
+// coop dev: feed a mouse delta, as SDL would
+static void CL_CoopMouse_f( void ) {
+	if ( Cmd_Argc() < 3 ) { Com_Printf( "usage: coop_mouse <dx> <dy>\n" ); return; }
+	CL_MouseEvent( atoi( Cmd_Argv( 1 ) ), atoi( Cmd_Argv( 2 ) ), cls.realtime );
+}
+
+// coop dev: the joiner's mouse went nowhere; show who owns input this instant
+static void CL_CoopKeys_f( void ) {
+	Com_Printf( "coop_keys: state %i catcher %i (console %i ui %i) uiFullscreen %i sensitivity %.2f cgameStarted %i cl_paused %i\n",
+		cls.state, Key_GetCatcher(), ( Key_GetCatcher() & KEYCATCH_CONSOLE ) ? 1 : 0, ( Key_GetCatcher() & KEYCATCH_UI ) ? 1 : 0,
+		_UI_IsFullscreen(), cl.cgameSensitivity, cls.cgameStarted, cl_paused->integer );
+}
 
 void CL_Connect_f( void ) {
 	const char	*server;
@@ -1593,6 +1616,9 @@ void CL_Init( void ) {
 	Cmd_AddCommand ("snd_restart", CL_Snd_Restart_f);
 	Cmd_AddCommand ("vid_restart", CL_Vid_Restart_f);
 	Cmd_AddCommand ("connect", CL_Connect_f);
+	Cmd_AddCommand ("coop_keys", CL_CoopKeys_f);	// coop: where do keys and mouse go right now
+	Cmd_AddCommand ("coop_key", CL_CoopKey_f);	// coop dev: press a key by name
+	Cmd_AddCommand ("coop_mouse", CL_CoopMouse_f);	// coop dev: feed a mouse delta
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f);
 	Cmd_AddCommand ("localservers", CL_LocalServers_f);	// D2: LAN co-op discovery
 	Cmd_AddCommand ("cinematic", CL_PlayCinematic_f);
