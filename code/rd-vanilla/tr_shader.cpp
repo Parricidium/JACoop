@@ -3800,16 +3800,27 @@ static void ScanAndLoadShaderFiles( void )
 	s_shaderText[0] = '\0';
 	textEnd = s_shaderText;
 
-	// free in reverse order, so the temp files are all dumped
-	for ( i = numShaderFiles - 1; i >= 0 ; i-- )
+	// coop: the mod's own shader files (jacoop*.shader) go first, because the
+	// first definition of a name in the text wins (ShaderEntryPtrs_Insert):
+	// that is how the menu decor shaders of assets1/shaders/ui.shader are
+	// redefined. Everything else keeps the retail order (reverse), so the
+	// stock duplicates resolve exactly as before.
+	for ( int pass = 0; pass < 2; pass++ )
 	{
-		if ( !buffers[i] )
-			continue;
+		for ( i = numShaderFiles - 1; i >= 0 ; i-- )
+		{
+			if ( !buffers[i] )
+				continue;
+			const qboolean mine = (qboolean)( Q_stricmpn( shaderFiles[i], "jacoop", 6 ) == 0 );
+			if ( mine != ( pass == 0 ) )
+				continue;
 
-		strcat( textEnd, buffers[i] );
-		strcat( textEnd, "\n" );
-		textEnd += strlen( textEnd );
-		ri.FS_FreeFile( buffers[i] );
+			strcat( textEnd, buffers[i] );
+			strcat( textEnd, "\n" );
+			textEnd += strlen( textEnd );
+			ri.FS_FreeFile( buffers[i] );
+			buffers[i] = NULL;
+		}
 	}
 
 	COM_Compress( s_shaderText );

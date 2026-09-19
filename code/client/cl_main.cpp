@@ -1617,6 +1617,7 @@ void CL_Init( void ) {
 	Cmd_AddCommand ("vid_restart", CL_Vid_Restart_f);
 	Cmd_AddCommand ("connect", CL_Connect_f);
 	Cmd_AddCommand ("coop_keys", CL_CoopKeys_f);	// coop: where do keys and mouse go right now
+	Cmd_AddCommand ("uiclose", Menus_CloseAll);		// coop dev: close every menu (uimenu stacks them)
 	Cmd_AddCommand ("coop_key", CL_CoopKey_f);	// coop dev: press a key by name
 	Cmd_AddCommand ("coop_mouse", CL_CoopMouse_f);	// coop dev: feed a mouse delta
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f);
