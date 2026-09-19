@@ -445,6 +445,7 @@ static void IN_ActivateMouse( void )
 		SDL_SetWindowGrab( SDL_window, SDL_TRUE );
 
 		IN_GobbleMotionEvents( );
+		Com_Printf( "input: mouse captured (nograb %i, relative %i)\n", in_nograb->integer, SDL_GetRelativeMouseMode() );
 	}
 
 	// in_nograb makes no sense in fullscreen mode
@@ -497,6 +498,7 @@ static void IN_DeactivateMouse( void )
 			SDL_WarpMouseInWindow( SDL_window, cls.glconfig.vidWidth / 2, cls.glconfig.vidHeight / 2 );
 
 		mouseActive = qfalse;
+		Com_Printf( "input: mouse released\n" );
 	}
 }
 
@@ -926,6 +928,7 @@ static void IN_ProcessEvents( void )
 					case SDL_WINDOWEVENT_FOCUS_LOST:
 					{
 						Cvar_SetValue( "com_unfocused", 1 );
+						Com_Printf( "input: window focus lost\n" );
 						IN_DeactivateMouse();	// coop: release the cursor at once (alt-tab between two game windows)
 						SNDDMA_Activate( qfalse );
 						break;
@@ -934,6 +937,7 @@ static void IN_ProcessEvents( void )
 					case SDL_WINDOWEVENT_FOCUS_GAINED:
 					{
 						Cvar_SetValue( "com_unfocused", 0 );
+						Com_Printf( "input: window focus gained\n" );
 						SNDDMA_Activate( qtrue );
 						break;
 					}
