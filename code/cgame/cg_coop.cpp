@@ -258,6 +258,45 @@ modelindex3 (g_items.cpp), everything else in modelindex.
 */
 static int coopG2Key[MAX_GENTITIES];	// CS_MODELS index the ghoul2 in this slot was built from (0 = none)
 
+/*
+================
+CG_CoopReset
+
+New level on a remote client (CG_Init): the game module is not reloaded, so
+the placeholder gentities, their ghoul2 (built against the previous level's
+renderer handles and sound/skin indices) and our tables would survive. Drop
+everything; the snapshot rebuilds it.
+================
+*/
+void CG_CoopReset( void )
+{
+	if ( !cg_remoteClient )
+	{
+		return;
+	}
+	for ( int i = 0; i < MAX_GENTITIES; i++ )
+	{
+		gentity_t *gent = &g_entities[i];
+		if ( gent->ghoul2.size() )
+		{
+			gi.G2API_CleanGhoul2Models( gent->ghoul2 );
+		}
+		gent->playerModel = -1;
+		gent->weaponModel[0] = gent->weaponModel[1] = -1;
+		gent->owner = NULL;
+		gent->inuse = qfalse;
+		if ( gent->client )
+		{
+			memset( gent->client->ps.saber, 0, sizeof( gent->client->ps.saber ) );
+			gent->client->ps.dualSabers = qfalse;
+			gent->client->clientInfo.infoValid = qfalse;
+		}
+	}
+	memset( coopChar, 0, sizeof( coopChar ) );
+	memset( coopG2Key, 0, sizeof( coopG2Key ) );
+	Com_Printf( "coop: remote client state reset for the new level\n" );
+}
+
 static void CG_CoopEnsureG2Model( centity_t *cent )
 {
 	gentity_t			*gent = cent->gent;

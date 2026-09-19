@@ -2147,6 +2147,7 @@ void CG_PreInit() {
 
 	// coop: latch the remote-client flag from the cvar the engine set in the dual-load branch
 	cg_remoteClient = (qboolean)( cg_remoteClientCvar.integer != 0 );
+	CG_CoopReset();	// coop: forget the previous level (placeholders, ghoul2, tables)
 
 //moved from CG_GameStateReceived because it's loaded sooner now
 	CG_InitLocalEntities();

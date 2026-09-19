@@ -1930,10 +1930,8 @@ static void CG_DrawSkyBoxPortal(void)
 	cg.refdef.rdflags |= RDF_SKYBOXPORTAL;	//mark portal scene specialness
 	cg.refdef.rdflags |= RDF_DRAWSKYBOX;	//drawk portal skies
 
-	if ( !cg_remoteClient )	// coop: see CG_DrawActiveFrame, the server's mask stays
-	{
-		cgi_CM_SnapPVS( cg.refdef.vieworg, cg.refdef.areamask );	//fill in my areamask for this view origin
-	}
+	// (also on a remote client: the sky room is its own area, no portal involved)
+	cgi_CM_SnapPVS( cg.refdef.vieworg, cg.refdef.areamask );	//fill in my areamask for this view origin
 	// draw the skybox
 	cgi_R_RenderScene( &cg.refdef );
 
