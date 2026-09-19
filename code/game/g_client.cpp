@@ -288,7 +288,7 @@ ground. Used to find somewhere to put a second player, since campaign maps
 provide exactly one spawn point.
 ============
 */
-static qboolean G_SpawnOriginIsFree( vec3_t org )
+qboolean G_SpawnOriginIsFree( vec3_t org )
 {
 	int			i, num;
 	gentity_t	*touch[MAX_GENTITIES], *hit;
@@ -2374,7 +2374,12 @@ qboolean ClientSpawn(gentity_t *ent, SavedGameJustLoaded_e eSavedGameJustLoaded 
 			ent->NPC_type = (char *)"player";
 		}
 		ent->classname = "player";
-		ent->targetname = ent->script_targetname = "player";
+		ent->targetname = "player";
+		// coop: ICARUS maps a script name to ONE entity (m_EntityList); a joiner
+		// named "player" stole every "affect player" from the host, so mission
+		// scripts tested the wrong player's position (yavin2: the remote room
+		// never started, its door stayed shut). Joiners are player2..player4.
+		ent->script_targetname = ( index == 0 ) ? (char *)"player" : G_NewString( va( "player%i", index + 1 ) );
 		if ( ent->client->NPC_class == CLASS_NONE )
 		{
 			ent->client->NPC_class = CLASS_PLAYER;

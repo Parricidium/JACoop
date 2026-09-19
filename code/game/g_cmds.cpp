@@ -1407,6 +1407,29 @@ void ClientCommand( int clientNum ) {
 		}
 		return;
 	}
+	if (Q_stricmp (cmd, "coop_tp") == 0)
+	{
+		G_CoopTeleportCommand( ent );	// coop: joiner asks to rejoin the host
+		return;
+	}
+	if (Q_stricmp (cmd, "coop_killclass") == 0)
+	{	// coop dev: kill every NPC of this class number (cheats), e.g. remotes without touching Kyle/Rosh
+		if ( !CheatsOk( ent ) ) return;
+		if ( gi.argc() < 2 ) { gi.SendServerCommand( ent - g_entities, "print \"usage: coop_killclass <class number>\\n\"" ); return; }
+		const int cls = atoi( gi.argv( 1 ) );
+		int n = 0;
+		for ( int i = MAX_CLIENTS; i < globals.num_entities; i++ )
+		{
+			gentity_t *e = &g_entities[i];
+			if ( e->inuse && e->client && e->NPC && e->health > 0 && e->client->NPC_class == cls )
+			{
+				G_Damage( e, ent, ent, NULL, e->currentOrigin, e->health + 1000, DAMAGE_NO_PROTECTION, MOD_UNKNOWN );
+				n++;
+			}
+		}
+		gi.Printf( "coop_killclass: %i killed\n", n );
+		return;
+	}
 	if (Q_stricmp (cmd, "coop_use") == 0)
 	{	// coop dev: "use" every entity with this targetname, as a script would (needs cheats)
 		if ( !CheatsOk( ent ) ) return;

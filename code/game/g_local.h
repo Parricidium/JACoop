@@ -414,6 +414,8 @@ qboolean G_CoopRespawnPending( const gentity_t *ent );
 qboolean G_CoopPlayerDied( gentity_t *self );
 void G_CoopRunRespawns( void );
 void G_CoopPlaceBeside( gentity_t *ent, gentity_t *mate );
+void G_CoopGatherJoiners( qboolean all );
+void G_CoopTeleportCommand( gentity_t *ent );
 gentity_t *G_CoopLivingTeammate( const gentity_t *self );
 const char *G_CoopPlayerVar( const gentity_t *ent, const char *key, const cvar_t *hostCvar );
 void G_CoopCheckCharacterChange( gentity_t *ent );

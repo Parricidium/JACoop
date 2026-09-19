@@ -306,6 +306,7 @@ qboolean G_CoopPlayerDied( gentity_t *self )
 }
 
 extern void G_DisplaceSpawnOrigin( vec3_t origin );
+extern qboolean G_SpawnOriginIsFree( vec3_t org );
 extern void G_AddWeaponModels( gentity_t *ent );
 
 // move a freshly spawned player next to mate (no-op without one)
@@ -319,11 +320,79 @@ void G_CoopPlaceBeside( gentity_t *ent, gentity_t *mate )
 	VectorCopy( mate->currentOrigin, origin );
 	origin[2] += 9;
 	G_DisplaceSpawnOrigin( origin );
+	if ( VectorCompare( origin, mate->currentOrigin ) || Distance( origin, mate->currentOrigin ) < 16.0f )
+	{	// the mate did not count as an obstacle (cutscene, non-solid): step aside anyway
+		vec3_t right;
+		AngleVectors( mate->client->ps.viewangles, NULL, right, NULL );
+		VectorMA( mate->currentOrigin, 48.0f, right, origin );
+		origin[2] += 9;
+		if ( !G_SpawnOriginIsFree( origin ) )
+		{
+			VectorMA( mate->currentOrigin, -48.0f, right, origin );
+			origin[2] += 9;
+			if ( !G_SpawnOriginIsFree( origin ) )
+			{
+				VectorCopy( mate->currentOrigin, origin );
+				origin[2] += 9;
+			}
+		}
+	}
 	VectorCopy( origin, ent->client->ps.origin );
 	VectorCopy( origin, ent->currentOrigin );
 	SetClientViewAngle( ent, mate->client->ps.viewangles );
 	ent->client->ps.eFlags ^= EF_TELEPORT_BIT;
 	gi.linkentity( ent );
+}
+
+/*
+================
+G_CoopGatherJoiners
+
+Teleport joiners beside the host: every one of them when 'all' is set,
+otherwise only those the host cannot see (not in its PVS), alive and on foot.
+================
+*/
+void G_CoopGatherJoiners( qboolean all )
+{
+	gentity_t *host = &g_entities[0];
+	if ( !host->inuse || !host->client || host->health <= 0 )
+	{
+		return;
+	}
+	for ( int i = 1; i < MAX_CLIENTS; i++ )
+	{
+		gentity_t *ent = &g_entities[i];
+		if ( !ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || ent->health <= 0 )
+		{
+			continue;
+		}
+		if ( ent->client->ps.eFlags & EF_LOCKED_TO_WEAPON )
+		{
+			continue;
+		}
+		if ( !all && gi.inPVS( host->currentOrigin, ent->currentOrigin ) )
+		{
+			continue;
+		}
+		G_CoopPlaceBeside( ent, host );
+		gi.Printf( "coop: %s brought to the host\n", ent->client->pers.netname );
+	}
+}
+
+// "coop_tp": a joiner asks to be brought beside the host (stuck behind a locked door...)
+void G_CoopTeleportCommand( gentity_t *ent )
+{
+	if ( !ent || !ent->client || ent->s.number == 0 || ent->s.number >= MAX_CLIENTS || ent->health <= 0 )
+	{
+		return;
+	}
+	gentity_t *host = &g_entities[0];
+	if ( !host->inuse || !host->client )
+	{
+		return;
+	}
+	G_CoopPlaceBeside( ent, host );
+	gi.Printf( "coop: %s teleported to the host on request\n", ent->client->pers.netname );
 }
 
 static void G_CoopRespawn( gentity_t *ent )
@@ -407,6 +476,10 @@ void G_CoopUpdateCamera( void )
 
 	if ( !coopCameraEnt || !coopCameraEnt->inuse || coopCameraEnt->s.eType != ET_COOPCAMERA )
 	{
+		// a cutscene starts: scripts lock doors behind the host and drive the
+		// story from where it stands. A joiner left out of sight (a door that
+		// closed on it, a fall, a detour) would be stranded, so bring it along.
+		G_CoopGatherJoiners( qfalse );
 		coopCameraEnt = G_Spawn();
 		if ( !coopCameraEnt )
 		{
