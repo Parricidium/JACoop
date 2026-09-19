@@ -1930,7 +1930,10 @@ static void CG_DrawSkyBoxPortal(void)
 	cg.refdef.rdflags |= RDF_SKYBOXPORTAL;	//mark portal scene specialness
 	cg.refdef.rdflags |= RDF_DRAWSKYBOX;	//drawk portal skies
 
-	cgi_CM_SnapPVS( cg.refdef.vieworg, cg.refdef.areamask );	//fill in my areamask for this view origin
+	if ( !cg_remoteClient )	// coop: see CG_DrawActiveFrame, the server's mask stays
+	{
+		cgi_CM_SnapPVS( cg.refdef.vieworg, cg.refdef.areamask );	//fill in my areamask for this view origin
+	}
 	// draw the skybox
 	cgi_R_RenderScene( &cg.refdef );
 
@@ -2186,6 +2189,10 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 	}
 	//FIXME: first person crouch-uncrouch STILL FUCKS UP THE AREAMASK!!!
 	//if ( !VectorCompare2( cg.refdef.vieworg, cg.snap->ps.serverViewOrg ) && !gi.inPVS( cg.refdef.vieworg, cg.snap->ps.serverViewOrg ) )
+	// coop: a remote client's collision map never hears about area portals
+	// (doors open on the host only), so a local rebuild closes every door and
+	// the level beyond it vanishes; keep the mask the server computed for us
+	if ( !cg_remoteClient )
 	{//actual view org and server's view org don't match and aren't same PVS, rebuild the areamask
 		//Com_Printf( S_COLOR_RED"%s != %s\n", vtos(cg.refdef.vieworg), vtos(cg.snap->ps.serverViewOrg) );
 		cgi_CM_SnapPVS( cg.refdef.vieworg, cg.snap->areamask );

@@ -337,7 +337,7 @@ void CG_CoopEnts_f( void )
 		}
 		else if ( es->eType == ET_PLAYER )
 		{
-			name = va( "spec %i", es->modelindex3 );
+			name = va( "spec %i hp %i/%i", es->modelindex3, es->coopHealth, es->coopMaxHealth );
 		}
 		else
 		{
