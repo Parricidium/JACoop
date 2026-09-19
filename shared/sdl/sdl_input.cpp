@@ -926,6 +926,7 @@ static void IN_ProcessEvents( void )
 					case SDL_WINDOWEVENT_FOCUS_LOST:
 					{
 						Cvar_SetValue( "com_unfocused", 1 );
+						IN_DeactivateMouse();	// coop: release the cursor at once (alt-tab between two game windows)
 						SNDDMA_Activate( qfalse );
 						break;
 					}
