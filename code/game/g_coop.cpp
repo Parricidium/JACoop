@@ -120,6 +120,55 @@ void G_CoopUpdateAppearance( gentity_t *ent )
 	ent->s.coopMaxHealth = ent->max_health;
 	// head tracking: interest points are host-only, so only entity targets travel
 	ent->s.coopLookTarget = ( ent->client->renderInfo.lookMode == LM_ENT ) ? ent->client->renderInfo.lookTarget : ENTITYNUM_NONE;
+	if ( !a->modelName[0] && ent->ghoul2.size() && ent->playerModel >= 0 && ent->playerModel < ent->ghoul2.size() )
+	{
+		// Savegame load: the entity came back with its ghoul2 (and its skin as
+		// a CS_CHARSKINS index) but this record is not part of the save, so
+		// rebuild it from them - otherwise the host and every NPC of the save
+		// stay invisible to the joiners.
+		const char *file = ent->ghoul2[ent->playerModel].mFileName;
+		if ( !Q_stricmpn( file, "models/players/", 15 ) )
+		{
+			char model[MAX_QPATH], skin[MAX_QPATH * 2];
+			Q_strncpyz( model, file + 15, sizeof( model ) );
+			char *slash = strchr( model, '/' );
+			if ( slash )
+			{
+				*slash = '\0';
+			}
+			skin[0] = '\0';
+			const int skinIndex = ent->ghoul2[ent->playerModel].mCustomSkin;
+			if ( skinIndex > 0 )
+			{
+				char cs[MAX_QPATH * 2];
+				gi.GetConfigstring( CS_CHARSKINS + skinIndex, cs, sizeof( cs ) );
+				const char *bar = strchr( cs, '|' );
+				const char *base = strrchr( cs, '/' );
+				if ( bar )
+				{	// "models/players/X/|head|torso|legs"
+					Q_strncpyz( skin, bar + 1, sizeof( skin ) );
+				}
+				else if ( base && !Q_stricmpn( base + 1, "model_", 6 ) )
+				{	// "models/players/X/model_<skin>.skin"
+					Q_strncpyz( skin, base + 7, sizeof( skin ) );
+					char *dot = strrchr( skin, '.' );
+					if ( dot )
+					{
+						*dot = '\0';
+					}
+					if ( !Q_stricmp( skin, "default" ) )
+					{
+						skin[0] = '\0';
+					}
+				}
+			}
+			G_CoopRecordModel( ent, model, skin[0] ? skin : NULL, NULL, NULL );
+			if ( g_developer->integer )
+			{
+				gi.Printf( "coop: ent %i appearance rebuilt from its ghoul2: '%s' skin '%s'\n", ent->s.number, model, skin );
+			}
+		}
+	}
 	if ( !a->modelName[0] )
 	{
 		// A few NPCs (remote_sp, mouse, seeker) still use the pre-ghoul2 md3
