@@ -170,6 +170,16 @@ int   		s_paintedtime; 		// sample PAIRS
 sfx_t		s_knownSfx[MAX_SFX];
 int			s_numSfx;
 
+// coop: the name behind a handle (movers carry host-local handles in s.loopSound)
+const char *S_SoundNameForHandle( sfxHandle_t handle )
+{
+	if ( handle <= 0 || handle >= s_numSfx )
+	{
+		return NULL;
+	}
+	return s_knownSfx[handle].sSoundName;
+}
+
 #define		LOOP_HASH		128
 static	sfx_t		*sfxHash[LOOP_HASH];
 

@@ -177,7 +177,15 @@ static void CG_EntityEffects( centity_t *cent ) {
 			chan = CHAN_LESS_ATTEN;
 		}
 
-		sfxHandle_t	sfx = ( cent->currentState.eType == ET_MOVER ) ? cent->currentState.loopSound : cgs.sound_precache[ cent->currentState.loopSound ];
+		sfxHandle_t	sfx;
+		if ( cent->currentState.eType == ET_MOVER && !cg_remoteClient )
+		{	// host: a local sfx handle the game registered itself
+			sfx = cent->currentState.loopSound;
+		}
+		else
+		{	// coop: the server sends remote viewers a CS_SOUNDS index for movers too
+			sfx = ( cent->currentState.loopSound > 0 && cent->currentState.loopSound < MAX_SOUNDS ) ? cgs.sound_precache[ cent->currentState.loopSound ] : 0;
+		}
 
 		// Only play sound if being drawn.
 		if ( !( ent->s.eFlags & EF_NODRAW ) )

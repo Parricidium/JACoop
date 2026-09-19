@@ -25,6 +25,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "../client/vmachine.h"
 #include "server.h"
+#include "../client/snd_public.h"	// coop: S_SoundNameForHandle
 
 /*
 =============================================================================
@@ -230,6 +231,64 @@ Build a client snapshot structure
 
 =============================================================================
 */
+
+// coop: movers keep a host-local sfx handle in s.loopSound (cgi_S_RegisterSound /
+// CAS_GetBModelSound, played straight by the host's cgame). A remote client has
+// its own sound table, so that number means another sound there (or a missing
+// one, and S_AddLoopingSound drops the client). For remote viewers, swap it for
+// a CS_SOUNDS index, allocated on demand; the remote cgame looks it up in
+// cgs.sound_precache like every other entity's loop sound.
+#define COOP_MOVER_SOUND_CACHE	4096
+static int coopMoverSoundCS[COOP_MOVER_SOUND_CACHE];	// handle -> CS_SOUNDS index (0 = unknown yet, -1 = none)
+static int coopMoverSoundServerId;
+
+static int SV_CoopMoverSoundIndex( int handle )
+{
+	if ( coopMoverSoundServerId != sv.serverId )
+	{
+		memset( coopMoverSoundCS, 0, sizeof( coopMoverSoundCS ) );
+		coopMoverSoundServerId = sv.serverId;
+	}
+	if ( handle <= 0 || handle >= COOP_MOVER_SOUND_CACHE )
+	{
+		return 0;
+	}
+	if ( coopMoverSoundCS[handle] )
+	{
+		return coopMoverSoundCS[handle] > 0 ? coopMoverSoundCS[handle] : 0;
+	}
+	const char *name = S_SoundNameForHandle( handle );
+	if ( !name || !name[0] )
+	{
+		coopMoverSoundCS[handle] = -1;
+		return 0;
+	}
+	char stripped[MAX_QPATH];
+	COM_StripExtension( name, stripped, sizeof( stripped ) );	// G_SoundIndex stores them stripped
+	int i;
+	for ( i = 1; i < MAX_SOUNDS; i++ )
+	{
+		const char *cs = sv.configstrings[CS_SOUNDS + i];
+		if ( !cs || !cs[0] )
+		{
+			break;
+		}
+		if ( !Q_stricmp( cs, stripped ) )
+		{
+			coopMoverSoundCS[handle] = i;
+			return i;
+		}
+	}
+	if ( i >= MAX_SOUNDS )
+	{
+		Com_Printf( "coop: no CS_SOUNDS slot left for mover sound %s\n", stripped );
+		coopMoverSoundCS[handle] = -1;
+		return 0;
+	}
+	SV_SetConfigstring( CS_SOUNDS + i, stripped );
+	coopMoverSoundCS[handle] = i;
+	return i;
+}
 
 #define	MAX_SNAPSHOT_ENTITIES	1024
 typedef struct {
@@ -638,6 +697,10 @@ static clientSnapshot_t *SV_BuildClientSnapshot( client_t *client ) {
 		{	// coop: SP never puts a client's velocity on the wire; the remote cgame
 			// scales the walk/run animations by it (PM_SetAnimFinal, resultspeed)
 			VectorCopy( ent->client->velocity, state->pos.trDelta );
+		}
+		if ( frame->ps.clientNum != 0 && state->eType == ET_MOVER && state->loopSound )
+		{	// coop: host-local sfx handle -> CS_SOUNDS index (see SV_CoopMoverSoundIndex)
+			state->loopSound = SV_CoopMoverSoundIndex( state->loopSound );
 		}
 		svs.nextSnapshotEntities++;
 		frame->num_entities++;
