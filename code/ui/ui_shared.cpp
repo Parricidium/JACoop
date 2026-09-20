@@ -7152,7 +7152,7 @@ void Item_Model_Paint(itemDef_t *item)
 	w = item->window.rect.w-2;
 	h = item->window.rect.h-2;
 
-	refdef.x = x * DC->xscale;
+	refdef.x = x * DC->xscale + DC->bias;	// coop: bias = centered 4:3 area (r_aspect2D)
 	refdef.y = y * DC->yscale;
 	refdef.width = w * DC->xscale;
 	refdef.height = h * DC->yscale;
@@ -7295,7 +7295,7 @@ void Item_Model_Paint(itemDef_t *item)
 	w = item->window.rect.w-2;
 	h = item->window.rect.h-2;
 
-	refdef.x = x * DC->xscale;
+	refdef.x = x * DC->xscale + DC->bias;	// coop: bias = centered 4:3 area (r_aspect2D)
 	refdef.y = y * DC->yscale;
 	refdef.width = w * DC->xscale;
 	refdef.height = h * DC->yscale;

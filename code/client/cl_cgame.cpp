@@ -1598,7 +1598,15 @@ Ghoul2 Insert End
 		return 0;
 
 	case CG_OPENJK_MENU_PAINT:
-		Menu_Paint( (menuDef_t *)VMA(1), (qboolean)(args[2] != 0) );
+		{
+			// coop: a full-screen menu painted by cgame (datapad...) is centered like the UI's own
+			menuDef_t *menu = (menuDef_t *)VMA(1);
+			if ( menu && menu->fullScreen ) {
+				re.SetAspect2D( 2 );
+			}
+			Menu_Paint( menu, (qboolean)(args[2] != 0) );
+			re.SetAspect2D( 1 );
+		}
 		return 0;
 
 	case CG_OPENJK_GETMENU_BYNAME:

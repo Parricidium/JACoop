@@ -2906,6 +2906,16 @@ void _UI_Init( qboolean inGameLoad )
 		// no wide screen
 		uiInfo.uiDC.bias = 0;
 	}
+	if ( Cvar_VariableIntegerValue( "r_aspect2D" ) )
+	{
+		// coop: the renderer centers the menus as a 4:3 area (r_aspect2D); the 3D previews
+		// (refdef in pixels) use the same uniform scale and the same offset
+		uiInfo.uiDC.xscale = uiInfo.uiDC.yscale;
+	}
+	else
+	{
+		uiInfo.uiDC.bias = 0;
+	}
 
 	Init_Display(&uiInfo.uiDC);
 

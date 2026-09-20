@@ -192,6 +192,7 @@ typedef struct {
 		float s1, float t1, float s2, float t2, float a1, qhandle_t hShader );	// 0 = white
 	void	(*LAGoggles)(void);
 	void	(*Scissor) ( float x, float y, float w, float h);	// 0 = white
+	void	(*SetAspect2D) ( int mode );	// coop: 0 stretch (vanilla), 1 anchor to the edges (HUD), 2 centered 4:3 (menus)
 
 	// Draw images for cinematic rendering, pass as 32 bit rgba
 	void	(*DrawStretchRaw) (int x, int y, int w, int h, int cols, int rows, const byte *data, int client, qboolean dirty);

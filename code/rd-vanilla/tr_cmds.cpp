@@ -222,6 +222,98 @@ void	RE_SetColor( const float *rgba ) {
 
 /*
 =============
+coop: aspect-correct 2D
+
+The SP renderer projects every 2D call onto a fixed 640x480 virtual screen, so
+on a 16:9 display the HUD and the menus are stretched. With r_aspect2D 1 the
+calls are rescaled here, in the front end, so that the drawn pixels keep their
+4:3 proportions: in mode 1 (HUD) each element is anchored to the nearest screen
+edge (the corners stay in the corners, the crosshair and the weapon row stay
+centered), in mode 2 (menus) everything is centered as a 4:3 area. Full-width
+elements (backgrounds, letterbox bars, cinematics) are still stretched to the
+whole screen. Text is anchored per string (R_Aspect2DBegin/End, tr_font.cpp).
+=============
+*/
+cvar_t	*r_aspect2D;
+static int	aspect2DMode = 1;
+static int	aspect2DForced = -1;	// anchor imposed for a whole string of text
+
+enum { A2D_LEFT, A2D_CENTER, A2D_RIGHT, A2D_STRETCH };
+
+static qboolean R_Aspect2DActive( void ) {
+	return (qboolean)( r_aspect2D && r_aspect2D->integer && aspect2DMode
+		&& glConfig.vidWidth * 480 > glConfig.vidHeight * 640 + 8 );
+}
+
+static int R_Aspect2DAnchor( float x, float w ) {
+	if ( w < 0 ) {
+		x += w;
+		w = -w;
+	}
+	if ( x <= 0.5f && x + w >= 639.5f ) {
+		return A2D_STRETCH;
+	}
+	if ( aspect2DMode == 2 ) {
+		return A2D_CENTER;
+	}
+	if ( x + w <= 120.0f ) {	// left HUD column (hud.menu: 0..112, the weapon row starts at 124)
+		return A2D_LEFT;
+	}
+	if ( x >= 520.0f ) {		// right HUD column (528..640)
+		return A2D_RIGHT;
+	}
+	return A2D_CENTER;
+}
+
+static void R_Aspect2DApply( float *x, float *w, int anchor ) {
+	// a = width of the screen in 640-units relative to 4:3 (1.333 on 16:9)
+	const float a = ( glConfig.vidWidth * 480.0f ) / ( glConfig.vidHeight * 640.0f );
+	switch ( anchor ) {
+	case A2D_LEFT:
+		*x = *x / a;
+		break;
+	case A2D_RIGHT:
+		*x = 640.0f - ( 640.0f - *x ) / a;
+		break;
+	case A2D_CENTER:
+		*x = *x / a + 320.0f * ( 1.0f - 1.0f / a );
+		break;
+	default:
+		return;
+	}
+	*w = *w / a;
+}
+
+// rect (x, w) in 640-space, w may be negative (mirrored HUD)
+void R_Aspect2D( float *x, float *w ) {
+	if ( !R_Aspect2DActive() ) {
+		return;
+	}
+	R_Aspect2DApply( x, w, aspect2DForced >= 0 ? aspect2DForced : R_Aspect2DAnchor( *x, *w ) );
+}
+
+// x is the center of a w-wide element (RE_RotatePic2)
+void R_Aspect2DCenter( float *x, float *w ) {
+	if ( !R_Aspect2DActive() ) {
+		return;
+	}
+	R_Aspect2DApply( x, w, R_Aspect2DAnchor( *x - *w * 0.5f, *w ) );
+}
+
+void R_Aspect2DBegin( float x, float w ) {
+	aspect2DForced = R_Aspect2DActive() ? R_Aspect2DAnchor( x, w ) : -1;
+}
+
+void R_Aspect2DEnd( void ) {
+	aspect2DForced = -1;
+}
+
+void RE_SetAspect2D( int mode ) {
+	aspect2DMode = mode;
+}
+
+/*
+=============
 RE_StretchPic
 =============
 */
@@ -236,6 +328,7 @@ void RE_StretchPic ( float x, float y, float w, float h,
 	if ( !cmd ) {
 		return;
 	}
+	R_Aspect2D( &x, &w );
 	cmd->commandId = RC_STRETCH_PIC;
 	cmd->shader = R_GetShaderByHandle( hShader );
 	cmd->x = x;
@@ -264,6 +357,7 @@ void RE_RotatePic ( float x, float y, float w, float h,
 	if ( !cmd ) {
 		return;
 	}
+	R_Aspect2D( &x, &w );
 	cmd->commandId = RC_ROTATE_PIC;
 	cmd->shader = R_GetShaderByHandle( hShader );
 	cmd->x = x;
@@ -294,6 +388,7 @@ void RE_RotatePic2 ( float x, float y, float w, float h,
 	if ( !cmd ) {
 		return;
 	}
+	R_Aspect2DCenter( &x, &w );
 	cmd->commandId = RC_ROTATE_PIC2;
 	cmd->shader = R_GetShaderByHandle( hShader );
 	cmd->x = x;

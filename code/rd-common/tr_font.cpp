@@ -2002,6 +2002,15 @@ void RE_Font_DrawString(int ox, int oy, const char *psText, const float *rgba, c
 
 	RE_SetColor( rgba );
 
+	// coop: the whole string is anchored as one 2D element (see R_Aspect2D)
+	{
+		int iAnchorWidth = RE_Font_StrLenPixels( psText, iFontHandle, fScale );
+		if ( iMaxPixelWidth != -1 && iAnchorWidth > iMaxPixelWidth ) {
+			iAnchorWidth = iMaxPixelWidth;
+		}
+		R_Aspect2DBegin( (float)ox, (float)iAnchorWidth );
+	}
+
 	// Now we take off the training wheels and become a big font renderer
 	// It's all floats from here on out
 	fox = ox;
@@ -2104,6 +2113,7 @@ void RE_Font_DrawString(int ox, int oy, const char *psText, const float *rgba, c
 		}
 	}
 	//let it remember the old color //RE_SetColor(NULL);
+	R_Aspect2DEnd();
 #endif
 }
 

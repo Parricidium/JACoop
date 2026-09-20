@@ -1564,6 +1564,7 @@ void R_Register( void )
 	r_fastsky = ri.Cvar_Get( "r_fastsky", "0", CVAR_ARCHIVE_ND );
 	r_drawSun = ri.Cvar_Get( "r_drawSun", "0", CVAR_ARCHIVE_ND );
 	r_dynamiclight = ri.Cvar_Get( "r_dynamiclight", "1", CVAR_ARCHIVE );
+	r_aspect2D = ri.Cvar_Get( "r_aspect2D", "1", CVAR_ARCHIVE );	// coop: HUD and menus keep their 4:3 proportions on wide screens
 	// rjr - removed for hacking
 //	r_dlightBacks = ri.Cvar_Get( "r_dlightBacks", "0", CVAR_ARCHIVE );
 	r_finish = ri.Cvar_Get ("r_finish", "0", CVAR_ARCHIVE_ND);
@@ -2026,6 +2027,7 @@ extern "C" Q_EXPORT refexport_t* QDECL GetRefAPI ( int apiVersion, refimport_t *
 	re.DrawStretchPic = RE_StretchPic;
 	re.DrawRotatePic = RE_RotatePic;
 	re.DrawRotatePic2 = RE_RotatePic2;
+	re.SetAspect2D = RE_SetAspect2D;
 	REX(LAGoggles);
 	REX(Scissor);
 

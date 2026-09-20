@@ -1816,6 +1816,13 @@ void RE_RotatePic2 ( float x, float y, float w, float h,
 void RE_RenderWorldEffects(void);
 void RE_LAGoggles( void );
 void RE_Scissor ( float x, float y, float w, float h);
+// coop: aspect-correct 2D (tr_cmds.cpp)
+extern cvar_t *r_aspect2D;
+void RE_SetAspect2D( int mode );
+void R_Aspect2D( float *x, float *w );
+void R_Aspect2DCenter( float *x, float *w );
+void R_Aspect2DBegin( float x, float w );
+void R_Aspect2DEnd( void );
 void RE_BeginFrame( stereoFrame_t stereoFrame );
 void RE_EndFrame( int *frontEndMsec, int *backEndMsec );
 qboolean	RE_ProcessDissolve(void);

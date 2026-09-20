@@ -414,6 +414,7 @@ This will be called twice if rendering in stereo mode
 void SCR_DrawScreenField( stereoFrame_t stereoFrame ) {
 
 	re.BeginFrame( stereoFrame );
+	re.SetAspect2D( 1 );	// coop: game layer, HUD anchored to the edges
 
 	qboolean uiFullscreen = _UI_IsFullscreen();
 
@@ -435,7 +436,9 @@ void SCR_DrawScreenField( stereoFrame_t stereoFrame ) {
 		case CA_CHALLENGING:
 		case CA_CONNECTED:
 			// connecting clients will only show the connection dialog
+			re.SetAspect2D( 2 );
 			UI_DrawConnect( clc.servername, cls.updateInfoString );
+			re.SetAspect2D( 1 );
 			break;
 		case CA_LOADING:
 		case CA_PRIMED:
@@ -460,7 +463,9 @@ void SCR_DrawScreenField( stereoFrame_t stereoFrame ) {
 	// draw downloading progress bar
 
 	// the menu draws next
+	re.SetAspect2D( 2 );	// coop: menus centered as a 4:3 area
 	_UI_Refresh( cls.realtime );
+	re.SetAspect2D( 1 );
 
 	// console draws next
 	Con_DrawConsole ();
