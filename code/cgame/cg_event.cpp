@@ -725,7 +725,29 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 
 	case EV_BMODEL_SOUND:
 		DEBUGNAME("EV_BMODEL_SOUND");
-		cgi_S_StartSound( NULL, es->number, CHAN_AUTO, es->eventParm );
+		if ( cg_remoteClient )
+		{	// coop: the server swapped the host's sfx handle for a CS_SOUNDS index (SV_CoopMoverSoundIndex)
+			if ( es->eventParm > 0 && es->eventParm < MAX_SOUNDS )
+			{
+				if ( cg_developer.integer > 1 )
+				{
+					Com_Printf( "coop: bmodel sound ent %i '%s'\n", es->number, CG_ConfigString( CS_SOUNDS + es->eventParm ) );
+				}
+				if ( cgs.sound_precache[ es->eventParm ] )
+				{
+					cgi_S_StartSound( NULL, es->number, CHAN_AUTO, cgs.sound_precache[ es->eventParm ] );
+				}
+				else
+				{
+					s = CG_ConfigString( CS_SOUNDS + es->eventParm );
+					CG_TryPlayCustomSound( NULL, es->number, CHAN_AUTO, s, CS_BASIC );
+				}
+			}
+		}
+		else
+		{
+			cgi_S_StartSound( NULL, es->number, CHAN_AUTO, es->eventParm );
+		}
 		break;
 
 	case EV_GENERAL_SOUND:

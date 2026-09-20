@@ -93,6 +93,13 @@ void G_PlayDoorSound( gentity_t *ent, int type )
 
 	sfxHandle_t	sfx = CAS_GetBModelSound( ent->soundSet, type );
 
+	{
+		static cvar_t *dev = gi.cvar( "developer", "0", 0 );
+		if ( dev->integer > 1 )
+		{
+			gi.Printf( "coop: door sound ent %i set '%s' type %i handle %i\n", ent->s.number, ent->soundSet, type, sfx );
+		}
+	}
 	if ( sfx == -1 )
 		return;
 

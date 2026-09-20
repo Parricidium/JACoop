@@ -720,6 +720,11 @@ static clientSnapshot_t *SV_BuildClientSnapshot( client_t *client ) {
 		{	// coop: host-local sfx handle -> CS_SOUNDS index (see SV_CoopMoverSoundIndex)
 			state->loopSound = SV_CoopMoverSoundIndex( state->loopSound );
 		}
+		if ( frame->ps.clientNum != 0 && ( state->event & ~EV_EVENT_BITS ) == EV_BMODEL_SOUND && state->eventParm )
+		{	// coop: same for the start/end sounds of doors and fx_runners (G_PlayDoorSound):
+			// a raw handle was "S_StartSound: handle N out of range" on the remote client
+			state->eventParm = SV_CoopMoverSoundIndex( state->eventParm );
+		}
 		svs.nextSnapshotEntities++;
 		frame->num_entities++;
 	}
