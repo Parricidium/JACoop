@@ -300,6 +300,7 @@ void UI_Init( int apiVersion, uiimport_t *uiimport, qboolean inGameLoad )
 #ifndef JK2_MODE
 	ui.Cvar_Create( "g_char_model",			"jedi_tf",	CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
 	ui.Cvar_Create( "g_char_skin_head",		"head_a1",	CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
+	ui.Cvar_Create( "g_char_skin",			"",			CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );	// coop: whole-model skin (model_<x>.skin), empty = species parts
 	ui.Cvar_Create( "g_char_skin_torso",	"torso_a1",	CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
 	ui.Cvar_Create( "g_char_skin_legs",		"lower_a1",	CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
 	ui.Cvar_Create( "g_char_color_red",		"255",		CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );

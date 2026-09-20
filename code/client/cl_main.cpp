@@ -1587,6 +1587,7 @@ void CL_Init( void ) {
 	// the host with its own look (same defaults as G_InitCvars)
 	Cvar_Get ("g_char_model", "jedi_tf", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART );
 	Cvar_Get ("g_char_skin_head", "head_a1", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART );
+	Cvar_Get ("g_char_skin", "", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART );	// coop: whole-model skin
 	Cvar_Get ("g_char_skin_torso", "torso_a1", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART );
 	Cvar_Get ("g_char_skin_legs", "lower_a1", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART );
 	Cvar_Get ("g_char_color_red", "255", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART );

@@ -204,6 +204,7 @@ cvar_t	*g_dismemberProbabilities;
 cvar_t	*g_speederControlScheme;
 
 cvar_t	*g_char_model;
+cvar_t	*g_char_skin;		// coop: whole-model skin (model_<x>.skin); empty = species head/torso/legs
 cvar_t	*g_char_skin_head;
 cvar_t	*g_char_skin_torso;
 cvar_t	*g_char_skin_legs;
@@ -706,6 +707,7 @@ void G_InitCvars( void ) {
 
 	g_char_model = gi.cvar( "g_char_model", "jedi_tf", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART|CVAR_USERINFO );	// coop: travels in the joiner's userinfo
 	g_char_skin_head = gi.cvar( "g_char_skin_head", "head_a1", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART|CVAR_USERINFO );	// coop: travels in the joiner's userinfo
+	g_char_skin = gi.cvar( "g_char_skin", "", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART|CVAR_USERINFO );	// coop: travels in the joiner's userinfo
 	g_char_skin_torso = gi.cvar( "g_char_skin_torso", "torso_a1", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART|CVAR_USERINFO );	// coop: travels in the joiner's userinfo
 	g_char_skin_legs = gi.cvar( "g_char_skin_legs", "lower_a1", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART|CVAR_USERINFO );	// coop: travels in the joiner's userinfo
 	g_char_color_red = gi.cvar( "g_char_color_red", "255", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART|CVAR_USERINFO );	// coop: travels in the joiner's userinfo

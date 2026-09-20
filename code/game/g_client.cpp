@@ -38,6 +38,7 @@ extern qboolean	CheatsOk( gentity_t *ent );
 extern void Boba_Precache( void );
 
 extern cvar_t	*g_char_model;
+extern cvar_t	*g_char_skin;
 extern cvar_t	*g_char_skin_head;
 extern cvar_t	*g_char_skin_torso;
 extern cvar_t	*g_char_skin_legs;
@@ -2076,7 +2077,13 @@ void G_SetSabersFromCVars( gentity_t *ent )
 void G_InitPlayerFromCvars( gentity_t *ent )
 {
 	//set model based on cvars
-	if(Q_stricmp(G_CoopPlayerVar( ent, "g_char_skin_head", g_char_skin_head ), "model_default") == 0 && Q_stricmp(G_CoopPlayerVar( ent, "g_char_skin_torso", g_char_skin_torso ), "model_default") == 0 && Q_stricmp(G_CoopPlayerVar( ent, "g_char_skin_legs", g_char_skin_legs ), "model_default") == 0)
+	// (empty means "species parts", and an empty userinfo key is absent: no falling back to the host's)
+	const char *wholeSkin = ( ent->s.number == 0 ) ? g_char_skin->string : G_CoopPlayerVar( ent, "g_char_skin", NULL );
+	if ( wholeSkin[0] )
+	{	// coop: a whole-model skin picked in the model browser (models/players/<model>/model_<skin>.skin)
+		G_ChangePlayerModel( ent, va( "%s|%s", G_CoopPlayerVar( ent, "g_char_model", g_char_model ), Q_stricmp( wholeSkin, "default" ) ? wholeSkin : "model_default" ) );
+	}
+	else if(Q_stricmp(G_CoopPlayerVar( ent, "g_char_skin_head", g_char_skin_head ), "model_default") == 0 && Q_stricmp(G_CoopPlayerVar( ent, "g_char_skin_torso", g_char_skin_torso ), "model_default") == 0 && Q_stricmp(G_CoopPlayerVar( ent, "g_char_skin_legs", g_char_skin_legs ), "model_default") == 0)
 		G_ChangePlayerModel( ent, va("%s|model_default", G_CoopPlayerVar( ent, "g_char_model", g_char_model )) );
 	else
 		G_ChangePlayerModel( ent, va("%s|%s|%s|%s", G_CoopPlayerVar( ent, "g_char_model", g_char_model ), G_CoopPlayerVar( ent, "g_char_skin_head", g_char_skin_head ), G_CoopPlayerVar( ent, "g_char_skin_torso", g_char_skin_torso ), G_CoopPlayerVar( ent, "g_char_skin_legs", g_char_skin_legs )) );

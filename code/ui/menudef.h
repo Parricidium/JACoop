@@ -99,6 +99,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define FEEDER_LANGUAGES					0x17			// the list of languages
 #define FEEDER_COOP_SERVERS					0x18			// D3: LAN co-op hosts (cls.localServers)
 #define FEEDER_COOP_PLAYERS					0x19			// coop: players in the lobby / game (CS_COOP_LOBBY)
+#define FEEDER_COOP_MODELS					0x1a			// coop: models/players/* player models (coopskins.menu)
+#define FEEDER_COOP_SKINS					0x1b			// coop: model_*.skin of the selected model
 
 
 #define UI_VERSION				200
@@ -159,3 +161,4 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define UI_PREVIEWCINEMATIC		254
 #define UI_STARTMAPCINEMATIC	255
 #define UI_MAPS_SELECTION		256
+#define UI_COOP_MODEL_ICON		257		// coop: portrait of the model browser's selection

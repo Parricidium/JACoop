@@ -715,7 +715,7 @@ const char *G_CoopPlayerVar( const gentity_t *ent, const char *key, const cvar_t
 void G_CoopCheckCharacterChange( gentity_t *ent )
 {
 	static char	lastKeys[MAX_CLIENTS][MAX_INFO_STRING];
-	static const char *keys[] = { "g_char_model", "g_char_skin_head", "g_char_skin_torso", "g_char_skin_legs",
+	static const char *keys[] = { "g_char_model", "g_char_skin", "g_char_skin_head", "g_char_skin_torso", "g_char_skin_legs",
 		"g_char_color_red", "g_char_color_green", "g_char_color_blue", "g_saber", "g_saber2", "g_saber_color", "g_saber2_color", "snd" };
 
 	if ( !ent || ent->s.number <= 0 || ent->s.number >= MAX_CLIENTS || !ent->client )

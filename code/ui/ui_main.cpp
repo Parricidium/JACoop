@@ -750,6 +750,239 @@ void Text_Paint(float x, float y, float scale, vec4_t color, const char *text, i
 
 
 /*
+==============================================================================
+coop: character model browser (ui/coopskins.menu)
+
+Every models/players/<folder>/model.glm animated by _humanoid - so any
+MP/SP skin pk3 dropped in base/ - is listed with its model_*.skin variants,
+its icon_*.jpg portrait and a live ghoul2 preview. Applying sets g_char_model
+and g_char_skin (a whole-model skin, see G_InitPlayerFromCvars) and asks the
+game to rebuild the player; a joiner's cvars travel in its userinfo, so the
+host rebuilds it by itself (G_CoopCheckCharacterChange).
+==============================================================================
+*/
+#define COOP_MAX_MODELS		1024
+#define COOP_MAX_SKINS		4096
+
+typedef struct coopModelInfo_s {
+	char	folder[64];
+	int		firstSkin;
+	int		numSkins;
+} coopModelInfo_t;
+
+static coopModelInfo_t	coopModels[COOP_MAX_MODELS];
+static char				coopSkins[COOP_MAX_SKINS][32];
+static int				coopModelCount = -1;	// -1 = not scanned yet
+static int				coopSkinCount;
+static int				coopModelSel, coopSkinSel;
+
+static int UI_CoopModelCompare( const void *a, const void *b )
+{
+	return Q_stricmp( ((const coopModelInfo_t *)a)->folder, ((const coopModelInfo_t *)b)->folder );
+}
+
+static void UI_CoopScanModels( void )
+{
+	static char	dirlist[65536];
+	char		filelist[8192];
+	int			numdirs, dirlen = 0;
+	char		*dirptr;
+
+	coopModelCount = coopSkinCount = 0;
+	numdirs = ui.FS_GetFileList( "models/players", "/", dirlist, sizeof( dirlist ) );
+	dirptr = dirlist;
+	for ( int i = 0; i < numdirs && coopModelCount < COOP_MAX_MODELS; i++, dirptr += dirlen + 1 )
+	{
+		dirlen = strlen( dirptr );
+		if ( dirlen && dirptr[dirlen - 1] == '/' )
+		{
+			dirptr[dirlen - 1] = '\0';
+		}
+		if ( !dirptr[0] || dirptr[0] == '.' || dirptr[0] == '_' || strlen( dirptr ) >= sizeof( coopModels[0].folder ) )
+		{
+			continue;
+		}
+
+		// a player model: model.glm whose animations are _humanoid's (mdxmHeader_t: ident, version, name[64], animName[64])
+		fileHandle_t	f = 0;
+		char			hdr[8 + MAX_QPATH * 2];
+		int				len = ui.FS_FOpenFile( va( "models/players/%s/model.glm", dirptr ), &f, FS_READ );
+		if ( !f )
+		{
+			continue;
+		}
+		memset( hdr, 0, sizeof( hdr ) );
+		ui.FS_Read( hdr, ( len < (int)sizeof( hdr ) ? len : (int)sizeof( hdr ) ), f );
+		ui.FS_FCloseFile( f );
+		hdr[sizeof( hdr ) - 1] = '\0';
+		if ( len < (int)sizeof( hdr ) || !strstr( hdr + 8 + MAX_QPATH, "_humanoid" ) )
+		{
+			continue;
+		}
+
+		// its whole-model skins: model_<name>.skin ("default" first)
+		coopModelInfo_t *m = &coopModels[coopModelCount];
+		Q_strncpyz( m->folder, dirptr, sizeof( m->folder ) );
+		m->firstSkin = coopSkinCount;
+		m->numSkins = 0;
+		int		numfiles = ui.FS_GetFileList( va( "models/players/%s", dirptr ), ".skin", filelist, sizeof( filelist ) );
+		char	*fileptr = filelist;
+		for ( int j = 0; j < numfiles && coopSkinCount < COOP_MAX_SKINS; j++ )
+		{
+			int filelen = strlen( fileptr );
+			char name[32];
+			if ( !Q_stricmpn( fileptr, "model_", 6 ) && filelen > 11 && filelen - 6 - 5 < (int)sizeof( name ) )
+			{
+				Q_strncpyz( name, fileptr + 6, sizeof( name ) );
+				name[filelen - 6 - 5] = '\0';	// drop ".skin"
+				if ( !Q_stricmp( name, "default" ) && m->numSkins )
+				{	// default goes first
+					memcpy( coopSkins[coopSkinCount], coopSkins[m->firstSkin], sizeof( coopSkins[0] ) );
+					Q_strncpyz( coopSkins[m->firstSkin], name, sizeof( coopSkins[0] ) );
+				}
+				else
+				{
+					Q_strncpyz( coopSkins[coopSkinCount], name, sizeof( coopSkins[0] ) );
+				}
+				coopSkinCount++;
+				m->numSkins++;
+			}
+			fileptr += filelen + 1;
+		}
+		if ( m->numSkins )
+		{
+			coopModelCount++;
+		}
+		else
+		{
+			coopSkinCount = m->firstSkin;
+		}
+	}
+	// keep each model's skins contiguous while sorting the models by name
+	qsort( coopModels, coopModelCount, sizeof( coopModels[0] ), UI_CoopModelCompare );
+	Com_Printf( "coop: %i player models, %i skins\n", coopModelCount, coopSkinCount );
+}
+
+static const char *UI_CoopModelFolder( int sel )
+{
+	return ( sel >= 0 && sel < coopModelCount ) ? coopModels[sel].folder : "";
+}
+
+static const char *UI_CoopSkinName( int modelSel, int skinSel )
+{
+	if ( modelSel < 0 || modelSel >= coopModelCount || skinSel < 0 || skinSel >= coopModels[modelSel].numSkins )
+	{
+		return "default";
+	}
+	return coopSkins[coopModels[modelSel].firstSkin + skinSel];
+}
+
+// the live preview ("character" model item of the focused menu)
+static void UI_CoopUpdatePreview( void )
+{
+	menuDef_t	*menu = Menu_GetFocused();
+	itemDef_t	*item = menu ? (itemDef_t *)Menu_FindItemByName( menu, "character" ) : NULL;
+
+	if ( !item || coopModelSel < 0 || coopModelSel >= coopModelCount )
+	{
+		return;
+	}
+	const char *folder = UI_CoopModelFolder( coopModelSel );
+	ItemParse_model_g2anim_go( item, "BOTH_STAND1" );
+	ItemParse_asset_model_go( item, va( "models/players/%s/model.glm", folder ) );
+	ItemParse_model_g2skin_go( item, va( "models/players/%s/model_%s.skin", folder, UI_CoopSkinName( coopModelSel, coopSkinSel ) ) );
+}
+
+static void UI_CoopSetListCursor( const char *itemName, int pos )
+{
+	menuDef_t	*menu = Menu_GetFocused();
+	itemDef_t	*item = menu ? (itemDef_t *)Menu_FindItemByName( menu, itemName ) : NULL;
+
+	if ( item && item->typeData )
+	{
+		listBoxDef_t *listPtr = (listBoxDef_t *)item->typeData;
+		listPtr->cursorPos = pos;
+		listPtr->startPos = ( pos > 8 ? pos - 8 : 0 );
+	}
+}
+
+// onOpen: scan once, then select what the player wears now
+static void UI_CoopModelsInit( void )
+{
+	if ( coopModelCount < 0 )
+	{
+		UI_CoopScanModels();
+	}
+	const char *curModel = Cvar_VariableString( "g_char_model" );
+	const char *curSkin = Cvar_VariableString( "g_char_skin" );
+	coopModelSel = coopSkinSel = 0;
+	for ( int i = 0; i < coopModelCount; i++ )
+	{
+		if ( !Q_stricmp( coopModels[i].folder, curModel ) )
+		{
+			coopModelSel = i;
+			for ( int j = 0; j < coopModels[i].numSkins; j++ )
+			{
+				if ( !Q_stricmp( coopSkins[coopModels[i].firstSkin + j], curSkin ) )
+				{
+					coopSkinSel = j;
+				}
+			}
+			break;
+		}
+	}
+	UI_CoopSetListCursor( "modelList", coopModelSel );
+	UI_CoopSetListCursor( "skinList", coopSkinSel );
+	UI_CoopUpdatePreview();
+}
+
+static void UI_SetSexandSoundForModel( const char *char_model );
+
+// APPLIQUER: cvars (they are the joiner's userinfo) and a rebuild for the host
+static void UI_CoopApplyModel( void )
+{
+	if ( coopModelSel < 0 || coopModelSel >= coopModelCount )
+	{
+		return;
+	}
+	const char *folder = UI_CoopModelFolder( coopModelSel );
+	UI_SetSexandSoundForModel( folder );
+	Cvar_Set( "g_char_model", folder );
+	Cvar_Set( "g_char_skin", UI_CoopSkinName( coopModelSel, coopSkinSel ) );
+	Cvar_Set( "g_char_skin_head", "model_default" );
+	Cvar_Set( "g_char_skin_torso", "model_default" );
+	Cvar_Set( "g_char_skin_legs", "model_default" );
+	Cvar_Set( "coop_charDone", "1" );
+	ui.Cmd_ExecuteText( EXEC_APPEND, "cmd coop_rebuild\n" );
+}
+
+// portrait + name of the selection (ownerdraw UI_COOP_MODEL_ICON)
+static void UI_CoopDrawModelIcon( float x, float y, float w, float h, float scale, const vec4_t color, int iFontIndex )
+{
+	if ( coopModelSel < 0 || coopModelSel >= coopModelCount )
+	{
+		return;
+	}
+	const char	*folder = UI_CoopModelFolder( coopModelSel );
+	const char	*skin = UI_CoopSkinName( coopModelSel, coopSkinSel );
+	qhandle_t	icon = ui.R_RegisterShaderNoMip( va( "models/players/%s/icon_%s.jpg", folder, skin ) );
+
+	if ( !icon )
+	{
+		icon = ui.R_RegisterShaderNoMip( va( "models/players/%s/icon_default.jpg", folder ) );
+	}
+	if ( icon )
+	{
+		ui.R_DrawStretchPic( x, y, w, w, 0, 0, 1, 1, icon );
+	}
+	else
+	{
+		ui.R_Font_DrawString( x, y + w * 0.4f, "(pas de portrait)", color, iFontIndex, -1, scale * 0.8f );
+	}
+	ui.R_Font_DrawString( x, y + w + 4, va( "%s / %s", folder, skin ), color, iFontIndex, -1, scale * 0.8f );
+}
+
+/*
 ================
 Text_PaintWithCursor
 ================
@@ -788,6 +1021,14 @@ const char *UI_FeederItemText(float feederID, int index, int column, qhandle_t *
 	else if (feederID == FEEDER_COOP_PLAYERS)
 	{
 		return CL_GetCoopLobbyText( index );
+	}
+	else if (feederID == FEEDER_COOP_MODELS)
+	{
+		return UI_CoopModelFolder( index );
+	}
+	else if (feederID == FEEDER_COOP_SKINS)
+	{
+		return UI_CoopSkinName( coopModelSel, index );
 	}
 	else if (feederID == FEEDER_SAVEGAMES)
 	{
@@ -1817,6 +2058,14 @@ static qboolean UI_RunMenuScript ( const char **args )
 			Menus_CloseAll();
 			ui.Cmd_ExecuteText( EXEC_APPEND, "cmd coop_gather\n" );
 		}
+		else if ( Q_stricmp( name, "coopModelsInit" ) == 0 )
+		{
+			UI_CoopModelsInit();
+		}
+		else if ( Q_stricmp( name, "coopApplyModel" ) == 0 )
+		{
+			UI_CoopApplyModel();
+		}
 		else if ( Q_stricmp( name, "coopLeave" ) == 0 )
 		{
 			Menus_CloseAll();
@@ -2060,6 +2309,14 @@ static int UI_FeederCount(float feederID)
 	{
 		return CL_GetCoopLobbyCount();
 	}
+	else if (feederID == FEEDER_COOP_MODELS)
+	{
+		return coopModelCount > 0 ? coopModelCount : 0;
+	}
+	else if (feederID == FEEDER_COOP_SKINS)
+	{
+		return ( coopModelSel >= 0 && coopModelSel < coopModelCount ) ? coopModels[coopModelSel].numSkins : 0;
+	}
 	else if (feederID == FEEDER_SAVEGAMES )
 	{
 		if (s_savegame.saveFileCnt == -1)
@@ -2133,6 +2390,18 @@ static void UI_FeederSelection(float feederID, int index, itemDef_t *item)
 	if (feederID == FEEDER_COOP_SERVERS)	// D3
 	{
 		ui_coopServerSelection = index;
+	}
+	else if (feederID == FEEDER_COOP_MODELS)
+	{
+		coopModelSel = index;
+		coopSkinSel = 0;
+		UI_CoopSetListCursor( "skinList", 0 );
+		UI_CoopUpdatePreview();
+	}
+	else if (feederID == FEEDER_COOP_SKINS)
+	{
+		coopSkinSel = index;
+		UI_CoopUpdatePreview();
 	}
 	else if (feederID == FEEDER_SAVEGAMES)
 	{
@@ -4112,6 +4381,10 @@ static void UI_OwnerDraw(float x, float y, float w, float h, float text_x, float
 			ui.Draw_DataPad(DP_FORCEPOWERS);
 			break;
 
+		case UI_COOP_MODEL_ICON:	// coop: portrait of the model browser's selection
+			UI_CoopDrawModelIcon( x, y, w, h, scale, color, iFontIndex );
+			break;
+
 		case UI_ALLMAPS_SELECTION://saved game thumbnail
 
 			int levelshot;
@@ -4593,6 +4866,7 @@ static void UI_UpdateCharacterCvars ( void )
 	const char *char_model = Cvar_VariableString ( "ui_char_model" );
 	UI_SetSexandSoundForModel(char_model);
 	Cvar_Set ( "g_char_model", char_model );
+	Cvar_Set ( "g_char_skin", "" );	// coop: species character, not a whole-model skin
 	Cvar_Set ( "g_char_skin_head", Cvar_VariableString ( "ui_char_skin_head" ) );
 	Cvar_Set ( "g_char_skin_torso", Cvar_VariableString ( "ui_char_skin_torso" ) );
 	Cvar_Set ( "g_char_skin_legs", Cvar_VariableString ( "ui_char_skin_legs" ) );

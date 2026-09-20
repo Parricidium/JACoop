@@ -1422,6 +1422,15 @@ void ClientCommand( int clientNum ) {
 		G_CoopTeleportCommand( ent );	// coop: joiner asks to rejoin the host (or the host its nearest joiner)
 		return;
 	}
+	if (Q_stricmp (cmd, "coop_rebuild") == 0)
+	{	// coop: the host picked another model/skin in the model browser (its cvars changed);
+		// a joiner's change arrives in its userinfo and G_CoopCheckCharacterChange rebuilds it
+		if ( ent->s.number == 0 && ent->health > 0 )
+		{
+			G_InitPlayerFromCvars( ent );
+		}
+		return;
+	}
 	if (Q_stricmp (cmd, "coop_gather") == 0)
 	{	// coop: the host brings every joiner beside it
 		if ( ent->s.number == 0 )
