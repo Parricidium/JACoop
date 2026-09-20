@@ -1792,6 +1792,22 @@ static qboolean UI_RunMenuScript ( const char **args )
 			Menus_CloseAll();
 			ui.Cmd_ExecuteText( EXEC_APPEND, "cmd coop_tp\n" );
 		}
+		else if ( Q_stricmp( name, "coopForceBack" ) == 0 )
+		{
+			// Force points screen: back to the lobby, or to the game, whichever opened it
+			// (ui_coopForceFrom, set by the opener); the allocation was sent on each change.
+			Menus_CloseAll();
+			if ( Q_stricmp( Cvar_VariableString( "ui_coopForceFrom" ), "lobby" ) == 0 )
+			{
+				Menus_OpenByName( "coopLobby" );
+			}
+			else
+			{
+				trap_Key_SetCatcher( trap_Key_GetCatcher() & ~KEYCATCH_UI );
+				trap_Key_ClearStates();
+				Cvar_Set( "cl_paused", "0" );
+			}
+		}
 		else if ( Q_stricmp( name, "coopGather" ) == 0 )
 		{
 			// Host: bring every joiner beside us, and go back to the game.
