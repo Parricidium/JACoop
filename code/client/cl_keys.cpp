@@ -976,6 +976,29 @@ int Key_GetKey( const char *binding ) {
 
 /*
 ===================
+Key_CoopDefaultBinds
+
+coop: first run (or an old config): the revive key goes on G when nothing
+else is bound to +coop_revive and G is free.
+===================
+*/
+void Key_CoopDefaultBinds( void )
+{
+	if ( Key_GetKey( "+coop_revive" ) >= 0 )
+	{
+		return;
+	}
+	char name[2] = { 'g', 0 };
+	const int key = Key_StringToKeynum( name );
+	if ( key >= 0 && ( !kg.keys[key].binding || !kg.keys[key].binding[0] ) )
+	{
+		Key_SetBinding( key, "+coop_revive" );
+		Com_Printf( "coop: G bound to +coop_revive (relever un coequipier)\n" );
+	}
+}
+
+/*
+===================
 Key_Unbind_f
 ===================
 */

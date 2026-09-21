@@ -4044,6 +4044,7 @@ static void CG_Draw2D( void )
 	// don't draw center string if scoreboard is up
 	if ( !CG_DrawScoreboard() ) {
 		CG_DrawCenterString();
+		CG_CoopDrawDowned();	// coop: downed / revive overlay and teammate markers
 	}
 
 /*	if (cg.showInformation)

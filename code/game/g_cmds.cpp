@@ -1417,6 +1417,25 @@ void ClientCommand( int clientNum ) {
 		}
 		return;
 	}
+	if (Q_stricmp (cmd, "coop_down") == 0)
+	{	// coop dev: "coop_down [slot]" knocks that player (default: me) down as a killing blow would (cheats)
+		if ( !CheatsOk( ent ) ) return;
+		const int slot = gi.argc() >= 2 ? atoi( gi.argv( 1 ) ) : ent->s.number;
+		gentity_t *victim = G_CoopPlayerSlot( slot );
+		if ( victim && victim->health > 0 )
+		{
+			G_Damage( victim, &g_entities[ENTITYNUM_WORLD], &g_entities[ENTITYNUM_WORLD], NULL, victim->currentOrigin, victim->health + 50, DAMAGE_NO_ARMOR, MOD_UNKNOWN );
+		}
+		return;
+	}
+	if (Q_stricmp (cmd, "coop_reload") == 0)
+	{	// coop: the host reloads the last checkpoint (everyone-down screen)
+		if ( ent->s.number == 0 )
+		{
+			G_CoopReloadCheckpoint();
+		}
+		return;
+	}
 	if (Q_stricmp (cmd, "coop_tp") == 0)
 	{
 		G_CoopTeleportCommand( ent );	// coop: joiner asks to rejoin the host (or the host its nearest joiner)

@@ -1642,7 +1642,7 @@ ItemUse_Bacta
 */
 void ItemUse_Bacta(gentity_t *ent)
 {
-	if (!ent || !ent->client)
+	if (!ent || !ent->client || G_CoopIsDowned( ent ))
 	{
 		return;
 	}

@@ -2625,6 +2625,8 @@ qboolean ClientSpawn(gentity_t *ent, SavedGameJustLoaded_e eSavedGameJustLoaded 
 		ent->client->ps.saberStylesKnown |= (1<<SS_MEDIUM);
 	}
 
+	G_CoopClearDowned( ent );	// coop: a spawn (or a loaded save) never starts on the ground
+
 	return beamInEffect;
 }
 

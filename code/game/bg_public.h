@@ -258,6 +258,7 @@ typedef enum {
 	PW_INVINCIBLE,
 	PW_FORCE_PUSH,
 	PW_FORCE_PUSH_RHAND,
+	PW_COOP_DOWNED,		// coop: lying on the ground, waiting for a teammate (g_coop.cpp)
 
 	PW_NUM_POWERUPS
 } powerup_t;

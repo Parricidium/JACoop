@@ -2268,6 +2268,7 @@ using playerState_t = PlayerStateBase<saberInfo_t>;
 #define BUTTON_ALT_ATTACK	128
 
 #define	BUTTON_FORCE_FOCUS	256			// any key whatsoever
+#define	BUTTON_COOP_REVIVE	512			// coop: +coop_revive held beside a downed teammate
 
 #define	MOVE_RUN			120			// if forwardmove or rightmove are >= MOVE_RUN,
 										// then BUTTON_WALKING should be set

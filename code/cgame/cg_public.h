@@ -221,6 +221,10 @@ Ghoul2 Insert End
 
 	CG_OPENJK_MENU_PAINT,
 	CG_OPENJK_GETMENU_BYNAME,
+
+	// coop
+	CG_KEY_BINDINGKEYNAME,		// name of the key bound to a command (revive hint)
+	CG_R_SETASPECT2D,			// widescreen 2D mode (0 = raw 640x480 stretch) for world-projected markers
 } cgameImport_t;
 
 #ifdef JK2_MODE

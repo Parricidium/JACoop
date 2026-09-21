@@ -752,6 +752,7 @@ void CG_PredictPlayerState( void ) {
 
 		gentity_t *ent = &g_entities[cg_localEntNum];//cheating and dirty, I know, but this is a SP game so prediction can cheat
 		if ( player_locked ||
+			cg.snap->ps.stats[STAT_COOP_DOWN] > 0 ||	// coop: on the ground
 			(ent && !ent->s.number&&ent->aimDebounceTime>level.time) ||
 			(ent && ent->client && ent->client->ps.pm_time && (ent->client->ps.pm_flags&PMF_TIME_KNOCKBACK)) ||
 			(ent && ent->forcePushTime > level.time) )

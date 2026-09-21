@@ -4780,6 +4780,8 @@ void ClientThink_real( gentity_t *ent, usercmd_t *ucmd )
 	{
 extern cvar_t	*g_skippingcin;
 
+		G_CoopDownedThink( ent, ucmd );	// coop: downed = no input, standing = revive key
+
 		if ( ent->s.eFlags & EF_LOCKED_TO_WEAPON )
 		{
 			G_UpdateEmplacedWeaponData( ent );

@@ -222,6 +222,7 @@ extern void CG_CoopLimb_f( void );			// cg_coop.cpp
 
 /* This array MUST be sorted correctly by alphabetical name field */
 static serverCommand_t	commands[] = {
+	{ "cad",				CG_CoopAllDown_f },		// coop: everyone is down, seconds before the checkpoint reload
 	{ "chat",				CG_Print_f },
 	{ "clientLevelShot",	CG_ClientLevelShot_f },
 	{ "coopmenu",			CG_CoopMenu_f },		// coop: host asks us to open a menu (lobby)

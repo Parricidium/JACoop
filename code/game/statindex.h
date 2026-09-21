@@ -37,7 +37,10 @@ typedef enum {
 	STAT_ARMOR,
 	STAT_DEAD_YAW,					// look this direction when dead (FIXME: get rid of?)
 	STAT_CLIENTS_READY,				// bit mask of clients wishing to exit the intermission (FIXME: configstring?)
-	STAT_MAX_HEALTH					// health / armor limit, changable by handicap
+	STAT_MAX_HEALTH,				// health / armor limit, changable by handicap
+	STAT_COOP_DOWN,					// coop: ms left before bleeding out (> 0 while downed)
+	STAT_COOP_REVIVE,				// coop: revive in progress, 1..100 (both the downed and the reviver)
+	STAT_COOP_REVIVER				// coop: the other one's entity number, else ENTITYNUM_NONE
 } statIndex_t;
 
 

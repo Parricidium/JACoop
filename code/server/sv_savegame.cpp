@@ -189,6 +189,11 @@ void SV_LoadGame_f(void)
 		Com_DPrintf ("( Already loading, ignoring extra 'load' commands... )\n");
 		return;
 	}
+	if ( Cvar_VariableIntegerValue( "cg_remoteClient" ) )
+	{	// coop: only the host reloads the game
+		Com_Printf( S_COLOR_YELLOW "Seul l'hote peut charger une partie.\n" );
+		return;
+	}
 
 //	// check server is running
 //	//
@@ -295,6 +300,11 @@ void SV_SaveGame_f(void)
 	if ( !com_sv_running->integer )
 	{
 		Com_Printf( S_COLOR_RED "Server is not running\n" );
+		return;
+	}
+	if ( Cvar_VariableIntegerValue( "cg_remoteClient" ) )
+	{	// coop: only the host saves
+		Com_Printf( S_COLOR_YELLOW "Seul l'hote peut sauvegarder.\n" );
 		return;
 	}
 

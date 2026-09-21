@@ -1612,6 +1612,23 @@ Ghoul2 Insert End
 	case CG_OPENJK_GETMENU_BYNAME:
 		return (intptr_t)Menus_FindByName( (const char *)VMA(1) );
 
+	case CG_KEY_BINDINGKEYNAME:	// coop
+		{
+			extern void Key_KeynumToStringBuf( int keynum, char *buf, int buflen );
+			const int	key = Key_GetKey( (const char *)VMA(1) );
+			char		*buf = (char *)VMA(2);
+			buf[0] = '\0';
+			if ( key >= 0 )
+			{
+				Key_KeynumToStringBuf( key, buf, args[3] );
+			}
+		}
+		return 0;
+
+	case CG_R_SETASPECT2D:		// coop
+		re.SetAspect2D( args[1] );
+		return 0;
+
 	case CG_UI_STRING_INIT:
 		String_Init();
 		return 0;
@@ -1843,7 +1860,12 @@ void CL_InitCGame( void ) {
 			GetCGameAPI = (GetCGameAPIProc *)Sys_LoadFunction( cl_cgame_library, "GetCGameAPI" );
 		}
 		if ( !cl_cgame_library || !GetCGameAPI ) {
-			Com_Error( ERR_DROP, "dual-load: failed to load %s / GetCGameAPI", gamename );
+			// user-facing (this is the joiner's error box): name the file and
+			// where it must be, the usual causes being an antivirus quarantine
+			// or a half-extracted archive
+			Com_Error( ERR_DROP, "dual-load: %s" ARCH_STRING DLL_EXT " introuvable ou invalide dans %s\n"
+									 "(antivirus ? archive incomplete ? voir base/qconsole.log)",
+									 gamename, Cvar_VariableString( "fs_homepath" ) );
 		}
 
 		game_import_t import;

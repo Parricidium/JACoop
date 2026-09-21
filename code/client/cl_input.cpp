@@ -1014,6 +1014,8 @@ void CL_InitInput( void ) {
 	Cmd_AddCommand ("-button8", IN_Button8Up);
 	Cmd_AddCommand ("+button9", IN_Button9Down);
 	Cmd_AddCommand ("-button9", IN_Button9Up);
+	Cmd_AddCommand ("+coop_revive", IN_Button9Down);	// coop: BUTTON_COOP_REVIVE (bit 9)
+	Cmd_AddCommand ("-coop_revive", IN_Button9Up);
 	Cmd_AddCommand ("+button10", IN_Button10Down);
 	Cmd_AddCommand ("-button10", IN_Button10Up);
 	Cmd_AddCommand ("+button11", IN_Button11Down);

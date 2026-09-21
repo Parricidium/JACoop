@@ -407,8 +407,13 @@ renderer handles and sound/skin indices) and our tables would survive. Drop
 everything; the snapshot rebuilds it.
 ================
 */
+static int			coopDownMax;		// downed overlay: the bleed-out total, taken from the first frame down
+static qboolean		coopAllDownShown;	// the everyone-down screen is up: no overlay under it
+
 void CG_CoopReset( void )
 {
+	coopAllDownShown = qfalse;
+	coopDownMax = 0;
 	memset( coopLimb, 0, sizeof( coopLimb ) );
 	if ( !cg_remoteClient )
 	{
@@ -1258,7 +1263,185 @@ CG_CoopMenu_f
 */
 void CG_CoopMenu_f( void )
 {
+	if ( !Q_stricmp( CG_Argv( 1 ), "closeall" ) )
+	{	// coop: the everyone-down screens go away (someone came back)
+		cgi_UI_MenuCloseAll();
+		coopAllDownShown = qfalse;
+		return;
+	}
 	cgi_UI_SetActive_Menu( (char *)CG_Argv( 1 ) );
+}
+
+/*
+==============================================================================
+Downed teammates (host side: G_CoopTryDown & co in g_coop.cpp)
+
+Same code for the host and a remote client: everything comes from the
+snapshot. My own state is in ps.stats (STAT_COOP_DOWN ms left before
+bleeding out, STAT_COOP_REVIVE progress, STAT_COOP_REVIVER the other one);
+a teammate on the ground carries the PW_COOP_DOWNED bit in s.powerups.
+"cad <seconds>" from the host drives the everyone-down screens.
+==============================================================================
+*/
+
+extern qboolean CG_WorldCoordToScreenCoordFloat( vec3_t worldCoord, float *x, float *y );	// cg_draw.cpp
+
+static qhandle_t	coopDownedIcon;
+static char			coopReviveKey[32];
+static int			coopReviveKeyTime;
+
+// "cad <left>": seconds before the host reloads the checkpoint (-1: the host decides)
+void CG_CoopAllDown_f( void )
+{
+	const int left = atoi( CG_Argv( 1 ) );
+	coopAllDownShown = qtrue;
+	if ( left < 0 )
+	{
+		cgi_Cvar_Set( "ui_coopAllDownText", "L'hote choisit comment continuer..." );
+	}
+	else
+	{
+		cgi_Cvar_Set( "ui_coopAllDownText", va( "Retour au dernier point de controle dans %i s", left ) );
+	}
+}
+
+// name of the key bound to +coop_revive ("G"), refreshed now and then
+static const char *CG_CoopReviveKeyName( void )
+{
+	if ( cg.time - coopReviveKeyTime > 1000 || !coopReviveKey[0] )
+	{
+		coopReviveKeyTime = cg.time;
+		cgi_Key_BindingKeyName( "+coop_revive", coopReviveKey, sizeof( coopReviveKey ) );
+		if ( !coopReviveKey[0] )
+		{
+			Q_strncpyz( coopReviveKey, "(touche non liee)", sizeof( coopReviveKey ) );
+		}
+		else
+		{
+			Q_strupr( coopReviveKey );
+		}
+	}
+	return coopReviveKey;
+}
+
+static void CG_CoopDrawBar( float x, float y, float w, float h, float frac, const vec4_t fill )
+{
+	static const vec4_t back = { 0, 0, 0, 0.6f };
+	static const vec4_t edge = { 0.9f, 0.85f, 0.7f, 0.8f };
+	if ( frac < 0 ) frac = 0;
+	if ( frac > 1 ) frac = 1;
+	CG_FillRect( x, y, w, h, back );
+	CG_FillRect( x + 1, y + 1, ( w - 2 ) * frac, h - 2, fill );
+	CG_DrawRect( x, y, w, h, 1, edge );
+}
+
+static void CG_CoopDrawCentered( float y, const char *text, const vec4_t color, int font, float scale )
+{
+	const int w = cgi_R_Font_StrLenPixels( text, font, scale );
+	cgi_R_Font_DrawString( 320 - w / 2, y, text, color, font, -1, scale );
+}
+
+void CG_CoopDrawDowned( void )
+{
+	static const vec4_t red = { 1, 0.15f, 0.1f, 1 };
+	static const vec4_t redFill = { 0.8f, 0.1f, 0.05f, 0.9f };
+	static const vec4_t green = { 0.3f, 1, 0.3f, 1 };
+	static const vec4_t greenFill = { 0.15f, 0.7f, 0.2f, 0.9f };
+	static const vec4_t white = { 1, 1, 1, 1 };
+	static const vec4_t dim = { 0.85f, 0.82f, 0.72f, 1 };
+
+	if ( !cg.snap || in_camera || cg.missionStatusShow || coopAllDownShown )
+	{
+		return;
+	}
+	const playerState_t *ps = &cg.snap->ps;
+	const int	font = cgs.media.qhFontMedium;
+	const int	small = cgs.media.qhFontSmall;
+	float		nearest = -1;
+
+	if ( !coopDownedIcon )
+	{
+		coopDownedIcon = cgi_R_RegisterShaderNoMip( "gfx/jacoop/downed" );
+	}
+
+	// markers above teammates on the ground (screen positions: full-width 2D, not the anchored HUD grid)
+	cgi_R_SetAspect2D( 0 );
+	for ( int k = 0; k < MAX_CLIENTS; k++ )
+	{
+		const centity_t *cent = &cg_entities[k];
+		if ( k == ps->clientNum || !cent->currentValid || !( cent->currentState.powerups & ( 1 << PW_COOP_DOWNED ) ) )
+		{
+			continue;
+		}
+		vec3_t	org;
+		float	x, y;
+		const float dist = Distance( cg.refdef.vieworg, cent->lerpOrigin );
+		if ( nearest < 0 || dist < nearest )
+		{
+			nearest = dist;
+		}
+		VectorCopy( cent->lerpOrigin, org );
+		org[2] += 40;
+		if ( CG_WorldCoordToScreenCoordFloat( org, &x, &y ) )
+		{
+			const char *label = va( "A TERRE  %i m", (int)( dist / 32 ) );
+			const int	w = cgi_R_Font_StrLenPixels( label, small, 0.9f );
+			CG_DrawPic( x - 12, y - 28, 24, 24, coopDownedIcon );
+			cgi_R_Font_DrawString( x - w / 2, y - 2, label, red, small, -1, 0.9f );
+		}
+	}
+	cgi_R_SetAspect2D( 1 );
+
+	if ( ps->stats[STAT_COOP_DOWN] > 0 )
+	{	// I am on the ground
+		const int	left = ps->stats[STAT_COOP_DOWN];
+		if ( !coopDownMax )
+		{
+			Com_Printf( "coop: down, %i ms to bleed out\n", left );
+		}
+		if ( coopDownMax < left )
+		{
+			coopDownMax = left;
+		}
+		// red vignette
+		for ( int i = 0; i < 4; i++ )
+		{
+			vec4_t shade = { 0.6f, 0, 0, 0.12f * ( 4 - i ) };
+			const float t = i * 8.0f;
+			CG_FillRect( 0, t, 640, 8, shade );
+			CG_FillRect( 0, 472 - t, 640, 8, shade );
+			CG_FillRect( t, 0, 8, 480, shade );
+			CG_FillRect( 632 - t, 0, 8, 480, shade );
+		}
+		CG_CoopDrawCentered( 96, "A TERRE", red, font, 1.4f );
+		if ( ps->stats[STAT_COOP_REVIVE] > 0 )
+		{
+			CG_CoopDrawCentered( 300, va( "Reanimation...  %i%%", ps->stats[STAT_COOP_REVIVE] ), green, font, 1.0f );
+			CG_CoopDrawBar( 220, 326, 200, 12, ps->stats[STAT_COOP_REVIVE] / 100.0f, greenFill );
+		}
+		else
+		{
+			CG_CoopDrawCentered( 132, va( "Un coequipier peut te relever (touche %s pres de toi)", CG_CoopReviveKeyName() ), dim, small, 1.0f );
+			CG_CoopDrawCentered( 300, va( "Saignement : %i s", ( left + 999 ) / 1000 ), white, font, 1.0f );
+			CG_CoopDrawBar( 220, 326, 200, 12, coopDownMax > 0 ? (float)left / coopDownMax : 0, redFill );
+		}
+		return;
+	}
+	if ( coopDownMax )
+	{
+		Com_Printf( "coop: up again (%i hp)\n", ps->stats[STAT_HEALTH] );
+		coopDownMax = 0;
+	}
+
+	if ( ps->stats[STAT_COOP_REVIVE] > 0 )
+	{	// I am reviving someone
+		CG_CoopDrawCentered( 300, va( "Vous relevez un coequipier...  %i%%", ps->stats[STAT_COOP_REVIVE] ), green, font, 1.0f );
+		CG_CoopDrawBar( 220, 326, 200, 12, ps->stats[STAT_COOP_REVIVE] / 100.0f, greenFill );
+	}
+	else if ( nearest >= 0 && nearest <= 80 && ps->stats[STAT_HEALTH] > 0 )
+	{	// beside someone on the ground
+		CG_CoopDrawCentered( 300, va( "Maintenir %s pour relever", CG_CoopReviveKeyName() ), white, font, 1.0f );
+	}
 }
 
 /*

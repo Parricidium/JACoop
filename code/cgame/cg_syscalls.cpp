@@ -547,6 +547,18 @@ void cgi_UI_MenuCloseAll(void)
 	Q_syscall(CG_UI_MENUCLOSE_ALL);
 }
 
+// coop: name of the key bound to binding ("" if none)
+void cgi_Key_BindingKeyName( const char *binding, char *buf, int buflen )
+{
+	Q_syscall( CG_KEY_BINDINGKEYNAME, binding, buf, buflen );
+}
+
+// coop: widescreen 2D transform mode (see RE_SetAspect2D)
+void cgi_R_SetAspect2D( int mode )
+{
+	Q_syscall( CG_R_SETASPECT2D, mode );
+}
+
 void cgi_UI_MenuPaintAll(void)
 {
 	Q_syscall(CG_UI_MENUPAINT_ALL);

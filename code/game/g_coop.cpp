@@ -287,7 +287,7 @@ gentity_t *G_CoopNearestPlayer( const vec3_t org, qboolean aliveOnly )
 		{
 			continue;
 		}
-		if ( aliveOnly && ent->health <= 0 )
+		if ( aliveOnly && ( ent->health <= 0 || G_CoopIsDowned( ent ) ) )
 		{
 			continue;
 		}
@@ -351,6 +351,8 @@ they died with; the mission only fails once nobody is left alive.
 
 #define COOP_RESPAWN_DELAY	4000
 
+qboolean G_CoopIsUp( const gentity_t *ent );	// defined with the downed/revive code below
+
 static int				coopRespawnTime[MAX_CLIENTS];
 static playerState_t	coopDeathState[MAX_CLIENTS];	// loadout snapshot taken at death
 
@@ -368,7 +370,7 @@ gentity_t *G_CoopLivingTeammate( const gentity_t *self )
 	for ( int i = 0; i < MAX_CLIENTS; i++ )
 	{
 		gentity_t *ent = &g_entities[i];
-		if ( ent == self || !ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || ent->health <= 0 )
+		if ( ent == self || !G_CoopIsUp( ent ) )
 		{
 			continue;
 		}
@@ -392,13 +394,21 @@ respawn, in which case the caller must not start the mission-failed flow.
 */
 qboolean G_CoopPlayerDied( gentity_t *self )
 {
-	if ( !G_CoopIsPlayer( self ) || !G_CoopLivingTeammate( self ) )
+	if ( !G_CoopIsPlayer( self ) )
 	{
 		return qfalse;
 	}
+	G_CoopClearDowned( self );
+	if ( !G_CoopLivingTeammate( self ) && !G_CoopDownedActive() )
+	{
+		return qfalse;	// last one standing in a plain game: the stock mission-failed screen
+	}
+	// with downed players the respawn waits for someone to be up again (G_CoopDownedFrame
+	// reloads the checkpoint otherwise)
+	const int delay = ( G_CoopDownedActive() && g_coopRespawnDelay->integer > 0 ) ? g_coopRespawnDelay->integer * 1000 : COOP_RESPAWN_DELAY;
 	coopDeathState[self->s.number] = self->client->ps;
-	coopRespawnTime[self->s.number] = level.time + COOP_RESPAWN_DELAY;
-	gi.SendServerCommand( -1, "print \"%s ^3est tombé, retour dans %i s...\n\"", self->client->pers.netname, COOP_RESPAWN_DELAY / 1000 );
+	coopRespawnTime[self->s.number] = level.time + delay;
+	gi.SendServerCommand( -1, "print \"%s ^3est tombe, retour dans %i s...\n\"", self->client->pers.netname, delay / 1000 );
 	return qtrue;
 }
 
@@ -481,7 +491,7 @@ void G_CoopGatherJoiners( qboolean all )
 // locked a door with the joiner on the far side).
 void G_CoopTeleportCommand( gentity_t *ent )
 {
-	if ( !ent || !ent->client || ent->s.number >= MAX_CLIENTS || ent->health <= 0 )
+	if ( !ent || !ent->client || ent->s.number >= MAX_CLIENTS || ent->health <= 0 || G_CoopIsDowned( ent ) )
 	{
 		return;
 	}
@@ -492,7 +502,7 @@ void G_CoopTeleportCommand( gentity_t *ent )
 		for ( int i = 1; i < MAX_CLIENTS; i++ )
 		{
 			gentity_t *other = &g_entities[i];
-			if ( !other->inuse || !other->client || other->client->pers.connected != CON_CONNECTED || other->health <= 0 )
+			if ( !G_CoopIsUp( other ) )
 			{
 				continue;
 			}
@@ -555,6 +565,10 @@ void G_CoopRunRespawns( void )
 		if ( !coopRespawnTime[slot] || level.time < coopRespawnTime[slot] )
 		{
 			continue;
+		}
+		if ( !G_CoopAnyPlayerUp() )
+		{
+			continue;	// nobody to come back beside: the all-down flow decides (G_CoopDownedFrame)
 		}
 		coopRespawnTime[slot] = 0;
 		gentity_t *ent = &g_entities[slot];
@@ -632,6 +646,8 @@ void G_CoopResetCamera( void )
 {
 	coopCameraEnt = NULL;
 	memset( coopMissionFailedSent, 0, sizeof( coopMissionFailedSent ) );
+	memset( coopRespawnTime, 0, sizeof( coopRespawnTime ) );
+	G_CoopResetDowned();
 }
 
 /*
@@ -660,6 +676,8 @@ void G_CoopUpdateMissionFailed( void )
 		{
 			coopMissionFailedSent[i] = qtrue;
 			gi.SendServerCommand( i, "mf %i", statusTextIndex );
+			gi.SendServerCommand( i, "cad -1" );
+			gi.SendServerCommand( i, "coopmenu coopAllDownClient" );
 		}
 	}
 }
@@ -678,6 +696,519 @@ void G_CoopClientBegin( const gentity_t *ent )
 	{
 		coopMissionFailedSent[ent->s.number] = qfalse;
 	}
+}
+
+/*
+==============================================================================
+Downed players and revives (PUBG style)
+
+With g_coopDowned and at least two players, a killing blow no longer kills:
+the player drops to the ground (health 1, knockdown animation held, immune,
+no input but the view) and bleeds out for g_coopBleedOut seconds. A standing
+teammate within g_coopReviveRange holding +coop_revive for g_coopReviveTime
+seconds brings it back up with part of its health. Bleeding out is a real
+death: the existing respawn brings the player back beside someone still up.
+When nobody is up any more the host is offered the last checkpoint
+(load *respawn) and, after g_coopAllDownAuto seconds, it is reloaded anyway.
+
+The state lives here on the host; the player itself reads it from its
+playerState stats (STAT_COOP_DOWN / STAT_COOP_REVIVE / STAT_COOP_REVIVER) and
+everyone sees a downed teammate through the PW_COOP_DOWNED powerup bit of
+its entityState (cg_coop.cpp draws the markers and the bars).
+==============================================================================
+*/
+
+extern void NPC_SetAnim( gentity_t *ent, int setAnimParts, int anim, int setAnimFlags, int iBlend = SETANIM_BLEND_DEFAULT );
+extern qboolean PM_InKnockDownNoGetup( playerState_t *ps );
+extern void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower );
+extern void NPC_SetPainEvent( gentity_t *self );
+extern void G_ClearEnemy( gentity_t *self );
+extern bool in_camera;
+
+typedef struct coopDown_s {
+	int		downTime;			// level.time the player went down, 0 = up
+	int		bleedOutTime;		// level.time it dies for real
+	int		reviverNum;			// who is reviving it, else ENTITYNUM_NONE
+	int		reviveStartTime;
+	int		revivingNum;		// (standing players) who I am reviving, else ENTITYNUM_NONE
+} coopDown_t;
+
+static coopDown_t	coopDown[MAX_CLIENTS];
+static int			coopAllDownTime;		// level.time nobody was up any more, 0 = someone is
+static int			coopAllDownLastSec = -1;
+static int			coopBleedingOutNum = -1;	// the player G_CoopDownedFrame is killing for real right now
+
+cvar_t	*g_coopDowned;
+cvar_t	*g_coopBleedOut;
+cvar_t	*g_coopReviveTime;
+cvar_t	*g_coopReviveRange;
+cvar_t	*g_coopReviveHealth;
+cvar_t	*g_coopRespawnDelay;
+cvar_t	*g_coopAllDownAuto;
+
+void G_CoopInitDownedCvars( void )
+{
+	g_coopDowned = gi.cvar( "g_coopDowned", "1", CVAR_ARCHIVE );
+	g_coopBleedOut = gi.cvar( "g_coopBleedOut", "60", CVAR_ARCHIVE );
+	g_coopReviveTime = gi.cvar( "g_coopReviveTime", "3", CVAR_ARCHIVE );
+	g_coopReviveRange = gi.cvar( "g_coopReviveRange", "80", CVAR_ARCHIVE );
+	g_coopReviveHealth = gi.cvar( "g_coopReviveHealth", "40", CVAR_ARCHIVE );
+	g_coopRespawnDelay = gi.cvar( "g_coopRespawnDelay", "10", CVAR_ARCHIVE );
+	g_coopAllDownAuto = gi.cvar( "g_coopAllDownAuto", "20", CVAR_ARCHIVE );
+}
+
+// the level goes away (or comes back): nobody is down
+void G_CoopResetDowned( void )
+{
+	memset( coopDown, 0, sizeof( coopDown ) );
+	for ( int i = 0; i < MAX_CLIENTS; i++ )
+	{
+		coopDown[i].reviverNum = coopDown[i].revivingNum = ENTITYNUM_NONE;
+	}
+	coopAllDownTime = 0;
+	coopAllDownLastSec = -1;
+	coopBleedingOutNum = -1;
+}
+
+// downed players exist only in a real co-op game
+qboolean G_CoopDownedActive( void )
+{
+	return (qboolean)( g_coopDowned && g_coopDowned->integer && !G_CoopIsLobby() && G_CoopNumPlayers() >= 2 );
+}
+
+qboolean G_CoopIsDowned( const gentity_t *ent )
+{
+	return (qboolean)( G_CoopIsPlayer( ent ) && coopDown[ent->s.number].downTime != 0 );
+}
+
+// connected, alive and not down
+qboolean G_CoopIsUp( const gentity_t *ent )
+{
+	return (qboolean)( G_CoopIsPlayer( ent ) && ent->client->pers.connected == CON_CONNECTED && ent->health > 0 && !G_CoopIsDowned( ent ) );
+}
+
+qboolean G_CoopAnyPlayerUp( void )
+{
+	for ( int i = 0; i < MAX_CLIENTS; i++ )
+	{
+		if ( G_CoopIsUp( &g_entities[i] ) )
+		{
+			return qtrue;
+		}
+	}
+	return qfalse;
+}
+
+static void G_CoopSetReviveStats( gentity_t *ent, int progress, int other )
+{
+	if ( ent && ent->client )
+	{
+		ent->client->ps.stats[STAT_COOP_REVIVE] = progress;
+		ent->client->ps.stats[STAT_COOP_REVIVER] = other;
+	}
+}
+
+// the reviver stops (key released, moved, hit, target gone)
+void G_CoopReviveCancel( gentity_t *reviver )
+{
+	if ( !G_CoopIsPlayer( reviver ) )
+	{
+		return;
+	}
+	coopDown_t *me = &coopDown[reviver->s.number];
+	if ( me->revivingNum >= 0 && me->revivingNum < MAX_CLIENTS )
+	{
+		coopDown_t *target = &coopDown[me->revivingNum];
+		if ( target->reviverNum == reviver->s.number )
+		{
+			target->reviverNum = ENTITYNUM_NONE;
+			target->reviveStartTime = 0;
+			G_CoopSetReviveStats( &g_entities[me->revivingNum], 0, ENTITYNUM_NONE );
+		}
+		if ( reviver->client->ps.legsAnim == BOTH_FORCEHEAL_START )
+		{
+			reviver->client->ps.legsAnimTimer = reviver->client->ps.torsoAnimTimer = 0;
+			NPC_SetAnim( reviver, SETANIM_BOTH, BOTH_FORCEHEAL_STOP, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
+		}
+	}
+	me->revivingNum = ENTITYNUM_NONE;
+	G_CoopSetReviveStats( reviver, 0, ENTITYNUM_NONE );
+}
+
+// back on its feet (revived), or dead for real, or respawned
+void G_CoopClearDowned( gentity_t *ent )
+{
+	if ( !G_CoopIsPlayer( ent ) )
+	{
+		return;
+	}
+	coopDown_t *d = &coopDown[ent->s.number];
+	if ( d->reviverNum >= 0 && d->reviverNum < MAX_CLIENTS )
+	{
+		G_CoopReviveCancel( &g_entities[d->reviverNum] );
+	}
+	if ( d->revivingNum != ENTITYNUM_NONE )
+	{
+		G_CoopReviveCancel( ent );
+	}
+	d->downTime = d->bleedOutTime = d->reviveStartTime = 0;
+	d->reviverNum = d->revivingNum = ENTITYNUM_NONE;
+	ent->client->ps.powerups[PW_COOP_DOWNED] = 0;
+	ent->client->ps.stats[STAT_COOP_DOWN] = 0;
+	G_CoopSetReviveStats( ent, 0, ENTITYNUM_NONE );
+}
+
+/*
+================
+G_CoopTryDown
+
+Called by G_Damage just before a player would die. Returns qtrue when the
+death was turned into a downed state instead.
+================
+*/
+qboolean G_CoopTryDown( gentity_t *targ, gentity_t *attacker, int mod, int dflags )
+{
+	if ( !G_CoopIsPlayer( targ ) || !G_CoopDownedActive() || G_CoopIsDowned( targ ) || targ->s.number == coopBleedingOutNum )
+	{
+		return qfalse;
+	}
+	if ( mod == MOD_SUICIDE || mod == MOD_SNIPER || mod == MOD_CRUSH || mod == MOD_TRIGGER_HURT
+		|| targ->s.m_iVehicleNum != 0
+		|| ( targ->client->ps.eFlags & ( EF_HELD_BY_RANCOR|EF_HELD_BY_WAMPA|EF_HELD_BY_SAND_CREATURE ) )
+		|| in_camera
+		|| ( mod == MOD_FALLING && targ->client->ps.groundEntityNum == ENTITYNUM_NONE ) )
+	{	// no way to lie on the ground there: a real death
+		return qfalse;
+	}
+
+	playerState_t	*ps = &targ->client->ps;
+	coopDown_t		*d = &coopDown[targ->s.number];
+	const int		bleed = ( g_coopBleedOut->integer > 0 ? g_coopBleedOut->integer : 60 ) * 1000;
+
+	targ->health = 1;
+	ps->stats[STAT_HEALTH] = 1;
+	ps->stats[STAT_ARMOR] = 0;
+	d->downTime = level.time;
+	d->bleedOutTime = level.time + bleed;
+	d->reviverNum = ENTITYNUM_NONE;
+	d->reviveStartTime = 0;
+	if ( d->revivingNum != ENTITYNUM_NONE )
+	{
+		G_CoopReviveCancel( targ );
+	}
+	ps->powerups[PW_COOP_DOWNED] = Q3_INFINITE;
+	ps->stats[STAT_COOP_DOWN] = bleed;
+
+	// saber off, powers off, no attack
+	if ( ps->SaberActive() )
+	{
+		ps->SaberDeactivate();
+		G_SoundIndexOnEnt( targ, CHAN_AUTO, ps->saber[0].soundOff );
+	}
+	for ( int fp = 0; fp < NUM_FORCE_POWERS; fp++ )
+	{
+		if ( ps->forcePowersActive & ( 1 << fp ) )
+		{
+			WP_ForcePowerStop( targ, (forcePowers_t)fp );
+		}
+	}
+	ps->saberLockTime = 0;
+	ps->weaponTime = 500;
+	if ( targ->s.number == 0 )
+	{
+		cg.zoomMode = 0;
+	}
+
+	// fall like a knockdown, from the side the blow came from
+	int anim = BOTH_KNOCKDOWN1;
+	if ( attacker && attacker != targ )
+	{
+		vec3_t fwd, dir, angles = { 0, ps->viewangles[YAW], 0 };
+		AngleVectors( angles, fwd, NULL, NULL );
+		VectorSubtract( targ->currentOrigin, attacker->currentOrigin, dir );
+		VectorNormalize( dir );
+		if ( DotProduct( fwd, dir ) > 0.2f )
+		{
+			anim = BOTH_KNOCKDOWN3;	// hit from behind: falls forward
+		}
+	}
+	NPC_SetAnim( targ, SETANIM_BOTH, anim, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
+	ps->legsAnimTimer = ps->torsoAnimTimer = 3000;
+	NPC_SetPainEvent( targ );
+
+	// the enemies turn to someone still standing
+	for ( int i = MAX_CLIENTS; i < globals.num_entities; i++ )
+	{
+		gentity_t *e = &g_entities[i];
+		if ( e->inuse && e->enemy == targ )
+		{
+			G_ClearEnemy( e );
+		}
+	}
+
+	gi.SendServerCommand( -1, "print \"^1%s ^7est a terre !\n\"", targ->client->pers.netname );
+	gi.Printf( "coop: %s downed (mod %i), bleeds out in %i s\n", targ->client->pers.netname, mod, bleed / 1000 );
+	return qtrue;
+}
+
+/*
+================
+G_CoopRevive
+
+The revive completed: target stands up with part of its health and a short
+grace period, reviver leaves the kneeling pose.
+================
+*/
+static void G_CoopRevive( gentity_t *target, gentity_t *reviver )
+{
+	playerState_t	*ps = &target->client->ps;
+	const int		pct = Com_Clampi( 1, 100, g_coopReviveHealth->integer );
+	int				health = ps->stats[STAT_MAX_HEALTH] * pct / 100;
+
+	G_CoopClearDowned( target );
+	if ( health < 1 )
+	{
+		health = 1;
+	}
+	target->health = ps->stats[STAT_HEALTH] = health;
+	ps->powerups[PW_INVINCIBLE] = level.time + 2000;
+	ps->legsAnimTimer = ps->torsoAnimTimer = 0;
+	NPC_SetAnim( target, SETANIM_BOTH, ( ps->forcePowerLevel[FP_LEVITATION] > 0 ) ? Q_irand( BOTH_FORCE_GETUP_F1, BOTH_FORCE_GETUP_F2 ) : BOTH_GETUP1, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
+	ps->weaponTime = 500;
+	G_Sound( target, G_SoundIndex( "sound/weapons/force/heal.mp3" ) );
+	if ( reviver && reviver->client )
+	{
+		reviver->client->ps.legsAnimTimer = reviver->client->ps.torsoAnimTimer = 0;
+		NPC_SetAnim( reviver, SETANIM_BOTH, BOTH_FORCEHEAL_STOP, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
+		gi.SendServerCommand( -1, "print \"^2%s ^7a releve ^2%s\n\"", reviver->client->pers.netname, target->client->pers.netname );
+		gi.Printf( "coop: %s revived by %s (%i hp)\n", target->client->pers.netname, reviver->client->pers.netname, health );
+	}
+}
+
+/*
+================
+G_CoopDownedThink
+
+Every ClientThink of a co-op player: a downed one keeps only its view and
+its knockdown pose; a standing one holding the revive key beside a downed
+teammate revives it.
+================
+*/
+void G_CoopDownedThink( gentity_t *ent, usercmd_t *ucmd )
+{
+	if ( !G_CoopIsPlayer( ent ) || !ucmd )
+	{
+		return;
+	}
+	playerState_t	*ps = &ent->client->ps;
+	coopDown_t		*me = &coopDown[ent->s.number];
+
+	if ( me->downTime )
+	{	// on the ground: no moves, no buttons, still lying down
+		ucmd->forwardmove = ucmd->rightmove = ucmd->upmove = 0;
+		ucmd->buttons = 0;
+		ucmd->generic_cmd = 0;
+		if ( ent->health > 0 )
+		{
+			ent->health = 1;
+		}
+		ps->stats[STAT_HEALTH] = ent->health;
+		ps->stats[STAT_ARMOR] = 0;
+		ps->weaponTime = 500;
+		if ( !PM_InKnockDownNoGetup( ps ) )
+		{
+			NPC_SetAnim( ent, SETANIM_BOTH, BOTH_KNOCKDOWN1, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
+		}
+		if ( ps->legsAnimTimer < 3000 )
+		{
+			ps->legsAnimTimer = 3000;
+		}
+		if ( ps->torsoAnimTimer < 3000 )
+		{
+			ps->torsoAnimTimer = 3000;
+		}
+		return;
+	}
+
+	if ( ent->health <= 0 )
+	{
+		return;
+	}
+
+	// standing: reviving someone?
+	const qboolean	key = (qboolean)( ( ucmd->buttons & BUTTON_COOP_REVIVE ) != 0 );
+	const qboolean	moving = (qboolean)( ucmd->forwardmove || ucmd->rightmove || ucmd->upmove );
+	const float		range = g_coopReviveRange->value > 0 ? g_coopReviveRange->value : 80.0f;
+
+	if ( me->revivingNum != ENTITYNUM_NONE )
+	{
+		gentity_t	*target = &g_entities[me->revivingNum];
+		coopDown_t	*t = &coopDown[me->revivingNum];
+		if ( !key || moving || !G_CoopIsDowned( target ) || t->reviverNum != ent->s.number
+			|| Distance( ent->currentOrigin, target->currentOrigin ) > range * 1.25f )
+		{
+			G_CoopReviveCancel( ent );
+			return;
+		}
+		const int	total = ( g_coopReviveTime->value > 0 ? g_coopReviveTime->value : 3.0f ) * 1000;
+		int			progress = ( level.time - t->reviveStartTime ) * 100 / total;
+		if ( progress >= 100 )
+		{
+			me->revivingNum = ENTITYNUM_NONE;
+			G_CoopSetReviveStats( ent, 0, ENTITYNUM_NONE );
+			G_CoopRevive( target, ent );
+			return;
+		}
+		// hold the kneeling pose, no moves, no shots
+		ucmd->forwardmove = ucmd->rightmove = ucmd->upmove = 0;
+		ucmd->buttons &= ~( BUTTON_ATTACK|BUTTON_ALT_ATTACK|BUTTON_USE_FORCE|BUTTON_FORCE_LIGHTNING|BUTTON_FORCE_DRAIN|BUTTON_FORCEGRIP );
+		ps->weaponTime = 200;
+		if ( ps->legsAnim != BOTH_FORCEHEAL_START )
+		{
+			NPC_SetAnim( ent, SETANIM_BOTH, BOTH_FORCEHEAL_START, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
+		}
+		if ( ps->legsAnimTimer < 500 )
+		{
+			ps->legsAnimTimer = 500;
+		}
+		if ( ps->torsoAnimTimer < 500 )
+		{
+			ps->torsoAnimTimer = 500;
+		}
+		G_CoopSetReviveStats( ent, progress > 0 ? progress : 1, target->s.number );
+		G_CoopSetReviveStats( target, progress > 0 ? progress : 1, ent->s.number );
+		return;
+	}
+
+	if ( !key || moving )
+	{
+		return;
+	}
+	// the nearest downed teammate in reach that nobody else is reviving
+	gentity_t	*best = NULL;
+	float		bestDist = 0;
+	for ( int i = 0; i < MAX_CLIENTS; i++ )
+	{
+		gentity_t *other = &g_entities[i];
+		if ( other == ent || !G_CoopIsDowned( other ) || coopDown[i].reviverNum != ENTITYNUM_NONE )
+		{
+			continue;
+		}
+		const float dist = Distance( ent->currentOrigin, other->currentOrigin );
+		if ( dist <= range && ( !best || dist < bestDist ) )
+		{
+			best = other;
+			bestDist = dist;
+		}
+	}
+	if ( best )
+	{
+		me->revivingNum = best->s.number;
+		coopDown[best->s.number].reviverNum = ent->s.number;
+		coopDown[best->s.number].reviveStartTime = level.time;
+		NPC_SetAnim( ent, SETANIM_BOTH, BOTH_FORCEHEAL_START, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
+		ucmd->forwardmove = ucmd->rightmove = ucmd->upmove = 0;
+		G_CoopSetReviveStats( ent, 1, best->s.number );
+		G_CoopSetReviveStats( best, 1, ent->s.number );
+	}
+}
+
+/*
+================
+G_CoopDownedFrame
+
+Once per server frame: bleed-out clocks (paused in cutscenes), the HUD
+stats, and the "everyone is down" flow.
+================
+*/
+void G_CoopDownedFrame( void )
+{
+	const int frame = level.time - level.previousTime;
+
+	for ( int i = 0; i < MAX_CLIENTS; i++ )
+	{
+		gentity_t	*ent = &g_entities[i];
+		coopDown_t	*d = &coopDown[i];
+		if ( !d->downTime )
+		{
+			continue;
+		}
+		if ( !G_CoopIsPlayer( ent ) || ent->client->pers.connected != CON_CONNECTED || ent->health <= 0 )
+		{	// gone, or died of something the immunity does not cover
+			G_CoopClearDowned( ent );
+			continue;
+		}
+		if ( in_camera )
+		{	// the story is talking: nobody bleeds meanwhile
+			d->bleedOutTime += frame;
+		}
+		ent->client->ps.stats[STAT_COOP_DOWN] = ( d->bleedOutTime > level.time ) ? d->bleedOutTime - level.time : 1;
+		if ( d->reviverNum == ENTITYNUM_NONE )
+		{
+			G_CoopSetReviveStats( ent, 0, ENTITYNUM_NONE );
+		}
+		if ( level.time >= d->bleedOutTime && !in_camera )
+		{	// bled out: a real death now (respawn beside someone up, or the all-down flow)
+			gi.Printf( "coop: %s bled out\n", ent->client->pers.netname );
+			G_CoopClearDowned( ent );
+			coopBleedingOutNum = i;
+			G_Damage( ent, &g_entities[ENTITYNUM_WORLD], &g_entities[ENTITYNUM_WORLD], NULL, ent->currentOrigin, 1000, DAMAGE_NO_PROTECTION|DAMAGE_NO_ARMOR|DAMAGE_NO_KNOCKBACK, MOD_UNKNOWN );
+			coopBleedingOutNum = -1;
+		}
+	}
+
+	// everyone down (or dead): offer the last checkpoint, reload it after a while
+	if ( !G_CoopDownedActive() || in_camera || coopAllDownTime < 0 )
+	{
+		return;	// (< 0: the reload is on its way)
+	}
+	if ( G_CoopAnyPlayerUp() )
+	{
+		if ( coopAllDownTime )
+		{	// someone came back (a scripted respawn): drop the screens
+			coopAllDownTime = 0;
+			gi.SendServerCommand( -1, "coopmenu closeall" );
+		}
+		return;
+	}
+	if ( !coopAllDownTime )
+	{
+		coopAllDownTime = level.time;
+		coopAllDownLastSec = -1;
+		gi.SendServerCommand( -1, "print \"^1Tous les joueurs sont a terre.\n\"" );
+		gi.Printf( "coop: everyone is down\n" );
+		for ( int i = 0; i < MAX_CLIENTS; i++ )
+		{
+			if ( G_CoopPlayerSlot( i ) )
+			{
+				gi.SendServerCommand( i, "coopmenu %s", i == 0 ? "coopAllDownHost" : "coopAllDownClient" );
+			}
+		}
+	}
+	const int auto_ = g_coopAllDownAuto->integer;
+	const int left = auto_ > 0 ? auto_ - ( level.time - coopAllDownTime ) / 1000 : -1;
+	if ( left != coopAllDownLastSec )
+	{
+		coopAllDownLastSec = left;
+		gi.SendServerCommand( -1, "cad %i", left );
+	}
+	if ( auto_ > 0 && left <= 0 )
+	{
+		G_CoopReloadCheckpoint();
+	}
+}
+
+// the host reloads the last checkpoint (all-down screen, or its button)
+void G_CoopReloadCheckpoint( void )
+{
+	if ( coopAllDownTime < 0 )
+	{
+		return;	// already asked
+	}
+	coopAllDownTime = -1;
+	gi.SendServerCommand( -1, "print \"^3Retour au dernier point de controle...\n\"" );
+	gi.Printf( "coop: reloading the last checkpoint\n" );
+	gi.SendConsoleCommand( "load *respawn\n" );
 }
 
 /*

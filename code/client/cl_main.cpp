@@ -1514,6 +1514,10 @@ void CL_Init( void ) {
 	cls.realtimeFraction=0.0f;	// fraction of a msec accumulated
 
 	CL_InitInput ();
+	{
+		extern void Key_CoopDefaultBinds( void );
+		Key_CoopDefaultBinds();	// coop: G = +coop_revive unless the player bound it elsewhere
+	}
 
 	//
 	// register our variables

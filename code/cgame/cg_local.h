@@ -570,6 +570,8 @@ void CG_CoopFixLocalEntityState( centity_t *cent );
 void CG_CoopSound_f( void );
 void CG_CoopMissionFailed_f( void );
 void CG_CoopMenu_f( void );
+void CG_CoopAllDown_f( void );
+void CG_CoopDrawDowned( void );
 void CG_CoopReset( void );
 void CG_CoopEnts_f( void );
 // entity slot of the local player: 0 on the host (vanilla), the assigned slot on a remote client
@@ -1227,6 +1229,8 @@ void	cgi_UI_Menu_Reset( void );
 void	cgi_UI_Menu_New(char *buf );
 void	cgi_UI_Menu_OpenByName(char *buf);
 void	cgi_UI_SetActive_Menu(char *name);
+void	cgi_Key_BindingKeyName( const char *binding, char *buf, int buflen );	// coop
+void	cgi_R_SetAspect2D( int mode );											// coop
 void	cgi_UI_Parse_Int(int *value);
 void	cgi_UI_Parse_String(char *buf);
 void	cgi_UI_Parse_Float(float *value);

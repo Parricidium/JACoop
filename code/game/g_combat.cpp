@@ -4994,6 +4994,10 @@ extern qboolean Boba_StopKnockdown( gentity_t *self, gentity_t *pusher, const ve
 extern qboolean Jedi_StopKnockdown( gentity_t *self, gentity_t *pusher, const vec3_t pushDir );
 void G_Knockdown( gentity_t *self, gentity_t *attacker, const vec3_t pushDir, float strength, qboolean breakSaberLock )
 {
+	if ( G_CoopIsDowned( self ) )
+	{
+		return;	// coop: already on the ground, keep that pose
+	}
 	if ( !self || !self->client || !attacker || !attacker->client )
 	{
 		return;
@@ -5683,6 +5687,10 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 	if ( client && PM_InOnGroundAnim( &client->ps ))
 	{
 		dflags |= DAMAGE_NO_KNOCKBACK;
+	}
+	if ( client && G_CoopIsDowned( targ ) && !( dflags & DAMAGE_NO_PROTECTION ) )
+	{	// coop: lying on the ground waiting for a teammate: nothing touches it
+		return;
 	}
 	if ( G_CoopIsPlayer( attacker ) && targ->client && attacker->client && targ->client->playerTeam == attacker->client->playerTeam )
 	{//player doesn't do knockback against allies unless he kills them
@@ -6767,10 +6775,18 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 				targ->enemy = attacker;
 			}
 
+			if ( !alreadyDead && G_CoopIsPlayer( targ ) && G_CoopTryDown( targ, attacker, mod, dflags ) )
+			{	// coop: down, not dead
+				return;
+			}
 			GEntity_DieFunc( targ, inflictor, attacker, take, mod, dflags, hitLoc );
 		}
 		else
 		{
+			if ( G_CoopIsPlayer( targ ) && take > 0 )
+			{
+				G_CoopReviveCancel( targ );	// coop: hit while reviving someone
+			}
 			GEntity_PainFunc( targ, inflictor, attacker, point, take, mod, hitLoc );
 			if ( G_CoopIsPlayer( targ ) )
 			{//player run painscript

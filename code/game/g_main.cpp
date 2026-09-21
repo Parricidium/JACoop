@@ -718,6 +718,7 @@ void G_InitCvars( void ) {
 	g_saber_color = gi.cvar( "g_saber_color", "yellow", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART|CVAR_USERINFO );	// coop: travels in the joiner's userinfo
 	g_saber2_color = gi.cvar( "g_saber2_color", "yellow", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART|CVAR_USERINFO );	// coop: travels in the joiner's userinfo
 	gi.cvar( "g_fighting_style", "0", CVAR_ARCHIVE|CVAR_USERINFO );	// coop: chosen saber style travels in the joiner's userinfo
+	G_CoopInitDownedCvars();	// coop: downed players / revives
 	g_saberDarkSideSaberColor = gi.cvar( "g_saberDarkSideSaberColor", "0", CVAR_ARCHIVE );	//when you turn evil, it turns your saber red!
 
 	g_broadsword = gi.cvar( "broadsword", "1", 0);
@@ -2012,6 +2013,7 @@ void G_RunFrame( int levelTime ) {
 	level.previousTime = level.time;
 	level.time = levelTime;
 
+	G_CoopDownedFrame();	// coop: bleed-out clocks, everyone-down flow
 	G_CoopRunRespawns();	// coop: bring dead players back beside a teammate
 
 	//ResetTeamCounters();

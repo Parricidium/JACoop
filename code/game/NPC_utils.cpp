@@ -978,6 +978,10 @@ qboolean G_ValidEnemy( gentity_t *self, gentity_t *enemy )
 	if ( enemy->health <= 0 )
 		return qfalse;
 
+	//coop: a downed player is out of the fight
+	if ( G_CoopIsDowned( enemy ) )
+		return qfalse;
+
 	//In case they're in notarget mode
 	if ( enemy->flags & FL_NOTARGET )
 		return qfalse;

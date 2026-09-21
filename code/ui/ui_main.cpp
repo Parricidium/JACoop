@@ -2049,6 +2049,15 @@ static qboolean UI_RunMenuScript ( const char **args )
 				Cvar_Set( "cl_paused", "0" );
 			}
 		}
+		else if ( Q_stricmp( name, "coopReloadCheckpoint" ) == 0 )
+		{
+			// Host, everyone down: back to the last checkpoint (the game runs 'load *respawn').
+			trap_Key_SetCatcher( trap_Key_GetCatcher() & ~KEYCATCH_UI );
+			trap_Key_ClearStates();
+			Cvar_Set( "cl_paused", "0" );
+			Menus_CloseAll();
+			ui.Cmd_ExecuteText( EXEC_APPEND, "cmd coop_reload\n" );
+		}
 		else if ( Q_stricmp( name, "coopGather" ) == 0 )
 		{
 			// Host: bring every joiner beside us, and go back to the game.

@@ -10211,7 +10211,7 @@ int FP_ForceHealInterval( gentity_t *self )
 
 void ForceHeal( gentity_t *self )
 {
-	if ( self->health <= 0 || self->client->ps.stats[STAT_MAX_HEALTH] <= self->health )
+	if ( self->health <= 0 || self->client->ps.stats[STAT_MAX_HEALTH] <= self->health || G_CoopIsDowned( self ) )
 	{
 		return;
 	}
@@ -12684,6 +12684,10 @@ void WP_ForcePowerDrain( gentity_t *self, forcePowers_t forcePower, int override
 
 void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int overrideAmt )
 {
+	if ( G_CoopIsDowned( self ) )
+	{
+		return;	// coop: no powers from the ground
+	}
 	int	duration = 0;
 
 	//FIXME: debounce some of these?

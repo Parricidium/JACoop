@@ -521,9 +521,18 @@ void G_CoopLoadState( const void *buf, int len )
 	{
 		return;
 	}
-	coopNumSaved = Com_Clampi( 0, MAX_COOP_SAVED, sc->count );
-	memcpy( coopSaved, sc->players, sizeof( coopSaved ) );
-	gi.Printf( "coop: %i saved co-op character(s) loaded\n", coopNumSaved );
+	// merge: the file wins for the players it knows; a player it does not know (joined after
+	// that save was written, e.g. the level-start autosave) keeps what it has now
+	const int count = Com_Clampi( 0, MAX_COOP_SAVED, sc->count );
+	for ( int i = 0; i < count; i++ )
+	{
+		coopSavedPlayer_t *s = G_CoopFindSaved( sc->players[i].guid, qtrue );
+		if ( s )
+		{
+			*s = sc->players[i];
+		}
+	}
+	gi.Printf( "coop: %i saved co-op character(s) loaded (%i known)\n", count, coopNumSaved );
 	// joiners already in the world get their character back right away
 	for ( int i = 1; i < MAX_CLIENTS; i++ )
 	{

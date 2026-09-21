@@ -2103,6 +2103,7 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 	cg.renderingThirdPerson = (qboolean)(
 		cg_thirdPerson.integer
 		|| (cg.snap->ps.stats[STAT_HEALTH] <= 0)
+		|| (cg.snap->ps.stats[STAT_COOP_DOWN] > 0)	// coop: on the ground, see the teammate coming
 		|| (cg.snap->ps.eFlags&EF_HELD_BY_SAND_CREATURE)
 		|| ((g_entities[cg_localEntNum].client&&g_entities[cg_localEntNum].client->NPC_class==CLASS_ATST)
 		|| (cg.snap->ps.weapon == WP_SABER || cg.snap->ps.weapon == WP_MELEE) ));
