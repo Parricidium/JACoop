@@ -497,6 +497,12 @@ static sfxHandle_t	CG_CustomSound( int entityNum, const char *soundName, int cus
 	return 0;
 }
 
+// coop: the host resolves a '*' name against its own sound tables for the remote clients (G_CoopCustomSound)
+sfxHandle_t CG_CustomSoundHandle( int entityNum, const char *soundName, int customSoundSet )
+{
+	return CG_CustomSound( entityNum, soundName, customSoundSet );
+}
+
 qboolean CG_TryPlayCustomSound( vec3_t origin, int entityNum, soundChannel_t channel, const char *soundName, int customSoundSet )
 {
 	sfxHandle_t	soundIndex = CG_CustomSound( entityNum, soundName, customSoundSet );
@@ -1745,7 +1751,7 @@ static qboolean CG_CheckLookTarget( centity_t *cent, vec3_t	lookAngles, float *l
 
 				//FIXME: Ignore small deltas from current angles so we don't bob our head in synch with theirs?
 
-				if ( cent->gent->client->renderInfo.lookTarget == 0 && !cg.renderingThirdPerson )//!cg_thirdPerson.integer )
+				if ( cent->gent->client->renderInfo.lookTarget == cg_localEntNum && !cg.renderingThirdPerson )//!cg_thirdPerson.integer )	// coop: our own slot, not the host's
 				{//Special case- use cg.refdef.vieworg if looking at player and not in third person view
 					VectorCopy( cg.refdef.vieworg, lookOrg );
 				}
@@ -6861,7 +6867,9 @@ void CG_Player( centity_t *cent ) {
 	//Get the player's light level for stealth calculations
 	CG_GetPlayerLightLevel( cent );
 
-	if ((in_camera) && cent->currentState.clientNum == cg_localEntNum )	// If player in camera then no need for shadow
+	// coop: stock hides the only player in a cutscene (a fake-player NPC acts);
+	// hide every real player, on every client
+	if ((in_camera) && cent->currentState.number < MAX_CLIENTS )	// If player in camera then no need for shadow
 	{
 		return;
 	}
@@ -6947,7 +6955,8 @@ Ghoul2 Insert Start
 		}
 		ent.shadowPlane = shadowPlane;
 		ent.renderfx |= RF_LIGHTING_ORIGIN;			// use the same origin for all
-		if ( cent->gent->NPC && cent->gent->NPC->scriptFlags & SCF_MORELIGHT )
+		if ( ( cent->gent->NPC && cent->gent->NPC->scriptFlags & SCF_MORELIGHT )
+			|| ( cg_remoteClient && ( cent->currentState.coopMaxHealth & COOP_MAXHEALTH_MORELIGHT ) ) )	// coop: no NPC_t here
 		{
 			ent.renderfx |= RF_MORELIGHT;			//bigger than normal min light
 		}
@@ -8033,7 +8042,8 @@ Ghoul2 Insert End
 		renderfx |= RF_SHADOW_PLANE;
 	}
 	renderfx |= RF_LIGHTING_ORIGIN;			// use the same origin for all
-	if ( cent->gent->NPC && cent->gent->NPC->scriptFlags & SCF_MORELIGHT )
+	if ( ( cent->gent->NPC && cent->gent->NPC->scriptFlags & SCF_MORELIGHT )
+		|| ( cg_remoteClient && ( cent->currentState.coopMaxHealth & COOP_MAXHEALTH_MORELIGHT ) ) )	// coop: no NPC_t here
 	{
 		renderfx |= RF_MORELIGHT;			//bigger than normal min light
 	}

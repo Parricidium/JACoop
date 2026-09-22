@@ -283,6 +283,14 @@ void SV_ClientEnterWorld( client_t *client, usercmd_t *cmd, SavedGameJustLoaded_
 
 	// call the game begin function
 	ge->ClientBegin( client - svs.clients, cmd, eSavedGameJustLoaded );
+
+	// coop: joined while the host watches a video: the world is held, say so
+	// (the video itself is not replayed for a late joiner: it would only put
+	// it behind the story by that much)
+	extern qboolean SV_CoopHoldGame( void );
+	if ( client != svs.clients && SV_CoopHoldGame() ) {
+		SV_SendServerCommand( client, "vid -" );
+	}
 }
 
 /*
@@ -422,6 +430,10 @@ void SV_ClientThink (client_t *cl, usercmd_t *cmd) {
 
 	if ( cl->state != CS_ACTIVE ) {
 		return;		// may have been kicked during the last usercmd
+	}
+	extern qboolean SV_CoopHoldGame( void );
+	if ( SV_CoopHoldGame() ) {
+		return;		// coop: the world is held while the host watches a video
 	}
 
 	ge->ClientThink( cl - svs.clients, cmd );

@@ -4833,7 +4833,7 @@ extern cvar_t	*g_skippingcin;
 		{
 			// watch the code here, you MUST "return" within this IF(), *unless* you're stopping the cinematic skip.
 			//
-			if ( ClientCinematicThink(ent->client) )
+			if ( ClientCinematicThink(ent->client) && ent->s.number == 0 )	// coop: only the host skips the story
 			{
 				if (g_skippingcin->integer)	// already doing cinematic skip?
 				{// yes...   so stop skipping...

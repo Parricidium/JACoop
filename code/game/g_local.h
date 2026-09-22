@@ -402,6 +402,8 @@ int G_ModelIndex( const char *name );
 
 // g_coop.cpp -- co-op appearance networking (see the file header)
 void G_CoopRecordModel( const gentity_t *ent, const char *modelName, const char *customSkin, const char *surfOff, const char *surfOn );
+void G_CoopRecordSkinPath( const gentity_t *ent, const char *skinPath );
+void G_CoopRecordHandModel( const gentity_t *ent, char side, const char *modelPath );
 void G_CoopClearAppearance( const gentity_t *ent );
 void G_CoopUpdateAppearance( gentity_t *ent );
 void G_CoopFixClientScriptName( gentity_t *ent );
@@ -435,7 +437,13 @@ const char *G_CoopPlayerVar( const gentity_t *ent, const char *key, const cvar_t
 void G_CoopCheckCharacterChange( gentity_t *ent );
 void G_InitPlayerFromCvars( gentity_t *ent );
 void G_CoopUpdateCamera( void );
+void G_CoopMirrorCvars( void );
 void G_CoopResetCamera( void );
+void G_CoopFadeClient( const gentity_t *ent, const vec4_t dst, int ms );
+void G_CoopFadeShared( void );
+void G_CoopShakeAll( float intensity, int duration );
+void G_CoopShakeClient( const gentity_t *ent, float intensity, int duration );
+void G_CoopShakeNear( const vec3_t origin, float perUnit, float range, int duration );
 void G_CoopUpdateObjectives( void );
 void G_CoopUpdateMissionFailed( void );
 void G_CoopClientBegin( const gentity_t *ent );

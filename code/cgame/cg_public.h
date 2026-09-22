@@ -225,6 +225,7 @@ Ghoul2 Insert End
 	// coop
 	CG_KEY_BINDINGKEYNAME,		// name of the key bound to a command (revive hint)
 	CG_R_SETASPECT2D,			// widescreen 2D mode (0 = raw 640x480 stretch) for world-projected markers
+	CG_S_SOUNDNAME,				// file name behind a registered sound handle (custom NPC voices forwarded by path)
 } cgameImport_t;
 
 #ifdef JK2_MODE

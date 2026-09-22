@@ -1636,6 +1636,13 @@ Ghoul2 Insert End
 		re.SetAspect2D( args[1] );
 		return 0;
 
+	case CG_S_SOUNDNAME:		// coop
+		{
+			const char *name = S_SoundNameForHandle( args[1] );
+			Q_strncpyz( (char *)VMA(2), name ? name : "", args[3] );
+		}
+		return 0;
+
 	case CG_UI_STRING_INIT:
 		String_Init();
 		return 0;

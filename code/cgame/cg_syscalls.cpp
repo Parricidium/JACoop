@@ -559,6 +559,12 @@ void cgi_R_SetAspect2D( int mode )
 	Q_syscall( CG_R_SETASPECT2D, mode );
 }
 
+// coop: the file name a sound handle was registered with ("" if unknown)
+void cgi_S_SoundName( sfxHandle_t handle, char *buf, int buflen )
+{
+	Q_syscall( CG_S_SOUNDNAME, handle, buf, buflen );
+}
+
 void cgi_UI_MenuPaintAll(void)
 {
 	Q_syscall(CG_UI_MENUPAINT_ALL);

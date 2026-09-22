@@ -73,11 +73,7 @@ void NPC_SandCreature_Pain( gentity_t *self, gentity_t *inflictor, gentity_t *ot
 		NPC_SetAnim( self, SETANIM_LEGS, Q_irand(BOTH_ATTACK1,BOTH_ATTACK2), SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD|SETANIM_FLAG_RESTART );
 		G_AddEvent( self, EV_PAIN, Q_irand( 0, 100 ) );
 		TIMER_Set( self, "pain", self->client->ps.legsAnimTimer + Q_irand( 500, 2000 ) );
-		float playerDist = Distance( player->currentOrigin, self->currentOrigin );
-		if ( playerDist < 256 )
-		{
-			CGCam_Shake( 1.0f*playerDist/128.0f, self->client->ps.legsAnimTimer );
-		}
+		G_CoopShakeNear( self->currentOrigin, 1.0f/128.0f, 256.0f, self->client->ps.legsAnimTimer );	// coop: every player
 	}
 	self->enemy = self->NPC->goalEntity = NULL;
 }
@@ -87,11 +83,7 @@ void SandCreature_MoveEffect( void )
 	vec3_t	up = {0,0,1};
 	vec3_t	org = {NPC->currentOrigin[0], NPC->currentOrigin[1], NPC->absmin[2]+2};
 
-	float playerDist = Distance( player->currentOrigin, NPC->currentOrigin );
-	if ( playerDist < 256 )
-	{
-		CGCam_Shake( 0.75f*playerDist/256.0f, 250 );
-	}
+	G_CoopShakeNear( NPC->currentOrigin, 0.75f/256.0f, 256.0f, 250 );	// coop: every player
 
 	if ( level.time-NPC->client->ps.lastStationary > 2000 )
 	{//first time moving for at least 2 seconds
@@ -249,12 +241,8 @@ void SandCreature_Attack( qboolean miss )
 	}
 	//don't do anything else while in this anim
 	TIMER_Set( NPC, "attacking", NPC->client->ps.legsAnimTimer );
-	float playerDist = Distance( player->currentOrigin, NPC->currentOrigin );
-	if ( playerDist < 256 )
-	{
-		//FIXME: tone this down
-		CGCam_Shake( 0.75f*playerDist/128.0f, NPC->client->ps.legsAnimTimer );
-	}
+	//FIXME: tone this down
+	G_CoopShakeNear( NPC->currentOrigin, 0.75f/128.0f, 256.0f, NPC->client->ps.legsAnimTimer );	// coop: every player
 
 	if ( miss )
 	{//purposely missed him, chance of knocking him down

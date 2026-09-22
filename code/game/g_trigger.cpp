@@ -1235,9 +1235,8 @@ void hurt_touch( gentity_t *self, gentity_t *other, trace_t *trace )
 				{
 					if ( self->count )
 					{
-						extern void CGCam_Fade( vec4_t source, vec4_t dest, float duration );
-						float	src[4] = {0,0,0,0},dst[4]={0,0,0,1};
-						CGCam_Fade( src, dst, self->count );
+						const vec4_t dst = {0,0,0,1};
+						G_CoopFadeClient( other, dst, self->count );	// coop: the victim's screen, not the host's
 					}
 					if ( self->spawnflags & 16 )
 					{//lock cam

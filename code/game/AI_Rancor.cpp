@@ -937,7 +937,7 @@ void Rancor_Attack( float distance, qboolean doCharge, qboolean aimAtBlockedEnti
 	}
 
 	// Need to do delayed damage since the attack animations encapsulate multiple mini-attacks
-	float playerDist;
+	extern void G_GetBoltPosition( gentity_t *self, int boltIndex, vec3_t pos, int modelIndex = 0 );
 
 	if ( TIMER_Done2( NPC, "attack_dmg", qtrue ) )
 	{
@@ -945,19 +945,16 @@ void Rancor_Attack( float distance, qboolean doCharge, qboolean aimAtBlockedEnti
 		{
 		case BOTH_MELEE1:
 			Rancor_Smash();
-			playerDist = NPC_EntRangeFromBolt( player, NPC->handLBolt );
-			if ( (NPC->spawnflags&SPF_RANCOR_MUTANT) )
-			{
-				if ( playerDist < 512 )
+			{	// coop: every player within range, by its own distance
+				vec3_t boltOrg;
+				G_GetBoltPosition( NPC, NPC->handLBolt, boltOrg );
+				if ( (NPC->spawnflags&SPF_RANCOR_MUTANT) )
 				{
-					CGCam_Shake( 1.0f*playerDist/256, 1000 );
+					G_CoopShakeNear( boltOrg, 1.0f/256.0f, 512.0f, 1000 );
 				}
-			}
-			else
-			{
-				if ( playerDist < 256 )
+				else
 				{
-					CGCam_Shake( 1.0f*playerDist/128.0f, 1000 );
+					G_CoopShakeNear( boltOrg, 1.0f/128.0f, 256.0f, 1000 );
 				}
 			}
 			break;

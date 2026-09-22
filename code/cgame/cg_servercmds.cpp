@@ -219,6 +219,11 @@ static int svcmdcmp( const void *a, const void *b ) {
 
 extern void CG_CoopSelectWeapon_f( void );	// cg_coop.cpp
 extern void CG_CoopLimb_f( void );			// cg_coop.cpp
+extern void CG_CoopVideo_f( void );			// cg_coop.cpp
+extern void CG_CoopFade_f( void );			// cg_coop.cpp
+extern void CG_CoopSkip_f( void );			// cg_coop.cpp
+extern void CG_CoopTimescale_f( void );		// cg_coop.cpp
+extern void CG_CoopCredits_f( void );		// cg_coop.cpp
 
 /* This array MUST be sorted correctly by alphabetical name field */
 static serverCommand_t	commands[] = {
@@ -227,15 +232,20 @@ static serverCommand_t	commands[] = {
 	{ "clientLevelShot",	CG_ClientLevelShot_f },
 	{ "coopmenu",			CG_CoopMenu_f },		// coop: host asks us to open a menu (lobby)
 	{ "cp",					CG_CenterPrint_f },
+	{ "credits",			CG_CoopCredits_f },		// coop: closing credits (SET_CLOSINGCREDITS)
 	{ "cs",					CG_ConfigStringModified },
 	{ "ct",					CG_CaptionText_f },
 	{ "cts",				CG_CaptionTextStop },
+	{ "fade",				CG_CoopFade_f },			// coop: fade our screen (falling death, respawn)
 	{ "limb",				CG_CoopLimb_f },			// coop: a dismembered limb (host describes the cut)
 	{ "lt",					CG_LCARSText_f },
 	{ "mf",					CG_CoopMissionFailed_f },	// coop: host raised the mission-failed screen
 	{ "print",				CG_Print_f },
+	{ "skip",				CG_CoopSkip_f },			// coop: host toggled the cinematic skip
 	{ "snd",				CG_CoopSound_f },	// coop: host-side sound forwarded to remote clients
 	{ "st",					CG_ScrollText_f },
+	{ "ts",					CG_CoopTimescale_f },		// coop: script timescale (slow motion)
+	{ "vid",				CG_CoopVideo_f },			// coop: host plays an in-game video (empty = it is over)
 	{ "wp",					CG_CoopSelectWeapon_f },	// coop: host put a weapon in our hand (saber sync)
 };
 

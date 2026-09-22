@@ -32,6 +32,14 @@ bool		in_camera = false;
 camera_t	client_camera={};
 extern qboolean	player_locked;
 
+// coop: what the host's camera fed the renderer this frame, before the
+// aspect/underwater adjustments of CG_CalcFOVFromX and before the shake, so
+// the broadcast camera (g_coop.cpp) carries values the joiners adjust and
+// shake themselves, once, with their own settings
+float		coopCameraFovX = CAMERA_DEFAULT_FOV;
+vec3_t		coopCameraOrg;
+vec3_t		coopCameraAngles;
+
 extern gentity_t *G_Find (gentity_t *from, int fieldofs, const char *match);
 extern void G_UseTargets (gentity_t *ent, gentity_t *activator);
 void CGCam_FollowDisable( void );
@@ -90,6 +98,11 @@ void CGCam_Enable( void )
 
 	client_camera.FOV	= CAMERA_DEFAULT_FOV;
 	client_camera.FOV2	= CAMERA_DEFAULT_FOV;
+
+	// coop: the server frame that starts the scene broadcasts before we render it
+	coopCameraFovX = CAMERA_DEFAULT_FOV;
+	VectorCopy( cg.refdef.vieworg, coopCameraOrg );
+	VectorCopy( cg.refdefViewAngles, coopCameraAngles );
 
 	in_camera = true;
 
@@ -1165,6 +1178,7 @@ void CGCam_Update( void )
 			}
 			client_camera.FOV = actualFOV_X;
 		}
+		coopCameraFovX = actualFOV_X;	// coop
 		CG_CalcFOVFromX( actualFOV_X );
 	}
 	else if ( client_camera.info_state & CAMERA_ZOOMING )
@@ -1180,10 +1194,12 @@ void CGCam_Update( void )
 		{
 			actualFOV_X = client_camera.FOV + (( ( client_camera.FOV2 - client_camera.FOV ) ) / client_camera.FOV_duration ) * ( cg.time - client_camera.FOV_time );
 		}
+		coopCameraFovX = actualFOV_X;	// coop
 		CG_CalcFOVFromX( actualFOV_X );
 	}
 	else
 	{
+		coopCameraFovX = client_camera.FOV;	// coop
 		CG_CalcFOVFromX( client_camera.FOV );
 	}
 
@@ -1305,6 +1321,10 @@ void CGCam_Update( void )
 
 	//Normal fading - separate call because can finish after camera is disabled
 	CGCam_UpdateFade();
+
+	// coop: the view before the shake is what the joiners get (they shake it themselves)
+	VectorCopy( cg.refdef.vieworg, coopCameraOrg );
+	VectorCopy( cg.refdefViewAngles, coopCameraAngles );
 
 	//Update shaking if there's any
 	//CGCam_UpdateSmooth( cg.refdef.vieworg, cg.refdefViewAngles );
