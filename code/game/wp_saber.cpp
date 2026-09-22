@@ -13033,7 +13033,9 @@ void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower )
 		self->client->ps.forcePowerDebounce[FP_LEVITATION] = 0;
 		break;
 	case FP_SPEED:
-		// coop: the timescale is owned by G_CoopUpdateTimescale (one arbiter for every player)
+		// coop: the timescale is owned by G_CoopUpdateTimescale (one arbiter for every player),
+		// re-evaluated right now so a stop at a cutscene start restores 1 as the stock code did
+		G_CoopUpdateTimescale();
 		//FIXME: reset my current anim, keeping current frame, but with proper anim speed
 		//		otherwise, the anim will continue playing at high speed
 		self->s.loopSound = 0;
@@ -13200,6 +13202,7 @@ void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower )
 			self->client->ps.forceRageRecoveryTime -= (self->client->ps.forcePowerDuration[FP_RAGE] - level.time);//minus however much time you had left when you cut it short
 		}
 		// coop: the timescale is owned by G_CoopUpdateTimescale (one arbiter for every player)
+		G_CoopUpdateTimescale();
 		//FIXME: reset my current anim, keeping current frame, but with proper anim speed
 		//		otherwise, the anim will continue playing at high speed
 		self->s.loopSound = 0;

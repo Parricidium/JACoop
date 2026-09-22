@@ -843,6 +843,12 @@ void AS_ParseSets( void )
 
 	if (iErrorsOccured)
 	{
+		if ( !com_sv_running->integer )
+		{	// coop: a remote client only precaches names the host published; a set it cannot find
+			// (a stray name in the map) just stays silent, the host decides what the level needs
+			Com_Printf( S_COLOR_YELLOW "coop: %d ambient sound set(s) unknown here, ignored\n", iErrorsOccured );
+			return;
+		}
 		Com_Error( ERR_DROP, "....%d missing sound sets! (see above)\n", iErrorsOccured);
 	}
 

@@ -351,7 +351,7 @@ qboolean Netchan_Process( netchan_t *chan, msg_t *msg ) {
 			return qfalse;
 		}
 
-		if ( chan->fragmentLength > msg->maxsize ) {
+		if ( chan->fragmentLength + 4 > msg->maxsize ) {	// coop: the 4-byte sequence goes in front
 			Com_Printf( "%s:fragmentLength %i > msg->maxsize\n"
 				, NET_AdrToString (chan->remoteAddress ),
 				chan->fragmentLength );
@@ -367,6 +367,11 @@ qboolean Netchan_Process( netchan_t *chan, msg_t *msg ) {
 		msg->cursize = chan->fragmentLength + 4;
 		chan->fragmentLength = 0;
 		msg->readcount = 4;	// past the sequence number
+
+		// coop: a reassembled message is a received message (Q3 1.32 "clients were not
+		// acking fragmented messages"); with 1400-byte packets most snapshots are fragmented
+		chan->incomingSequence = sequence;
+		chan->incomingAcknowledged = sequence_ack;
 
 		return qtrue;
 	}

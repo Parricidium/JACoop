@@ -178,10 +178,8 @@ static void CG_EntityEffects( centity_t *cent ) {
 		}
 
 		sfxHandle_t	sfx;
-		if ( !cg_remoteClient && ( cent->currentState.eType == ET_MOVER || ( ent->soundSet && !ent->client ) ) )
-		{	// host: a local sfx handle the game registered itself (movers, and the
-			// fx_runner / misc_weapon_shooter loops taken from CAS_GetBModelSound in g_fx.cpp,
-			// which indexed cgs.sound_precache with a handle before)
+		if ( !cg_remoteClient && cent->currentState.eType == ET_MOVER )
+		{	// host: a local sfx handle the game registered itself (movers, fx_runner included)
 			sfx = cent->currentState.loopSound;
 		}
 		else

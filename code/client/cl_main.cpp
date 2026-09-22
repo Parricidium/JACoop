@@ -1210,7 +1210,7 @@ void CL_Frame ( int msec,float fractionMsec ) {
 		cl_noprint->integer = oldnoprint;
 	}
 
-	if (cl_skippingcin->integer && !cl_endcredits->integer && !com_developer->integer ) {
+	if (cl_skippingcin->integer && !cl_endcredits->integer && !com_developer->integer && com_sv_running->integer ) {	// coop: the render freeze is the host's (a remote client keeps drawing)
 		if (cl_skippingcin->modified){
 			S_StopSounds();		//kill em all but music
 			cl_skippingcin->modified=qfalse;

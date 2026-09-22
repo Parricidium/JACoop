@@ -778,7 +778,7 @@ static void G_CoopRespawn( gentity_t *ent )
 
 	// bring the loadout back
 	playerState_t *ps = &ent->client->ps;
-	ps->stats[STAT_WEAPONS] = dead->stats[STAT_WEAPONS] | ( 1 << WP_NONE );
+	ps->stats[STAT_WEAPONS] = ( dead->stats[STAT_WEAPONS] & ~( 1 << WP_EMPLACED_GUN ) ) | ( 1 << WP_NONE );	// died on a gun: not a weapon to carry
 	memcpy( ps->ammo, dead->ammo, sizeof( ps->ammo ) );
 	memcpy( ps->inventory, dead->inventory, sizeof( ps->inventory ) );
 	// security keys are a count in inventory[] plus the key names the door
@@ -792,7 +792,7 @@ static void G_CoopRespawn( gentity_t *ent )
 	ps->forcePower = ps->forcePowerMax;
 	ps->saberStylesKnown = dead->saberStylesKnown;
 	ps->saberAnimLevel = dead->saberAnimLevel;
-	if ( dead->weapon > WP_NONE && dead->weapon < WP_NUM_WEAPONS && ( ps->stats[STAT_WEAPONS] & ( 1 << dead->weapon ) ) )
+	if ( dead->weapon > WP_NONE && dead->weapon < WP_NUM_WEAPONS && dead->weapon != WP_EMPLACED_GUN && ( ps->stats[STAT_WEAPONS] & ( 1 << dead->weapon ) ) )
 	{
 		ps->weapon = dead->weapon;
 		G_RemoveWeaponModels( ent );
@@ -1350,8 +1350,11 @@ void G_CoopInitDownedCvars( void )
 }
 
 // the level goes away (or comes back): nobody is down
+void G_CoopResetZoomStance( void );
+
 void G_CoopResetDowned( void )
 {
+	G_CoopResetZoomStance();
 	memset( coopDown, 0, sizeof( coopDown ) );
 	for ( int i = 0; i < MAX_CLIENTS; i++ )
 	{
@@ -1475,7 +1478,8 @@ qboolean G_CoopTryDown( gentity_t *targ, gentity_t *attacker, int mod, int dflag
 		|| ( targ->client->ps.eFlags & ( EF_HELD_BY_RANCOR|EF_HELD_BY_WAMPA|EF_HELD_BY_SAND_CREATURE ) )
 		|| in_camera
 		|| ( mod == MOD_FALLING && targ->client->ps.groundEntityNum == ENTITYNUM_NONE )
-		|| ( attacker && attacker->classname && !Q_stricmp( attacker->classname, "trigger_hurt" ) ) )
+		|| ( attacker && attacker->classname && !Q_stricmp( attacker->classname, "trigger_hurt" ) )
+		|| ( !attacker && ( dflags & DAMAGE_NO_PROTECTION ) ) )	// target_kill
 	{	// no way to lie on the ground there (a pit floor is out of reach for a revive): a real death
 		return qfalse;
 	}
@@ -2084,6 +2088,14 @@ static int	coopSaberPending[MAX_CLIENTS];
 static int	coopZoomMode[MAX_CLIENTS];
 static int	coopZoomHold[MAX_CLIENTS];	// level.time until which the usercmd echo of an older mode is ignored
 
+// a new level (level.time restarts) or a new occupant of a slot: nothing pending
+void G_CoopResetZoomStance( void )
+{
+	memset( coopSaberPending, 0, sizeof( coopSaberPending ) );
+	memset( coopZoomMode, 0, sizeof( coopZoomMode ) );
+	memset( coopZoomHold, 0, sizeof( coopZoomHold ) );
+}
+
 // the stance the player asked for (bg_pmove applies it between swings)
 int G_SaberPendingLevel( const gentity_t *ent )
 {
@@ -2216,7 +2228,7 @@ void G_CoopUpdateTimescale( void )
 	}
 	else if ( lastTs < 1.0f )
 	{	// the last power stopped: back to 1 unless something else owns the clock now
-		if ( g_timescale->value != 1.0f && !MatrixMode && !g_skippingcin->integer && !in_camera )
+		if ( g_timescale->value != 1.0f && !MatrixMode && !g_skippingcin->integer )
 		{
 			gi.cvar_set( "timescale", "1" );
 		}

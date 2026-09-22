@@ -319,6 +319,11 @@ static void CG_CoopEnsureCharacter( centity_t *cent )
 	{
 		gent->m_pVehicle = NULL;
 	}
+	if ( gent->client->NPC_class == CLASS_VEHICLE && !gent->m_pVehicle )
+	{
+		Com_Printf( "coop: ent %i vehicle '%s' unknown here, not built\n", entNum, f[11] );
+		return;
+	}
 	// clothing tint (customRGBA is the whole-model colour for the jedi_* player models)
 	{
 		int r = 255, g = 255, b = 255, a = 255;
@@ -680,6 +685,11 @@ static void CG_CoopEnsureG2Model( centity_t *cent )
 	}
 	coopG2Key[entNum] = key;
 	coopGunKind[entNum] = COOP_GUN_NONE;
+	// a slot reused by another thing: nothing of the gun / item it was stays behind
+	gent->s.weapon = WP_NONE;
+	gent->health = gent->max_health = 0;
+	gent->bounceCount = 0;
+	gent->cinematicModel = -1;
 	if ( gent->activator && gent->activator->owner == gent )
 	{
 		gent->activator->owner = NULL;

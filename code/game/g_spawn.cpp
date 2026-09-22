@@ -1571,6 +1571,10 @@ void G_ParsePrecaches( void )
 		{
 			(*as_preCacheMap)[ (char *) ent->soundSet ] = 1;
 
+			if ( ent->classname && !Q_stricmpn( ent->classname, "NPC_", 4 ) )
+			{
+				continue;	// coop: an NPC spawner's soundSet key is a skin name, not a set
+			}
 			// coop: publish the name (CS_COOP_SOUNDSETS) and tag the entity with
 			// its slot, so a remote client precaches the set and, for the
 			// local-set emitters (not movers: those use the bmodel sounds), plays

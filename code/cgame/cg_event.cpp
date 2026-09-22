@@ -818,7 +818,7 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 
 	case EV_COOP_GLASS:		// coop: a func_glass pane the host shattered straight into its own cgame (funcGlassDie)
 		DEBUGNAME("EV_COOP_GLASS");
-		if ( cg_remoteClient && es->modelindex > 0 && es->modelindex < MAX_MODELS && cgs.inlineDrawModel[es->modelindex] )
+		if ( cg_remoteClient && es->modelindex > 0 && es->modelindex < MAX_SUBMODELS && cgs.inlineDrawModel[es->modelindex] )
 		{
 			vec3_t verts[4], normal, dmgPt, dmgDir;
 			VectorCopy( es->origin2, dmgPt );

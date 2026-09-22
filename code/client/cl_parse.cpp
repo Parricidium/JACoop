@@ -526,6 +526,15 @@ void CL_ParseCommandString( msg_t *msg ) {
 		if ( !Q_strncmp( cmd, "coopdl_", 7 ) ) {
 			CL_CoopTransferServerCommand( cmd );
 		}
+		// "vid" alone = the host's in-game video is over (it may have skipped it): ours ends now,
+		// the cgame cannot do it since it does not run while the video plays
+		if ( !com_sv_running->integer && !Q_strncmp( cmd, "vid", 3 ) && ( cmd[3] == '\0' || cmd[3] == ' ' ) ) {
+			const char *arg = cmd + 3;
+			while ( *arg == ' ' ) arg++;
+			if ( !*arg && CL_IsRunningInGameCinematic() ) {
+				SCR_StopCinematic();
+			}
+		}
 	}
 }
 

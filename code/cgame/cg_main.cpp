@@ -708,7 +708,7 @@ static inline void CG_AS_Register(void)
 	{	// coop: the host published the level's set names (G_ParsePrecaches), plus
 		// the current global set (worldspawn / trigger_ambient)
 		const char *name = CG_ConfigString( CS_AMBIENT_SET );
-		if ( name[0] )
+		if ( name[0] && Q_stricmp( name, "default" ) )	// "default" = a worldspawn without soundSet, not a set
 		{
 			cgi_AS_AddPrecacheEntry( name );
 		}
@@ -719,7 +719,10 @@ static inline void CG_AS_Register(void)
 			{
 				break;
 			}
-			cgi_AS_AddPrecacheEntry( name );
+			if ( Q_stricmp( name, "default" ) )
+			{
+				cgi_AS_AddPrecacheEntry( name );
+			}
 		}
 	}
 
