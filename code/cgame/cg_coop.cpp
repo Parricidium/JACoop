@@ -267,8 +267,9 @@ static void CG_CoopEnsureCharacter( centity_t *cent )
 	if ( cg_developer.integer )
 	{
 		const int skinIdx = gent->ghoul2[gent->playerModel].mCustomSkin;
-		Com_Printf( "coop: ent %i built model '%s' skin '%s' class %s rgba %s -> playerModel %i animFile %i skinIdx %i cs '%s' handle %i\n", entNum, modelName, skin, f[8], f[9], gent->playerModel, gent->client->clientInfo.animFileIndex,
-			skinIdx, ( skinIdx > 0 && skinIdx < MAX_CHARSKINS ) ? CG_ConfigString( CS_CHARSKINS + skinIdx ) : "?", ( skinIdx > 0 && skinIdx < MAX_CHARSKINS ) ? cgs.skins[skinIdx] : -1 );
+		Com_Printf( "coop: ent %i built model '%s' skin '%s' class %s rgba %s -> playerModel %i animFile %i skinIdx %i cs '%s' handle %i glm '%s'\n", entNum, modelName, skin, f[8], f[9], gent->playerModel, gent->client->clientInfo.animFileIndex,
+			skinIdx, ( skinIdx > 0 && skinIdx < MAX_CHARSKINS ) ? CG_ConfigString( CS_CHARSKINS + skinIdx ) : "?", ( skinIdx > 0 && skinIdx < MAX_CHARSKINS ) ? cgs.skins[skinIdx] : -1,
+			gent->ghoul2[gent->playerModel].mFileName );
 		Com_Printf( "coop: ent %i tint now %i,%i,%i,%i\n", entNum, gent->client->renderInfo.customRGBA[0], gent->client->renderInfo.customRGBA[1], gent->client->renderInfo.customRGBA[2], gent->client->renderInfo.customRGBA[3] );
 	}
 	memcpy( st->tint, gent->client->renderInfo.customRGBA, 4 );
@@ -955,12 +956,47 @@ static void CG_CoopCamPush( const entityState_t *s, int time )
 	coopCamLastTime = time;
 }
 
+/*
+================
+CG_CoopCheckPaksGen
+
+The engine bumps cl_coopPaksGen when a pk3 from the host is added to the search
+path (or unloaded). Every character we built is torn down; CG_CoopEnsureCharacter
+rebuilds it from its spec at the next snapshot, this time with the real model
+instead of the stormtrooper fallback (the renderer forgot its failed lookups).
+================
+*/
+static void CG_CoopCheckPaksGen( void )
+{
+	static int	coopPaksGenSeen = -1;
+
+	if ( coopPaksGenSeen == cg_coopPaksGen.integer )
+	{
+		return;
+	}
+	if ( coopPaksGenSeen != -1 )
+	{
+		int n = 0;
+		for ( int i = 0; i < MAX_GENTITIES; i++ )
+		{
+			if ( coopChar[i].specIndex && cg_entities[i].gent )
+			{
+				CG_CoopTearDown( &cg_entities[i] );
+				n++;
+			}
+		}
+		Com_Printf( "coop: pk3 list changed (gen %i), %i character(s) rebuilt\n", cg_coopPaksGen.integer, n );
+	}
+	coopPaksGenSeen = cg_coopPaksGen.integer;
+}
+
 void CG_CoopSyncCamera( void )
 {
 	if ( !cg_remoteClient || !cg.snap )
 	{
 		return;
 	}
+	CG_CoopCheckPaksGen();
 
 	centity_t *cam = NULL;
 	for ( int i = 0; i < cg.snap->numEntities; i++ )

@@ -676,18 +676,21 @@ CL_ConfigstringModified
 =====================
 */
 void CL_ConfigstringModified( void ) {
-	const char *s;
-	char		*old;
-	int			i, index;
-	const char		*dup;
-	gameState_t	oldGs;
-	int			len;
+	const int index = atoi( Cmd_Argv(1) );
 
-	index = atoi( Cmd_Argv(1) );
 	if ( index < 0 || index >= MAX_CONFIGSTRINGS ) {
 		Com_Error( ERR_DROP, "configstring > MAX_CONFIGSTRINGS" );
 	}
-	s = Cmd_Argv(2);
+	CL_SetConfigstring( index, Cmd_Argv(2) );
+}
+
+// coop: the body of CL_ConfigstringModified, also used by CL_CoopLobbyPump (cl_main.cpp)
+void CL_SetConfigstring( int index, const char *s ) {
+	char		*old;
+	int			i;
+	const char		*dup;
+	gameState_t	oldGs;
+	int			len;
 
 	old = cl.gameState.stringData + cl.gameState.stringOffsets[ index ];
 	if ( !strcmp( old, s ) ) {
@@ -763,6 +766,10 @@ qboolean CL_GetServerCommand( int serverCommandNumber ) {
 
 	if ( !strcmp( cmd, "disconnect" ) ) {
 		Com_Error (ERR_DISCONNECT,"Server disconnected\n");
+	}
+
+	if ( !Q_strncmp( cmd, "coopdl_", 7 ) ) {
+		return qfalse;	// coop: pk3 transfer, handled by the engine when it arrived (cl_coop_transfer.cpp)
 	}
 
 	if ( !strcmp( cmd, "cs" ) ) {

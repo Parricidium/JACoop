@@ -561,6 +561,9 @@ void SV_Frame( int msec,float fractionMsec ) {
 	// check timeouts
 	SV_CheckTimeouts();
 
+	// coop: pk3 transfer bookkeeping (timeouts, progress tags, eager counter)
+	SV_CoopTransferFrame();
+
 	// send messages back to the clients
 	SV_SendClientMessages ();
 }

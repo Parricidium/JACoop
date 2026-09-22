@@ -2028,6 +2028,7 @@ extern "C" Q_EXPORT refexport_t* QDECL GetRefAPI ( int apiVersion, refimport_t *
 	re.DrawRotatePic = RE_RotatePic;
 	re.DrawRotatePic2 = RE_RotatePic2;
 	re.SetAspect2D = RE_SetAspect2D;
+	re.CoopForgetMissing = RE_CoopForgetMissing;	// coop: pk3 added at runtime
 	REX(LAGoggles);
 	REX(Scissor);
 

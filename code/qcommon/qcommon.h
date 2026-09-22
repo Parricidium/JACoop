@@ -204,7 +204,7 @@ PROTOCOL
 // CS_LIGHT_STYLES = CS_PLAYERS + MAX_CLIENTS renumbers every later configstring,
 // so a mismatched (stock 1-client) build must be rejected at connect rather than
 // left to silently desync.
-#define	PROTOCOL_VERSION	1044	// JACoop: distinct from stock and from jk2coop (41)
+#define	PROTOCOL_VERSION	1045	// JACoop: distinct from stock and from jk2coop (41); 1045 = host -> joiner pk3 transfer
 
 #define	PORT_SERVER			27960
 
@@ -560,6 +560,32 @@ qboolean FS_CheckDirTraversal(const char *checkdir);
 void FS_Rename( const char *from, const char *to );
 
 qboolean FS_WriteToTemporaryFile( const void *data, size_t dataLength, char **tempFileName );
+
+// coop: host -> joiner transfer of player-model pk3s (sv_coop_transfer.cpp / cl_coop_transfer.cpp).
+// The joiner asks for pk3s by checksum only; the files it writes are named
+// coopdl_<checksum>_<name>.pk3 under <fs_homepath>/base and are deleted at quit and at startup.
+#define COOP_DL_BLK				1024	// bytes per svc_download block
+#define COOP_DL_WINDOW			32		// blocks in flight per client
+#define COOP_DL_EAGER_MAX		3		// extra (ack driven) messages per server frame and client
+#define COOP_DL_NAME_LEN		48		// sanitized pk3 name (with .pk3)
+#define MAX_COOP_OFFER			64		// pk3s a host can offer
+#define COOP_DL_PREFIX			"coopdl_"
+
+typedef struct coopPakInfo_s {
+	char	name[COOP_DL_NAME_LEN];	// "jedi_pack.pk3"
+	int		checksum;				// pack_t::checksum (CRC of the entries)
+	int		size;					// bytes on disk
+} coopPakInfo_t;
+
+int			FS_CoopEnumOffered( coopPakInfo_t *out, int max, int maxBytes );
+int			FS_CoopOpenOffered( int checksum, fileHandle_t *f );
+qboolean	FS_CoopHavePak( int checksum );
+void		FS_CoopSanitizeName( const char *in, char *out, int outSize );
+fileHandle_t FS_CoopOpenDownload( int checksum, const char *name, char *relTmp, int relTmpSize );
+qboolean	FS_CoopFinishDownload( const char *relTmp, int checksum, const char *name, char *why, int whySize );
+void		FS_CoopUnloadPaks( void );
+void		FS_CoopRemoveFile( const char *relPath );
+void		FS_CoopPurgeDownloads( void );
 
 /*
 ==============================================================

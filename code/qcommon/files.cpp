@@ -2834,6 +2834,535 @@ qboolean FS_CheckDirTraversal(const char *checkdir)
 	return qfalse;
 }
 
+
+/*
+=============================================================================
+
+coop: host -> joiner transfer of player-model pk3s
+
+The host offers the pk3s it loaded from base/ that hold a models/players/
+folder; a joiner writes what it lacks as <fs_homepath>/base/coopdl_<sum>_<name>.pk3
+and adds it to the search path without a restart. Those files are never
+offered again (prefix), are unloaded at disconnect and deleted at quit and at
+startup. This is the only place in the engine that removes a .pk3, and it only
+ever touches names with the coopdl_ prefix.
+
+=============================================================================
+*/
+
+static const char *fs_coopPathPrefixes[] = {
+	"models/", "shaders/", "sound/", "textures/", "gfx/", "ext_data/",
+	"botfiles/", "levelshots/", "music/", "scripts/", "strings/", NULL
+};
+static const char *fs_coopBadExtensions[] = {
+	".dll", ".so", ".dylib", ".exe", ".bat", ".cmd", ".qvm", ".com", ".scr", ".ps1", ".vbs", NULL
+};
+
+// basename (with or without extension) of a downloaded pack?
+static qboolean FS_CoopIsDownloadName( const char *basename ) {
+	return (qboolean)( !Q_stricmpn( basename, COOP_DL_PREFIX, (int)strlen( COOP_DL_PREFIX ) ) );
+}
+
+static void FS_CoopBumpGen( void ) {
+	Cvar_Set( "cl_coopPaksGen", va( "%i", Cvar_VariableIntegerValue( "cl_coopPaksGen" ) + 1 ) );
+}
+
+/*
+================
+FS_CoopPakContentAllowed
+
+Content whitelist, applied by the host before offering a pack and by the joiner
+before inserting one: at least one models/players/ entry, only known asset
+folders (or .txt files), no executables, no .cfg outside models/, no path tricks.
+================
+*/
+static qboolean FS_CoopPakContentAllowed( pack_t *pak, char *why, int whySize ) {
+	qboolean hasPlayerModel = qfalse;
+	int i, j;
+
+	for ( i = 0; i < pak->numfiles; i++ ) {
+		const char *name = pak->buildBuffer[i].name;	// lower case since FS_LoadZipFile
+		size_t len = strlen( name );
+
+		if ( !len ) {
+			continue;
+		}
+		if ( strstr( name, ".." ) || strstr( name, "::" ) || strchr( name, ':' ) || name[0] == '/' || name[0] == '\\' ) {
+			Com_sprintf( why, whySize, "chemin interdit '%s'", name );
+			return qfalse;
+		}
+		if ( name[len - 1] == '/' ) {
+			continue;	// directory entry
+		}
+		for ( j = 0; fs_coopBadExtensions[j]; j++ ) {
+			size_t el = strlen( fs_coopBadExtensions[j] );
+			if ( len > el && !Q_stricmp( name + len - el, fs_coopBadExtensions[j] ) ) {
+				Com_sprintf( why, whySize, "fichier interdit '%s'", name );
+				return qfalse;
+			}
+		}
+		if ( COM_CompareExtension( name, ".cfg" ) && Q_stricmpn( name, "models/", 7 ) ) {
+			Com_sprintf( why, whySize, ".cfg hors de models/ '%s'", name );
+			return qfalse;
+		}
+		if ( !Q_stricmpn( name, "models/players/", 15 ) ) {
+			hasPlayerModel = qtrue;
+		}
+		for ( j = 0; fs_coopPathPrefixes[j]; j++ ) {
+			if ( !Q_stricmpn( name, fs_coopPathPrefixes[j], (int)strlen( fs_coopPathPrefixes[j] ) ) ) {
+				break;
+			}
+		}
+		if ( !fs_coopPathPrefixes[j] && !COM_CompareExtension( name, ".txt" ) ) {
+			Com_sprintf( why, whySize, "dossier non autorise '%s'", name );
+			return qfalse;
+		}
+	}
+	if ( !hasPlayerModel ) {
+		Com_sprintf( why, whySize, "aucun models/players/" );
+		return qfalse;
+	}
+	return qtrue;
+}
+
+// Name and content filters of the offer. 'why' stays empty for the packs that
+// are skipped silently (the game's own, the mod's, an earlier download).
+static qboolean FS_CoopPakOfferable( pack_t *pak, char *why, int whySize ) {
+	why[0] = '\0';
+	if ( Q_stricmp( pak->pakGamename, BASEGAME ) ) {
+		return qfalse;
+	}
+	if ( !Q_stricmpn( pak->pakBasename, "assets", 6 ) || !Q_stricmpn( pak->pakBasename, "zz_jacoop", 9 )
+		|| FS_CoopIsDownloadName( pak->pakBasename ) ) {
+		return qfalse;
+	}
+	return FS_CoopPakContentAllowed( pak, why, whySize );
+}
+
+static int FS_CoopPakFileSize( pack_t *pak ) {
+	FILE *f = fopen( pak->pakFilename, "rb" );
+	long len;
+
+	if ( !f ) {
+		return -1;
+	}
+	len = FS_fplength( f );
+	fclose( f );
+	return (int)len;
+}
+
+static searchpath_t *FS_CoopFindPakByChecksum( int checksum ) {
+	searchpath_t *sp;
+
+	for ( sp = fs_searchpaths; sp; sp = sp->next ) {
+		if ( sp->pack && sp->pack->checksum == checksum ) {
+			return sp;
+		}
+	}
+	return NULL;
+}
+
+/*
+================
+FS_CoopSanitizeName
+
+Only [A-Za-z0-9._-], at most COOP_DL_NAME_LEN-1 chars, always ending in .pk3.
+Idempotent, so the host and the joiner agree on the name.
+================
+*/
+void FS_CoopSanitizeName( const char *in, char *out, int outSize ) {
+	char stem[COOP_DL_NAME_LEN];
+	int n = 0;
+
+	if ( outSize > COOP_DL_NAME_LEN ) {
+		outSize = COOP_DL_NAME_LEN;
+	}
+	for ( ; *in && n < (int)sizeof( stem ) - 1; in++ ) {
+		char c = *in;
+		if ( ( c >= 'a' && c <= 'z' ) || ( c >= 'A' && c <= 'Z' ) || ( c >= '0' && c <= '9' ) || c == '.' || c == '_' || c == '-' ) {
+			stem[n++] = c;
+		}
+	}
+	stem[n] = '\0';
+	if ( n >= 4 && !Q_stricmp( stem + n - 4, ".pk3" ) ) {
+		stem[n - 4] = '\0';
+		n -= 4;
+	}
+	while ( n > 0 && stem[n - 1] == '.' ) {
+		stem[--n] = '\0';
+	}
+	if ( !n ) {
+		Q_strncpyz( stem, "pak", sizeof( stem ) );
+		n = 3;
+	}
+	if ( n > outSize - 5 ) {
+		stem[outSize - 5] = '\0';
+	}
+	Com_sprintf( out, outSize, "%s.pk3", stem );
+}
+
+/*
+================
+FS_CoopEnumOffered
+
+Host side: the packs offered to joiners (see FS_CoopPakOfferable), each with its
+size on disk; maxBytes > 0 caps the size of one pack. Refusals are logged.
+================
+*/
+int FS_CoopEnumOffered( coopPakInfo_t *out, int max, int maxBytes ) {
+	searchpath_t *sp;
+	int n = 0, i;
+
+	for ( sp = fs_searchpaths; sp && n < max; sp = sp->next ) {
+		pack_t *pak = sp->pack;
+		char why[256];
+		int size;
+
+		if ( !pak ) {
+			continue;
+		}
+		if ( !FS_CoopPakOfferable( pak, why, sizeof( why ) ) ) {
+			if ( why[0] ) {
+				Com_Printf( "coop: %s.pk3 non offert (%s)\n", pak->pakBasename, why );
+			}
+			continue;
+		}
+		size = FS_CoopPakFileSize( pak );
+		if ( size <= 0 ) {
+			Com_Printf( "coop: %s.pk3 non offert (illisible)\n", pak->pakBasename );
+			continue;
+		}
+		if ( maxBytes > 0 && size > maxBytes ) {
+			Com_Printf( "coop: %s.pk3 non offert (%.1f Mo, plus que sv_coopTransferMaxMB)\n", pak->pakBasename, size / ( 1024.0f * 1024.0f ) );
+			continue;
+		}
+		for ( i = 0; i < n; i++ ) {
+			if ( out[i].checksum == pak->checksum ) {
+				break;	// same content twice in the search path
+			}
+		}
+		if ( i < n ) {
+			continue;
+		}
+		FS_CoopSanitizeName( va( "%s.pk3", pak->pakBasename ), out[n].name, sizeof( out[n].name ) );
+		out[n].checksum = pak->checksum;
+		out[n].size = size;
+		n++;
+	}
+	return n;
+}
+
+/*
+================
+FS_CoopOpenOffered
+
+Host side: raw read handle on an offered pack (identified by checksum only, the
+client never names a path). Returns the file size, or -1.
+================
+*/
+int FS_CoopOpenOffered( int checksum, fileHandle_t *f ) {
+	searchpath_t *sp = FS_CoopFindPakByChecksum( checksum );
+	char why[256];
+	fileHandle_t h;
+
+	*f = 0;
+	if ( !sp || !FS_CoopPakOfferable( sp->pack, why, sizeof( why ) ) ) {
+		return -1;
+	}
+	h = FS_HandleForFile();
+	fsh[h].zipFile = qfalse;
+	fsh[h].handleFiles.file.o = fopen( sp->pack->pakFilename, "rb" );
+	if ( !fsh[h].handleFiles.file.o ) {
+		Com_Memset( &fsh[h], 0, sizeof( fsh[h] ) );
+		return -1;
+	}
+	Q_strncpyz( fsh[h].name, sp->pack->pakFilename, sizeof( fsh[h].name ) );
+	fsh[h].handleSync = qfalse;
+	fsh[h].fileSize = FS_filelength( h );
+	*f = h;
+	return fsh[h].fileSize;
+}
+
+/*
+================
+FS_CoopRemoveFile
+
+The one engine path that deletes a .pk3: relPath is relative to fs_homepath
+("base/coopdl_....pk3" or ".tmp") and its basename must carry the coopdl_
+prefix, or this is a hard error. Bypasses FS_CheckFilenameIsMutable on purpose.
+================
+*/
+void FS_CoopRemoveFile( const char *relPath ) {
+	char ospath[MAX_OSPATH];
+	const char *base;
+
+	Q_strncpyz( ospath, FS_BuildOSPath( fs_homepath->string, relPath, "" ), sizeof( ospath ) );
+	ospath[strlen( ospath ) - 1] = '\0';	// trailing separator
+
+	base = strrchr( ospath, PATH_SEP );
+	base = base ? base + 1 : ospath;
+	if ( !FS_CoopIsDownloadName( base ) || !( COM_CompareExtension( base, ".pk3" ) || COM_CompareExtension( base, ".tmp" ) ) ) {
+		Com_Error( ERR_FATAL, "FS_CoopRemoveFile: refusing to delete '%s'", ospath );
+	}
+	remove( ospath );
+}
+
+// a handle still reads from this pack (streamed music...)?
+static qboolean FS_CoopPakInUse( pack_t *pak ) {
+	int i;
+
+	for ( i = 1; i < MAX_FILE_HANDLES; i++ ) {
+		if ( fsh[i].zipFile && fsh[i].handleFiles.file.z == pak->handle ) {
+			return qtrue;
+		}
+	}
+	return qfalse;
+}
+
+// unlink one searchpath from the chain and free its pack
+static void FS_CoopUnlinkPak( searchpath_t *target ) {
+	searchpath_t **link;
+
+	for ( link = &fs_searchpaths; *link; link = &( *link )->next ) {
+		if ( *link == target ) {
+			*link = target->next;
+			fs_packFiles -= target->pack->numfiles;
+			FS_FreePak( target->pack );
+			Z_Free( target );
+			return;
+		}
+	}
+}
+
+/*
+================
+FS_CoopAddPak
+
+Joiner side: load a downloaded pk3 and insert it in the search path right under
+the mod's zz_jacoop pack(s) (the mod keeps priority over menus and shaders; the
+downloaded packs beat everything else, as they do on the host where their name
+sorts after assets*). Checksum and content are verified first.
+================
+*/
+static qboolean FS_CoopAddPak( const char *ospath, const char *basename, int expectedSum, char *why, int whySize ) {
+	pack_t *pak;
+	searchpath_t *search, *sp, *after = NULL;
+	char *sep;
+
+	pak = FS_LoadZipFile( ospath, basename );
+	if ( !pak ) {
+		Com_sprintf( why, whySize, "zip illisible" );
+		return qfalse;
+	}
+	if ( pak->checksum != expectedSum ) {
+		Com_sprintf( why, whySize, "checksum %08x au lieu de %08x", pak->checksum, expectedSum );
+		FS_FreePak( pak );
+		return qfalse;
+	}
+	if ( !FS_CoopPakContentAllowed( pak, why, whySize ) ) {
+		FS_FreePak( pak );
+		return qfalse;
+	}
+	Q_strncpyz( pak->pakGamename, BASEGAME, sizeof( pak->pakGamename ) );
+	Q_strncpyz( pak->pakPathname, ospath, sizeof( pak->pakPathname ) );
+	sep = strrchr( pak->pakPathname, PATH_SEP );
+	if ( sep ) {
+		*sep = '\0';
+	}
+	fs_packFiles += pak->numfiles;
+
+	search = (searchpath_t *)Z_Malloc( sizeof( searchpath_t ), TAG_FILESYS, qtrue );
+	search->pack = pak;
+	for ( sp = fs_searchpaths; sp; sp = sp->next ) {
+		if ( sp->pack && !Q_stricmpn( sp->pack->pakBasename, "zz_jacoop", 9 ) ) {
+			after = sp;	// the last (lowest priority) zz_jacoop* in the chain
+		}
+	}
+	if ( after ) {
+		search->next = after->next;
+		after->next = search;
+	} else {
+		search->next = fs_searchpaths;
+		fs_searchpaths = search;
+	}
+	Com_Printf( "coop: %s charge (%i fichiers)\n", pak->pakBasename, pak->numfiles );
+	FS_CoopBumpGen();
+	return qtrue;
+}
+
+/*
+================
+FS_CoopHavePak
+
+Joiner side: true if a loaded pack has this checksum; else looks for a leftover
+coopdl_<sum>_*.pk3 from an earlier session (or one unloaded at disconnect) in
+<fs_homepath>/base and loads it.
+================
+*/
+qboolean FS_CoopHavePak( int checksum ) {
+	char dir[MAX_OSPATH], prefix[64], why[256];
+	char **files;
+	int numfiles, i;
+	qboolean found = qfalse;
+
+	if ( FS_CoopFindPakByChecksum( checksum ) ) {
+		return qtrue;
+	}
+	Q_strncpyz( dir, FS_BuildOSPath( fs_homepath->string, BASEGAME, "" ), sizeof( dir ) );
+	dir[strlen( dir ) - 1] = '\0';
+	Com_sprintf( prefix, sizeof( prefix ), COOP_DL_PREFIX "%08x_", checksum );
+	files = Sys_ListFiles( dir, ".pk3", NULL, &numfiles, qfalse );
+	for ( i = 0; i < numfiles && !found; i++ ) {
+		char ospath[MAX_OSPATH];
+
+		if ( Q_stricmpn( files[i], prefix, (int)strlen( prefix ) ) ) {
+			continue;
+		}
+		Q_strncpyz( ospath, FS_BuildOSPath( fs_homepath->string, BASEGAME, files[i] ), sizeof( ospath ) );
+		if ( FS_CoopAddPak( ospath, files[i], checksum, why, sizeof( why ) ) ) {
+			found = qtrue;
+		} else {
+			Com_Printf( "coop: %s ignore (%s), supprime\n", files[i], why );
+			FS_CoopRemoveFile( va( "%s/%s", BASEGAME, files[i] ) );
+		}
+	}
+	Sys_FreeFileList( files );
+	return found;
+}
+
+/*
+================
+FS_CoopOpenDownload
+
+Joiner side: open the temporary file of a download; relTmp receives the
+fs_homepath-relative name to pass to FS_CoopFinishDownload / FS_CoopRemoveFile.
+================
+*/
+fileHandle_t FS_CoopOpenDownload( int checksum, const char *name, char *relTmp, int relTmpSize ) {
+	char clean[COOP_DL_NAME_LEN];
+
+	FS_CoopSanitizeName( name, clean, sizeof( clean ) );
+	Com_sprintf( relTmp, relTmpSize, "%s/" COOP_DL_PREFIX "%08x_%s.tmp", BASEGAME, checksum, clean );
+	return FS_SV_FOpenFileWrite( relTmp );	// allowed: the extension is .tmp
+}
+
+/*
+================
+FS_CoopFinishDownload
+
+Joiner side: the temporary file is complete; rename it to its .pk3 name and load
+it (checksum + whitelist verified in FS_CoopAddPak). On failure the file is
+deleted and 'why' tells what was wrong.
+================
+*/
+qboolean FS_CoopFinishDownload( const char *relTmp, int checksum, const char *name, char *why, int whySize ) {
+	char clean[COOP_DL_NAME_LEN], base[MAX_OSPATH], rel[MAX_OSPATH], ospath[MAX_OSPATH];
+	searchpath_t *sp;
+
+	FS_CoopSanitizeName( name, clean, sizeof( clean ) );
+	Com_sprintf( base, sizeof( base ), COOP_DL_PREFIX "%08x_%s", checksum, clean );
+	Com_sprintf( rel, sizeof( rel ), "%s/%s", BASEGAME, base );
+	Q_strncpyz( ospath, FS_BuildOSPath( fs_homepath->string, rel, "" ), sizeof( ospath ) );
+	ospath[strlen( ospath ) - 1] = '\0';
+
+	// a loaded pack at that path (a re-download) is unloaded first, the zip handle would block the rename
+	for ( sp = fs_searchpaths; sp; sp = sp->next ) {
+		if ( sp->pack && !Q_stricmp( sp->pack->pakFilename, ospath ) ) {
+			FS_CoopUnlinkPak( sp );
+			break;
+		}
+	}
+	FS_CoopRemoveFile( rel );	// a leftover with that name, if any
+	FS_SV_Rename( relTmp, rel, qfalse );	// safe = qfalse: the target is a .pk3 (see FS_CheckFilenameIsMutable)
+	if ( !FS_CoopAddPak( ospath, base, checksum, why, whySize ) ) {
+		FS_CoopRemoveFile( rel );
+		return qfalse;
+	}
+	return qtrue;
+}
+
+/*
+================
+FS_CoopUnloadPaks
+
+Joiner side, at disconnect: drop every downloaded pack from the search path
+(the files stay on disk for a reconnection, FS_CoopPurgeDownloads deletes them).
+================
+*/
+void FS_CoopUnloadPaks( void ) {
+	searchpath_t *sp, *next;
+	int n = 0;
+
+	if ( !fs_searchpaths ) {
+		return;
+	}
+	for ( sp = fs_searchpaths; sp; sp = next ) {
+		next = sp->next;
+		if ( !sp->pack || !FS_CoopIsDownloadName( sp->pack->pakBasename ) ) {
+			continue;
+		}
+		if ( FS_CoopPakInUse( sp->pack ) ) {
+			Com_Printf( "coop: %s garde (un fichier y est encore ouvert)\n", sp->pack->pakBasename );
+			continue;
+		}
+		Com_Printf( "coop: %s decharge\n", sp->pack->pakBasename );
+		FS_CoopUnlinkPak( sp );
+		n++;
+	}
+	if ( n ) {
+		FS_CoopBumpGen();
+	}
+}
+
+/*
+================
+FS_CoopPurgeDownloads
+
+Delete every coopdl_*.pk3 / .tmp in <fs_homepath>/base (and <fs_basepath>/base
+when different). Called from FS_Startup before the game directories are added,
+so a leftover of a crashed session is never loaded as an ordinary pack, and
+from Com_Quit_f after FS_Shutdown (the zip handles must be closed first).
+================
+*/
+void FS_CoopPurgeDownloads( void ) {
+	static const char *exts[2] = { ".pk3", ".tmp" };
+	const char *roots[2];
+	int r, e, i, numfiles;
+
+	if ( !fs_homepath || !fs_basepath ) {
+		return;
+	}
+	roots[0] = fs_homepath->string;
+	roots[1] = Q_stricmp( fs_homepath->string, fs_basepath->string ) ? fs_basepath->string : "";
+	for ( r = 0; r < 2; r++ ) {
+		char dir[MAX_OSPATH];
+
+		if ( !roots[r][0] ) {
+			continue;
+		}
+		Q_strncpyz( dir, FS_BuildOSPath( roots[r], BASEGAME, "" ), sizeof( dir ) );
+		dir[strlen( dir ) - 1] = '\0';
+		for ( e = 0; e < 2; e++ ) {
+			char **files = Sys_ListFiles( dir, exts[e], NULL, &numfiles, qfalse );
+
+			for ( i = 0; i < numfiles; i++ ) {
+				char ospath[MAX_OSPATH];
+
+				if ( !FS_CoopIsDownloadName( files[i] ) ) {
+					continue;
+				}
+				Com_sprintf( ospath, sizeof( ospath ), "%s%c%s", dir, PATH_SEP, files[i] );
+				if ( remove( ospath ) ) {
+					Com_Printf( "coop: impossible de supprimer %s\n", ospath );
+				} else {
+					Com_Printf( "coop: %s supprime\n", files[i] );
+				}
+			}
+			Sys_FreeFileList( files );
+		}
+	}
+}
+
 /*
 ================
 FS_Shutdown
@@ -2901,6 +3430,9 @@ void FS_Startup( const char *gameName ) {
 	fs_gamedirvar = Cvar_Get ("fs_game", "", CVAR_INIT|CVAR_SYSTEMINFO );
 
 	fs_dirbeforepak = Cvar_Get("fs_dirbeforepak", "0", CVAR_INIT|CVAR_PROTECTED);
+
+	// coop: a coopdl_*.pk3 left by a session that did not quit cleanly must not be loaded as an ordinary pack
+	FS_CoopPurgeDownloads();
 
 	// add search path elements in reverse priority order
 	if (fs_cdpath->string[0]) {

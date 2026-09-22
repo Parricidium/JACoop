@@ -213,7 +213,7 @@ SV_UpdateServerCommandsToClient
 (re)send all server commands the client hasn't acknowledged yet
 ==================
 */
-static void SV_UpdateServerCommandsToClient( client_t *client, msg_t *msg ) {
+void SV_UpdateServerCommandsToClient( client_t *client, msg_t *msg ) {	// coop: also used by SV_CoopTransferSendEager
 	int		i;
 
 	// write any unacknowledged serverCommands
@@ -793,6 +793,12 @@ void SV_SendClientSnapshot( client_t *client ) {
 	// send over all the relevant entityState_t
 	// and the playerState_t
 	SV_WriteSnapshotToClient( client, &msg );
+
+	// coop: pk3 blocks for a joiner downloading the host's skins, after the
+	// snapshot and within what is left of the datagram (see SV_CoopTransferWrite)
+	if ( client->state == CS_ACTIVE && client->coopdl.state == CDL_SENDING ) {
+		SV_CoopTransferWrite( client, &msg );
+	}
 
 	// check for overflow
 	if ( msg.overflowed ) {

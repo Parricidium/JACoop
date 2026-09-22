@@ -194,6 +194,10 @@ void SV_LoadGame_f(void)
 		Com_Printf( S_COLOR_YELLOW "Seul l'hote peut charger une partie.\n" );
 		return;
 	}
+	if ( SV_CoopTransferBlocksMapChange( "load" ) )
+	{	// coop: joiners are still downloading the host's skins (lobby only)
+		return;
+	}
 
 //	// check server is running
 //	//

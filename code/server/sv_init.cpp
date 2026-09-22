@@ -419,6 +419,8 @@ void SV_Init (void) {
 	sv_testsave = Cvar_Get ("sv_testsave", "0", 0);
 	sv_compress_saved_games = Cvar_Get ("sv_compress_saved_games", "1", 0);
 
+	SV_CoopTransferInit();	// coop: host -> joiner pk3 transfer cvars
+
 	// Only allocated once, no point in moving it around and fragmenting
 	// create a heap for Ghoul2 to use for game side model vertex transforms used in collision detection
 	{
@@ -492,6 +494,7 @@ void SV_Shutdown( const char *finalmsg ) {
 	memset( &sv, 0, sizeof( sv ) );
 
 	// free server static data
+	SV_CoopTransferShutdown();	// coop: close the pak handles of transfers in flight
 	if ( svs.clients ) {
 		SV_FreeClient(svs.clients);
 		Z_Free( svs.clients );

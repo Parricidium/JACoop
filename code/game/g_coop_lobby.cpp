@@ -464,17 +464,21 @@ static void G_CoopUpdateLobbyList( void )
 			continue;
 		}
 		int ready = 2;	// host
+		char dl[16] = "";	// pk3 transfer state the engine tags in the userinfo: "" | list | 0..99 | ok | err
 		if ( i > 0 )
 		{
 			char userinfo[MAX_INFO_STRING];
 			gi.GetUserinfo( i, userinfo, sizeof( userinfo ) );
-			ready = atoi( Info_ValueForKey( userinfo, "coop_ready" ) ) ? 1 : 0;
+			Q_strncpyz( dl, Info_ValueForKey( userinfo, "coop_dl" ), sizeof( dl ) );
+			// a joiner still fetching the host's skins is never ready, whatever it says
+			const qboolean busy = (qboolean)( !Q_stricmp( dl, "list" ) || ( dl[0] >= '0' && dl[0] <= '9' ) );
+			ready = ( atoi( Info_ValueForKey( userinfo, "coop_ready" ) ) && !busy ) ? 1 : 0;
 			if ( coopStarting )
 			{
 				ready = coopCharDone[i] ? 4 : 3;	// character validated / being created
 			}
 		}
-		Q_strcat( now, sizeof( now ), va( "|%s\t%i\t%s", ent->client->pers.netname, ready, G_CoopPlayerVar( ent, "g_char_model", g_char_model ) ) );
+		Q_strcat( now, sizeof( now ), va( "|%s\t%i\t%s\t%s", ent->client->pers.netname, ready, G_CoopPlayerVar( ent, "g_char_model", g_char_model ), dl ) );
 	}
 	if ( strcmp( now, last ) )
 	{

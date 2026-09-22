@@ -758,6 +758,50 @@ fail:
 
 
 
+/*
+====================
+RE_CoopForgetMissing
+
+coop: a pk3 was added to the search path while the renderer runs (the host's
+skins downloaded in the lobby). The joiner already tried to build the host's
+character: its model is cached as MOD_BAD, its skin as a zero-surface entry and
+the shaders it names as default shaders, so nothing would be found until the
+next renderer restart. Unlink those cache entries; the objects stay valid for
+whoever still holds a handle, only the lookup by name is forgotten.
+====================
+*/
+void RE_CoopForgetMissing( void )
+{
+	int i, models = 0, skins = 0;
+
+	for ( i = 0; i < FILE_HASH_SIZE; i++ )
+	{
+		modelHash_t **link = &mhHashTable[i];
+		while ( *link )
+		{
+			modelHash_t *mh = *link;
+			if ( mh->handle > 0 && mh->handle < tr.numModels && tr.models[mh->handle] && tr.models[mh->handle]->type == MOD_BAD )
+			{
+				*link = mh->next;	// the modelHash_t itself is hunk memory, left as is
+				models++;
+				continue;
+			}
+			link = &mh->next;
+		}
+	}
+	for ( i = 1; i < tr.numSkins; i++ )
+	{
+		skin_t *skin = tr.skins[i];
+		if ( skin && skin->numSurfaces == 0 && skin->name[0] )
+		{
+			skin->name[0] = '\0';	// RE_RegisterSkin matches by name: never again
+			skins++;
+		}
+	}
+	R_CoopForgetDefaultShaders();
+	ri.Printf( PRINT_ALL, "coop: renderer forgets %i missing model(s) and %i missing skin(s)\n", models, skins );
+}
+
 // wrapper function needed to avoid problems with mid-function returns so I can safely use this bool to tell the
 //	z_malloc-fail recovery code whether it's safe to ditch any model caches...
 //
