@@ -510,6 +510,11 @@ static void SV_UserMove( client_t *cl, msg_t *msg ) {
 	int			serverId;
 
 	cl->reliableAcknowledge = MSG_ReadLong( msg );
+	if ( cl->reliableAcknowledge < cl->reliableSequence - MAX_RELIABLE_COMMANDS || cl->reliableAcknowledge > cl->reliableSequence )
+	{	// coop: a truncated or hostile packet would make the reliable window huge (or negative)
+		Com_DPrintf( "coop: bad reliableAcknowledge %i from %s (seq %i)\n", cl->reliableAcknowledge, cl->name, cl->reliableSequence );
+		cl->reliableAcknowledge = cl->reliableSequence;
+	}
 	serverId = MSG_ReadLong( msg );
 	/*clientTime = */MSG_ReadLong( msg );
 	cl->deltaMessage = MSG_ReadLong( msg );

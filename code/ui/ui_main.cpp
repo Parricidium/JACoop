@@ -2249,6 +2249,10 @@ static qboolean UI_RunMenuScript ( const char **args )
 			// Debrief read: tell the host, it moves everybody on when all did.
 			ui.Cmd_ExecuteText( EXEC_APPEND, "cmd coop_endnext\n" );
 		}
+		else if ( Q_stricmp( name, "coopVoteOpen" ) == 0 )
+		{
+			ui_coopMissionSelection = 0;	// a fresh panel starts on the first mission
+		}
 		else if ( Q_stricmp( name, "coopEndVote" ) == 0 )
 		{
 			// Vote for the mission selected in the list (feeder 0x1c).
@@ -2269,8 +2273,9 @@ static qboolean UI_RunMenuScript ( const char **args )
 			// Weapons screen over. The host edited its own playerState through the
 			// menu's uiScripts (stock behaviour); a joiner has no server, so it sends
 			// its three choices and the host hands them out.
-			if ( !com_sv_running || !com_sv_running->integer )
-			{
+			if ( ( !com_sv_running || !com_sv_running->integer )
+				&& uiInfo.selectedWeapon1 != NOWEAPON && uiInfo.selectedWeapon2 != NOWEAPON && uiInfo.selectedThrowWeapon != NOWEAPON )
+			{	// only a complete choice counts (the screen's ESC comes here too)
 				ui.Cmd_ExecuteText( EXEC_APPEND, va( "cmd coop_endwpn %i %i %i\n",
 					uiInfo.selectedWeapon1, uiInfo.selectedWeapon2, uiInfo.selectedThrowWeapon ) );
 			}

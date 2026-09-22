@@ -123,6 +123,7 @@ static char					coopEndStockMenu[64];		// the "+menu" the stock game would have 
 static int					coopEndStartTime;			// level.time the flow starts (0 = nothing pending)
 static int					coopEndPhaseTime;			// level.time the current phase began
 static qboolean				coopEndLaunched;			// the map command went out
+static qboolean				coopEndWaitAcked;			// the host pressed PASSER once in the wait phase
 static char					coopEndMap[MAX_QPATH];		// the mission finally chosen
 static char					coopEndTitle[64];			// mission that ended, then the one chosen
 static char					coopEndStats[160];
@@ -406,6 +407,7 @@ static void G_CoopEndAfterDebrief( void )
 	// chain...): the host drives the stock menus, the others wait in front of
 	// the debrief instead of a black screen
 	coopEndPhase = COOPEND_WAIT;
+	coopEndWaitAcked = qfalse;
 	coopEndPhaseTime = level.time;
 	Q_strncpyz( coopEndInfo, "L'hote choisit la suite de la campagne...", sizeof( coopEndInfo ) );
 	G_CoopEndPublish();
@@ -685,8 +687,19 @@ void G_CoopEndLevelCommand( gentity_t *ent, const char *cmd )
 			G_CoopEndLaunch();
 			break;
 		case COOPEND_WAIT:
-			// the stock screens are the host's: open them again if it lost them
-			gi.SendConsoleCommand( va( "uimenu %s\n", coopEndStockMenu ) );
+			if ( coopEndWaitAcked )
+			{	// second press: give up on the panels, the host drives the stock screens alone
+				G_CoopEndProtectPlayers( qfalse );
+				coopEndPhase = COOPEND_NONE;
+				gi.SetConfigstring( CS_COOP_ENDLEVEL, "" );
+				gi.SendServerCommand( -1, "coopmenu closeall" );
+				gi.Printf( "coop: end-of-mission panels closed, the host carries on alone\n" );
+			}
+			else
+			{	// the stock screens are the host's: open them again if it lost them
+				coopEndWaitAcked = qtrue;
+				gi.SendConsoleCommand( va( "uimenu %s\n", coopEndStockMenu ) );
+			}
 			break;
 		default:
 			break;

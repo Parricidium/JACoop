@@ -5744,9 +5744,8 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 		// the world itself (a door or lift it blocks, lava, drowning, a pit): a real death then
 		return;
 	}
-	if ( G_CoopIsPlayer( attacker ) && targ->client && attacker->client && targ->client->playerTeam == attacker->client->playerTeam
-		&& !G_CoopFriendlyFireOn( targ, attacker ) )	// coop: friendly fire pushes like a real hit
-	{//player doesn't do knockback against allies unless he kills them
+	if ( G_CoopIsPlayer( attacker ) && targ->client && attacker->client && targ->client->playerTeam == attacker->client->playerTeam )
+	{//player doesn't do knockback against allies unless he kills them (friendly fire hurts, it does not shove)
 		dflags |= DAMAGE_DEATH_KNOCKBACK;
 	}
 
@@ -6709,7 +6708,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 							targ->health = 1;
 						}
 					}
-					else if ( !alreadyDead && ((((targ->flags&FL_UNDYING)||targ->client->ps.forcePowersActive & (1 << FP_RAGE)) && !(dflags&DAMAGE_NO_PROTECTION) && G_CoopIsPlayer( attacker ) && G_CoopIsPlayer( targ )) || (dflags&DAMAGE_NO_KILL)) )
+					else if ( !alreadyDead && ((((targ->flags&FL_UNDYING)||targ->client->ps.forcePowersActive & (1 << FP_RAGE)) && !(dflags&DAMAGE_NO_PROTECTION) && G_CoopIsPlayer( attacker ) && G_CoopIsPlayer( targ ) && !G_CoopFriendlyFireOn( targ, attacker )) || (dflags&DAMAGE_NO_KILL)) )
 					{// player is undying and he's attacking himself, don't let him die
 						if ( targ->health < 1 )
 						{

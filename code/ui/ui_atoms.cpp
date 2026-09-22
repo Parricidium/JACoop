@@ -74,9 +74,17 @@ void UI_SetActiveMenu( const char* menuname,const char *menuID )
 	// unless others are connected (SV_CheckPaused sorts that out).
 	if ( menuname && Q_stricmpn (menuname, "coop", 4) == 0 )
 	{
-		// (the everyone-down screens never pause: the host must keep running its
-		// countdown even once the last joiner has left, SV_CheckPaused would stop it)
-		if ( cls.state == CA_ACTIVE && Q_stricmpn( menuname, "coopAllDown", 11 ) != 0 ) {
+		// (the everyone-down and end-of-mission screens never pause: the host must keep
+		// running its countdowns and its vote even with the panels up, SV_CheckPaused would stop it)
+		static const char *coopNoPause[] = { "coopAllDown", "coopDebrief", "coopVote", "coopLoadout", "coopWpnSelect", NULL };
+		qboolean pauses = qtrue;
+		for ( int np = 0; coopNoPause[np]; np++ ) {
+			if ( !Q_stricmpn( menuname, coopNoPause[np], strlen( coopNoPause[np] ) ) ) {
+				pauses = qfalse;
+				break;
+			}
+		}
+		if ( cls.state == CA_ACTIVE && pauses ) {
 			ui.Cvar_Set( "cl_paused", "1" );
 		}
 		Cvar_SetValue( "timescale", 1.0f );

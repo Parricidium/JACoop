@@ -2187,6 +2187,9 @@ void CG_MatrixEffect ( centity_t *cent )
 		{
 			coopMatrixEnt = -1;
 		}
+		if ( cg_remoteClient )
+		{
+		}
 		else if ( g_skippingcin->integer )
 		{//skipping?  don't mess with timescale
 			/*
@@ -2196,8 +2199,8 @@ void CG_MatrixEffect ( centity_t *cent )
 			}
 			*/
 		}
-		else
-		{//set it back to 1
+		else if ( cg_timescale.value != 1.0f )
+		{//set it back to 1 (also when a joiner arrived mid-effect: the clock must never stay scaled)
 			cgi_Cvar_Set( "timescale", "1.0" );
 		}
 		cent->gent->e_clThinkFunc = clThinkF_NULL;

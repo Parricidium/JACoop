@@ -112,7 +112,10 @@ round trip away is the one that sees it.
 int SV_ReliableBytesPending( const client_t *client ) {
 	int	i, bytes = 0;
 
-	for ( i = client->reliableAcknowledge + 1; i <= client->reliableSequence; i++ ) {
+	int first = client->reliableSequence - MAX_RELIABLE_COMMANDS + 1;	// coop: never walk outside the ring
+	if ( first < client->reliableAcknowledge + 1 ) first = client->reliableAcknowledge + 1;
+	if ( first < 0 ) first = 0;
+	for ( i = first; i <= client->reliableSequence; i++ ) {
 		const char *cmd = client->reliableCommands[ i & ( MAX_RELIABLE_COMMANDS - 1 ) ];
 		if ( cmd ) {
 			bytes += (int)strlen( cmd ) + 6;	// svc_serverCommand + sequence + terminator

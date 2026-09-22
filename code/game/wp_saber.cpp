@@ -12710,7 +12710,7 @@ void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int override
 		break;
 	case FP_SPEED:
 		//duration is always 5 seconds, player time
-		duration = ceil(FORCE_SPEED_DURATION*(G_CoopPersonalTime()?1.0f:forceSpeedValue[self->client->ps.forcePowerLevel[FP_SPEED]]));//coop: the world clock is not slowed, so the duration is not stretched by it either
+		duration = ceil(FORCE_SPEED_DURATION*forceSpeedValue[self->client->ps.forcePowerLevel[FP_SPEED]]);//coop keeps the stock duration: the same real seconds as SP, and the cgame's FOV/camera ramps still match
 		self->client->ps.forcePowersActive |= ( 1 << forcePower );
 		self->s.loopSound = G_SoundIndex( "sound/weapons/force/speedloop.wav" );
 		if ( self->client->ps.forcePowerLevel[FP_SPEED] > FORCE_LEVEL_2 )
