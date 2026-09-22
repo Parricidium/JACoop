@@ -3560,7 +3560,10 @@ qboolean cg_usingInFrontOf = qfalse;
 qboolean CanUseInfrontOf(gentity_t*);
 static void CG_UseIcon()
 {
-	cg_usingInFrontOf = CanUseInfrontOf(cg_entities[cg.snap->ps.clientNum].gent);
+	// coop: a remote client has no usable server gentities to trace against; the host computes it (ClientEndFrame)
+	cg_usingInFrontOf = cg_remoteClient
+		? (qboolean)( cg.snap->ps.stats[STAT_COOP_USABLE] != 0 )
+		: CanUseInfrontOf(cg_entities[cg.snap->ps.clientNum].gent);
 	if (cg_usingInFrontOf)
 	{
 		cgi_R_SetColor( NULL );

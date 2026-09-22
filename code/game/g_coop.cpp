@@ -411,7 +411,14 @@ qboolean G_CoopPlayerDied( gentity_t *self )
 	const int delay = ( G_CoopDownedActive() && g_coopRespawnDelay->integer > 0 ) ? g_coopRespawnDelay->integer * 1000 : COOP_RESPAWN_DELAY;
 	coopDeathState[self->s.number] = self->client->ps;
 	coopRespawnTime[self->s.number] = level.time + delay;
-	gi.SendServerCommand( -1, "print \"%s ^3est tombe, retour dans %i s...\n\"", self->client->pers.netname, delay / 1000 );
+	if ( G_CoopLivingTeammate( self ) )
+	{
+		gi.SendServerCommand( -1, "print \"%s ^3est tombe, retour dans %i s...\n\"", self->client->pers.netname, delay / 1000 );
+	}
+	else
+	{	// nobody is up: the all-down screen says what happens next
+		gi.SendServerCommand( -1, "print \"%s ^3est tombe.\n\"", self->client->pers.netname );
+	}
 	return qtrue;
 }
 
@@ -629,6 +636,7 @@ void G_CoopRunRespawns( void )
 		if ( ent->inuse && ent->client && ent->client->pers.connected == CON_CONNECTED && ent->health <= 0 )
 		{
 			G_CoopRespawn( ent );
+			gi.SendServerCommand( -1, "print \"^2%s ^7est de retour\n\"", ent->client->pers.netname );
 		}
 	}
 }
@@ -954,6 +962,8 @@ static void G_CoopRunDeferredAutosave( void );
 static int			coopAllDownTime;		// level.time nobody was up any more, 0 = someone is
 static int			coopAllDownLastSec = -1;
 static int			coopBleedingOutNum = -1;	// the player G_CoopDownedFrame is killing for real right now
+static int			coopReloadTime;			// level.time the checkpoint reload was asked (0 = none)
+static int			coopReloadTries;
 
 cvar_t	*g_coopDowned;
 cvar_t	*g_coopBleedOut;
@@ -968,7 +978,7 @@ void G_CoopInitDownedCvars( void )
 	g_coopDowned = gi.cvar( "g_coopDowned", "1", CVAR_ARCHIVE );
 	g_coopBleedOut = gi.cvar( "g_coopBleedOut", "60", CVAR_ARCHIVE );
 	g_coopReviveTime = gi.cvar( "g_coopReviveTime", "3", CVAR_ARCHIVE );
-	g_coopReviveRange = gi.cvar( "g_coopReviveRange", "80", CVAR_ARCHIVE );
+	g_coopReviveRange = gi.cvar( "g_coopReviveRange", "80", CVAR_ARCHIVE|CVAR_SERVERINFO );	// serverinfo: the HUD prompt uses the same range
 	g_coopReviveHealth = gi.cvar( "g_coopReviveHealth", "40", CVAR_ARCHIVE );
 	g_coopRespawnDelay = gi.cvar( "g_coopRespawnDelay", "10", CVAR_ARCHIVE );
 	g_coopAllDownAuto = gi.cvar( "g_coopAllDownAuto", "20", CVAR_ARCHIVE );
@@ -986,6 +996,8 @@ void G_CoopResetDowned( void )
 	coopAllDownLastSec = -1;
 	coopBleedingOutNum = -1;
 	coopPendingAutosave = qfalse;
+	coopReloadTime = 0;
+	coopReloadTries = 0;
 }
 
 // downed players exist only in a real co-op game
@@ -1091,6 +1103,9 @@ qboolean G_CoopTryDown( gentity_t *targ, gentity_t *attacker, int mod, int dflag
 		return qfalse;
 	}
 	if ( mod == MOD_SUICIDE || mod == MOD_SNIPER || mod == MOD_CRUSH || mod == MOD_TRIGGER_HURT
+		|| mod == MOD_LAVA || mod == MOD_SLIME || mod == MOD_WATER		// no lying down in liquids
+		|| ( targ->client->ps.eFlags & EF_LOCKED_TO_WEAPON )				// dead on an emplaced gun: RunEmplacedWeapon ejects the body (D7)
+		|| ( targ->client->ps.eFlags & ( EF_FORCE_GRIPPED|EF_FORCE_DRAINED ) )	// held in the air by a gripper (D12)
 		|| targ->s.m_iVehicleNum != 0
 		|| ( targ->client->ps.eFlags & ( EF_HELD_BY_RANCOR|EF_HELD_BY_WAMPA|EF_HELD_BY_SAND_CREATURE ) )
 		|| in_camera
@@ -1380,9 +1395,29 @@ void G_CoopDownedFrame( void )
 	}
 
 	// everyone down (or dead): offer the last checkpoint, reload it after a while
-	if ( !G_CoopDownedActive() || in_camera || coopAllDownTime < 0 )
+	if ( coopAllDownTime < 0 )
+	{	// the reload is on its way; a failed load (no checkpoint yet) leaves us here
+		if ( coopReloadTime && level.time - coopReloadTime > 3000 )
+		{
+			coopReloadTime = level.time;
+			coopReloadTries++;
+			if ( coopReloadTries == 1 )
+			{
+				gi.Printf( "coop: the checkpoint did not load, loading the level start instead\n" );
+				gi.SendServerCommand( -1, "print \"^3Pas de point de controle : retour au debut du niveau...\n\"" );
+				gi.SendConsoleCommand( "load current\n" );
+			}
+			else
+			{
+				gi.Printf( "coop: no save to reload, restarting the map\n" );
+				gi.SendConsoleCommand( va( "map %s\n", level.mapname ) );
+			}
+		}
+		return;
+	}
+	if ( !G_CoopDownedActive() || in_camera )
 	{
-		return;	// (< 0: the reload is on its way)
+		return;
 	}
 	if ( G_CoopAnyPlayerUp() )
 	{
@@ -1469,6 +1504,7 @@ void G_CoopReloadCheckpoint( void )
 		return;	// already asked
 	}
 	coopAllDownTime = -1;
+	coopReloadTime = level.time;
 	gi.SendServerCommand( -1, "print \"^3Retour au dernier point de controle...\n\"" );
 	gi.Printf( "coop: reloading the last checkpoint\n" );
 	gi.SendConsoleCommand( "load *respawn\n" );

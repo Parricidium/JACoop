@@ -1386,6 +1386,15 @@ void ClientCommand( int clientNum ) {
 
 	cmd = gi.argv(0);
 
+	// coop: a downed player keeps its view and nothing else - no gadgets, no
+	// saber, no force from the ground (the usercmd is already stripped)
+	if ( G_CoopIsDowned( ent )
+		&& ( !Q_stricmpn( cmd, "use_", 4 ) || !Q_stricmp( cmd, "invuse" ) || !Q_stricmp( cmd, "sabertoggle" )
+			|| !Q_stricmpn( cmd, "force_", 6 ) || !Q_stricmp( cmd, "coop_tp" ) || !Q_stricmp( cmd, "taunt" ) || !Q_stricmp( cmd, "gloat" ) || !Q_stricmp( cmd, "meditate" ) ) )
+	{
+		return;
+	}
+
 	if (Q_stricmp (cmd, "coopforce") == 0)
 	{
 		G_CoopForceCommand( ent );	// coop: a joiner allocated its force points

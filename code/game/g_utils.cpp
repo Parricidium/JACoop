@@ -1641,7 +1641,7 @@ qboolean CanUseInfrontOf(gentity_t *ent)
 		return qfalse;
 	}
 
-	if (ent->client->ps.viewEntity != ent->s.number)
+	if (ent->client->ps.viewEntity && ent->client->ps.viewEntity != ent->s.number)	// coop: 0 is "no view entity" (a joiner must not trace from slot 0)
 	{
 		ent = &g_entities[ent->client->ps.viewEntity];
 

@@ -5688,8 +5688,10 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 	{
 		dflags |= DAMAGE_NO_KNOCKBACK;
 	}
-	if ( client && G_CoopIsDowned( targ ) && !( dflags & DAMAGE_NO_PROTECTION ) )
-	{	// coop: lying on the ground waiting for a teammate: nothing touches it
+	if ( client && G_CoopIsDowned( targ ) && !( dflags & DAMAGE_NO_PROTECTION )
+		&& mod != MOD_CRUSH && mod != MOD_LAVA && mod != MOD_SLIME && mod != MOD_WATER && mod != MOD_TRIGGER_HURT )
+	{	// coop: lying on the ground waiting for a teammate: nothing touches it - except
+		// the world itself (a door or lift it blocks, lava, drowning, a pit): a real death then
 		return;
 	}
 	if ( G_CoopIsPlayer( attacker ) && targ->client && attacker->client && targ->client->playerTeam == attacker->client->playerTeam )

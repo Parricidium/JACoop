@@ -1406,6 +1406,13 @@ void CG_CoopAllDown_f( void )
 	}
 }
 
+// g_coopReviveRange as the host runs it (CVAR_SERVERINFO), default 80
+static float CG_CoopReviveRange( void )
+{
+	const float r = atof( Info_ValueForKey( CG_ConfigString( CS_SERVERINFO ), "g_coopReviveRange" ) );
+	return r > 0 ? r : 80.0f;
+}
+
 // name of the key bound to +coop_revive ("G"), refreshed now and then
 static const char *CG_CoopReviveKeyName( void )
 {
@@ -1462,7 +1469,7 @@ void CG_CoopDrawDowned( void )
 	const playerState_t *ps = &cg.snap->ps;
 	const int	font = cgs.media.qhFontMedium;
 	const int	small = cgs.media.qhFontSmall;
-	float		nearest = -1;
+	float		nearest = -1, nearestBody = -1;
 
 	if ( !coopDownedIcon )
 	{
@@ -1481,9 +1488,14 @@ void CG_CoopDrawDowned( void )
 		vec3_t	org;
 		float	x, y;
 		const float dist = Distance( cg.refdef.vieworg, cent->lerpOrigin );
+		const float bodyDist = Distance( ps->origin, cent->lerpOrigin );
 		if ( nearest < 0 || dist < nearest )
 		{
 			nearest = dist;
+		}
+		if ( nearestBody < 0 || bodyDist < nearestBody )
+		{
+			nearestBody = bodyDist;
 		}
 		VectorCopy( cent->lerpOrigin, org );
 		org[2] += 40;
@@ -1543,8 +1555,8 @@ void CG_CoopDrawDowned( void )
 		CG_CoopDrawCentered( 300, va( "Vous relevez un coequipier...  %i%%", ps->stats[STAT_COOP_REVIVE] ), green, font, 1.0f );
 		CG_CoopDrawBar( 220, 326, 200, 12, ps->stats[STAT_COOP_REVIVE] / 100.0f, greenFill );
 	}
-	else if ( nearest >= 0 && nearest <= 80 && ps->stats[STAT_HEALTH] > 0 )
-	{	// beside someone on the ground
+	else if ( nearestBody >= 0 && nearestBody <= CG_CoopReviveRange() && ps->stats[STAT_HEALTH] > 0 )
+	{	// beside someone on the ground (same measure as the host: player origin to body, g_coopReviveRange)
 		CG_CoopDrawCentered( 300, va( "Maintenir %s pour relever", CG_CoopReviveKeyName() ), white, font, 1.0f );
 	}
 }

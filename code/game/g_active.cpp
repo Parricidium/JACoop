@@ -5730,6 +5730,12 @@ void ClientEndFrame( gentity_t *ent )
 	// apply all the damage taken this frame
 	P_DamageFeedback (ent);
 
+	if ( ent->s.number > 0 && ent->s.number < MAX_CLIENTS && ent->client )
+	{	// coop: the joiner's HUD "use" hand icon (CG_UseIcon reads this instead of tracing on its placeholder gentity)
+		extern bool in_camera;
+		ent->client->ps.stats[STAT_COOP_USABLE] = ( ent->health > 0 && !in_camera && ent->client->ps.pm_type < PM_DEAD && CanUseInfrontOf( ent ) ) ? 1 : 0;
+	}
+
 	// add the EF_CONNECTION flag if we haven't gotten commands recently
 	/*
 	if ( level.time - ent->client->lastCmdTime > 1000 ) {
