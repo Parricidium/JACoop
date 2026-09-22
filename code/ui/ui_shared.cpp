@@ -917,22 +917,29 @@ repacking zz_jacoop.pk3. Each slot points at an image name the mod does NOT
 ship (a file inside a pk3 wins over a loose file of the same name, see
 FS_AddGameDirectory), so the lookup only ever finds the player's own file:
 drop <JACoop>/base/gfx/jacoop/logo.png and the menus use it, delete it and the
-stock decor comes back. Every menu background goes through this function when
-it is parsed, so "ui_load" is enough to pick up a new file.
+mod's own decor comes back. Every menu background goes through this function
+when it is parsed, so "ui_load" is enough to pick up a new file.
+
+Three answers per slot, in order:
+	the player's file (his cvar names an image that loads)	-> his file
+	nothing of his, and the mod ships decor of its own		-> "packaged"
+	nothing at all, or an empty cvar (his opt-out)			-> the stock art
 =================
 */
 typedef struct coopSkin_s
 {
 	const char	*cvarName;		// archived cvar holding the image name (no extension)
+	const char	*packaged;		// the mod's own decor, shipped in zz_jacoop.pk3 (NULL: keep the stock art)
 	const char	*targets[8];	// decor shaders of the .menu files this slot replaces
 } coopSkin_t;
 
 static const coopSkin_t coopSkins[] =
 {
-	{ "ui_coopLogo",		{ "gfx/menus/jediacademy", NULL } },
-	{ "ui_coopMainBg",	{ "gfx/jacoop/menu_bg", NULL } },
-	{ "ui_coopPanelBg",	{ "gfx/jacoop/panel_bg", NULL } },
-	{ "ui_coopMenuBg",	{ "gfx/menus/main_background", "gfx/menus/charmenu", "gfx/menus/datapad",
+	{ "ui_coopLogo",		"gfx/jacoop/deco_logo",	{ "gfx/menus/jediacademy", NULL } },
+	// the main menu already draws art of ours, and the panels draw none on purpose
+	{ "ui_coopMainBg",	NULL,					{ "gfx/jacoop/menu_bg", NULL } },
+	{ "ui_coopPanelBg",	NULL,					{ "gfx/jacoop/panel_bg", NULL } },
+	{ "ui_coopMenuBg",	"gfx/jacoop/menu_bg",	{ "gfx/menus/main_background", "gfx/menus/charmenu", "gfx/menus/datapad",
 						  "gfx/menus/datapad2", "gfx/menus/sabermenu_back", "gfx/menus/forcemenu_back",
 						  "gfx/menus/weaponmenu_back", NULL } },
 };
@@ -956,11 +963,20 @@ const char *UI_CoopSkinShader( const char *name )
 				continue;
 			}
 			ui.Cvar_VariableStringBuffer( coopSkins[i].cvarName, image, sizeof( image ) );
-			if ( image[0] && UI_CoopSkinExists( image ) )
+			if ( !image[0] )
 			{
-				return image;
+				return name;	// emptied on purpose: the stock art, whatever we ship
 			}
-			return name;		// no file of his own: stock decor
+			if ( UI_CoopSkinExists( image ) )
+			{
+				return image;	// his own file
+			}
+			if ( coopSkins[i].packaged )
+			{
+				Q_strncpyz( image, coopSkins[i].packaged, sizeof( image ) );
+				return image;	// the mod's decor
+			}
+			return name;
 		}
 	}
 	return name;

@@ -232,13 +232,7 @@ static void UI_CoopCharBack( const char *stockMenu )
 	char mode[32];
 	Cvar_VariableStringBuffer( "ui_coopMode", mode, sizeof( mode ) );
 	Menus_CloseAll();
-	if ( !Q_stricmp( mode, "join" ) )
-	{
-		Cvar_Set( "ui_coopJoin", "" );
-		Cvar_Set( "ui_coopMode", "" );
-		Menus_ActivateByName( "coopJoinMenu" );
-	}
-	else if ( !Q_stricmp( mode, "char" ) || !Q_stricmp( mode, "charstart" ) || !Q_stricmp( mode, "hostnew" ) )
+	if ( !Q_stricmp( mode, "char" ) || !Q_stricmp( mode, "charstart" ) || !Q_stricmp( mode, "hostnew" ) )
 	{
 		Cvar_Set( "ui_coopMode", "" );
 		Menus_ActivateByName( "coopLobby" );
@@ -249,21 +243,19 @@ static void UI_CoopCharBack( const char *stockMenu )
 	}
 }
 
-// coop: remember the host to join, then go through the character screens
-// (startgame connects instead of starting a game while ui_coopJoin is set)
+// coop: connect right away - the character is made in the host's lobby
+//
+// It used to be made here, before connecting, when this install had none. The
+// host's mods are not in the search path at that moment, so the model and hilt
+// lists could only offer what this machine already had. The lobby is where the
+// packs come down (cl_coopPaksGen), so the character is made there: the lobby's
+// PERSONNAGE button, or the screen the host triggers with COMMENCER.
 static void UI_CoopStartJoin( const char *addr )
 {
 	Menus_CloseAll();
-	if ( Cvar_VariableIntegerValue( "coop_charDone" ) )
-	{	// this install already has a character (archived g_char_* / g_saber* cvars)
-		Cvar_Set( "ui_coopJoin", "" );
-		Cvar_Set( "ui_coopMode", "" );
-		ui.Cmd_ExecuteText( EXEC_APPEND, va( "connect %s\n", addr ) );
-		return;
-	}
-	Cvar_Set( "ui_coopJoin", addr );
-	Cvar_Set( "ui_coopMode", "join" );
-	Menus_ActivateByName( "characterMenu" );	// no difficulty screen: that is the host's
+	Cvar_Set( "ui_coopJoin", "" );
+	Cvar_Set( "ui_coopMode", "" );
+	ui.Cmd_ExecuteText( EXEC_APPEND, va( "connect %s\n", addr ) );
 }
 
 // Launcher path: "Rejoindre.cmd ADRESSE" starts the game with ui_coopJoin set;
@@ -577,7 +569,6 @@ typedef struct cvarTable_s {
 } cvarTable_t;
 
 vmCvar_t	ui_menuFiles;
-vmCvar_t	ui_coopCharDone;	// coop: "coop_charDone", set once the character screens were completed
 vmCvar_t	ui_hudFiles;
 
 vmCvar_t	ui_char_anim;
@@ -632,7 +623,6 @@ static void UI_UpdateScreenshot( void )
 static cvarTable_t cvarTable[] =
 {
 	{ &ui_menuFiles,			"ui_menuFiles",			"ui/menus.txt", NULL, CVAR_ARCHIVE },
-	{ &ui_coopCharDone,		"coop_charDone",		"0", NULL, CVAR_ARCHIVE },
 #ifdef JK2_MODE
 	{ &ui_hudFiles,				"cg_hudFiles",			"ui/jk2hud.txt", NULL, CVAR_ARCHIVE},
 #else
@@ -1057,7 +1047,6 @@ static void UI_CoopApplyModel( void )
 	Cvar_Set( "g_char_skin_head", "model_default" );
 	Cvar_Set( "g_char_skin_torso", "model_default" );
 	Cvar_Set( "g_char_skin_legs", "model_default" );
-	Cvar_Set( "coop_charDone", "1" );
 	ui.Cmd_ExecuteText( EXEC_APPEND, "cmd coop_rebuild\n" );
 }
 
@@ -1795,18 +1784,8 @@ static qboolean UI_RunMenuScript ( const char **args )
 		else if (Q_stricmp(name, "startgame") == 0)
 		{
 			Menus_CloseAll();
-			// coop: a joiner goes through the same character screens, then connects
-			// instead of starting its own game (the launcher sets ui_coopJoin to the host address)
-			char coopJoin[128];
-			Cvar_VariableStringBuffer( "ui_coopJoin", coopJoin, sizeof( coopJoin ) );
-			Cvar_Set( "coop_charDone", "1" );	// the screens were completed once: next time, straight in
-			if ( coopJoin[0] )
-			{
-				Cvar_Set( "ui_coopJoin", "" );
-				Cvar_Set( "ui_coopMode", "" );
-				ui.Cmd_ExecuteText( EXEC_APPEND, va( "connect %s\n", coopJoin ) );
-				return qtrue;
-			}
+			// coop: a joiner never gets here before connecting (UI_CoopStartJoin);
+			// it comes through the lobby, modes "char" and "charstart" below
 			char coopMode[32];
 			Cvar_VariableStringBuffer( "ui_coopMode", coopMode, sizeof( coopMode ) );
 			if ( !Q_stricmp( coopMode, "hostnew" ) )
