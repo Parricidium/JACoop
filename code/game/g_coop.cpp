@@ -489,6 +489,51 @@ void G_CoopGatherJoiners( qboolean all )
 	}
 }
 
+/*
+================
+G_CoopFollowHostTeleport
+
+A script moved "player" (SET_ORIGIN / SET_COPY_ORIGIN, or a cutscene that
+ended somewhere else): the campaign only ever relocates the host, so the
+joiners left where they stood would be in the wrong room. Bring the ones
+that are not beside it any more.
+================
+*/
+void G_CoopFollowHostTeleport( const vec3_t from )
+{
+	gentity_t *host = &g_entities[0];
+	if ( !host->inuse || !host->client || host->health <= 0 )
+	{
+		return;
+	}
+	if ( Distance( from, host->currentOrigin ) < 128.0f )
+	{
+		return;	// a script nudge, not a relocation
+	}
+	for ( int i = 1; i < MAX_CLIENTS; i++ )
+	{
+		gentity_t *ent = &g_entities[i];
+		if ( !ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || ent->health <= 0 )
+		{
+			continue;	// (a downed joiner keeps health 1 and follows: it stays revivable beside the host)
+		}
+		if ( ent->client->ps.eFlags & EF_LOCKED_TO_WEAPON )
+		{
+			continue;
+		}
+		if ( ent->s.m_iVehicleNum )
+		{
+			continue;	// never rip a rider off its swoop
+		}
+		if ( Distance( ent->currentOrigin, host->currentOrigin ) < 256.0f && gi.inPVS( host->currentOrigin, ent->currentOrigin ) )
+		{
+			continue;
+		}
+		G_CoopPlaceBeside( ent, host );
+		gi.Printf( "coop: %s follows the host's script teleport\n", ent->client->pers.netname );
+	}
+}
+
 // "coop_tp": a joiner asks to be brought beside the host (stuck behind a locked
 // door...); the host asks to be brought beside its nearest joiner (a script
 // locked a door with the joiner on the far side).
@@ -589,6 +634,43 @@ void G_CoopRunRespawns( void )
 }
 
 /*
+================
+G_CoopRespawnPendingNow
+
+A level transition is about to be recorded: SV_Player_EndOfLevelSave
+snapshots every client's playerState and KEEP_PREV spawn points import
+STAT_HEALTH as is, so anyone still waiting for a co-op respawn must come
+back before it runs (the "maptransition" command executes before the next
+G_RunFrame, G_CoopRunRespawns would be too late).
+================
+*/
+static void G_CoopRevive( gentity_t *target, gentity_t *reviver );	// downed/revive code below
+
+void G_CoopRespawnPendingNow( void )
+{
+	for ( int slot = 0; slot < MAX_CLIENTS; slot++ )
+	{
+		gentity_t *downed = &g_entities[slot];
+		if ( G_CoopIsDowned( downed ) )
+		{	// a downed player would carry its 1 hp into the next level: stand it up
+			G_CoopRevive( downed, NULL );
+			gi.Printf( "coop: %s stood up for the level transition\n", downed->client->pers.netname );
+		}
+		if ( !coopRespawnTime[slot] )
+		{
+			continue;
+		}
+		coopRespawnTime[slot] = 0;
+		gentity_t *ent = &g_entities[slot];
+		if ( ent->inuse && ent->client && ent->client->pers.connected == CON_CONNECTED && ent->health <= 0 )
+		{
+			G_CoopRespawn( ent );
+			gi.Printf( "coop: %s respawned for the level transition\n", ent->client->pers.netname );
+		}
+	}
+}
+
+/*
 ==============================================================================
 Cinematic camera replication
 
@@ -605,6 +687,7 @@ the remote cgame turns it back into its own client_camera (cg_coop.cpp).
 
 static qboolean coopMissionFailedSent[MAX_CLIENTS];	// per client: told about the mission-failed screen
 static gentity_t *coopCameraEnt = NULL;
+static vec3_t coopCameraHostOrigin;					// where the host stood when the cutscene started
 
 void G_CoopUpdateCamera( void )
 {
@@ -614,6 +697,8 @@ void G_CoopUpdateCamera( void )
 		{
 			G_FreeEntity( coopCameraEnt );
 			coopCameraEnt = NULL;
+			// the cutscene may have relocated the host (ROFF, SET_ORIGIN during the fade...)
+			G_CoopFollowHostTeleport( coopCameraHostOrigin );
 		}
 		return;
 	}
@@ -624,6 +709,7 @@ void G_CoopUpdateCamera( void )
 		// story from where it stands. A joiner left out of sight (a door that
 		// closed on it, a fall, a detour) would be stranded, so bring it along.
 		G_CoopGatherJoiners( qfalse );
+		VectorCopy( g_entities[0].currentOrigin, coopCameraHostOrigin );
 		coopCameraEnt = G_Spawn();
 		if ( !coopCameraEnt )
 		{
@@ -774,6 +860,7 @@ static void G_CoopAfterRespawn( gentity_t *ent )
 void G_CoopResetCamera( void )
 {
 	coopCameraEnt = NULL;
+	VectorClear( coopCameraHostOrigin );
 	memset( coopMissionFailedSent, 0, sizeof( coopMissionFailedSent ) );
 	memset( coopRespawnTime, 0, sizeof( coopRespawnTime ) );
 	G_CoopResetDowned();

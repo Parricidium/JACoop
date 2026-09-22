@@ -140,9 +140,11 @@ void SV_Player_EndOfLevelSave(void)
 		playerState_t*		pState = cl->gentity->client;
 		const char	*s2;
 		const char *s;
+		// coop: never record a corpse (a KEEP_PREV spawn imports STAT_HEALTH as is)
+		const int	saveHealth = pState->stats[STAT_HEALTH] > 0 ? pState->stats[STAT_HEALTH] : pState->stats[STAT_MAX_HEALTH];
 #ifdef JK2_MODE
 		s = va("%i %i %i %i %i %i %i %f %f %f %i %i %i %i %i %i",
-						pState->stats[STAT_HEALTH],
+						saveHealth,
 						pState->stats[STAT_ARMOR],
 						pState->stats[STAT_WEAPONS],
 						pState->stats[STAT_ITEMS],
@@ -162,7 +164,7 @@ void SV_Player_EndOfLevelSave(void)
 #else
 				//				|general info				  |-force powers |-saber 1		|-saber 2										  |-general saber
 				s = va("%i %i %i %i %i %i %i %f %f %f %i %i %i %i %i %s %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %s %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i %i",
-						pState->stats[STAT_HEALTH],
+						saveHealth,
 						pState->stats[STAT_ARMOR],
 						pState->stats[STAT_WEAPONS],
 						pState->stats[STAT_ITEMS],
