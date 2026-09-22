@@ -352,6 +352,7 @@ they died with; the mission only fails once nobody is left alive.
 #define COOP_RESPAWN_DELAY	4000
 
 qboolean G_CoopIsUp( const gentity_t *ent );	// defined with the downed/revive code below
+static void G_CoopAfterRespawn( gentity_t *ent );	// defined with the camera code below
 
 static int				coopRespawnTime[MAX_CLIENTS];
 static playerState_t	coopDeathState[MAX_CLIENTS];	// loadout snapshot taken at death
@@ -560,6 +561,7 @@ static void G_CoopRespawn( gentity_t *ent )
 	// come back beside a living teammate rather than at the map start
 	G_CoopPlaceBeside( ent, mate );
 	ent->health = ps->stats[STAT_HEALTH] = ps->stats[STAT_MAX_HEALTH];
+	G_CoopAfterRespawn( ent );
 }
 
 // run once per server frame
@@ -644,6 +646,68 @@ void G_CoopUpdateCamera( void )
 	cam->s.origin2[2] = client_camera.fade_color[3];
 	VectorCopy( client_camera.fade_color, cam->s.angles2 );
 	gi.linkentity( cam );
+}
+
+/*
+================
+Screen fades that belong to one player
+
+A falling death (trigger_hurt FALLING, target_kill) fades the screen of the
+player who fell: the host's own cgame for slot 0 (game and cgame are one
+module here), a "fade" server command for a remote client. The respawn
+fades back in the same way.
+================
+*/
+void G_CoopFadePlayer( gentity_t *ent, const vec4_t src, const vec4_t dst, int ms )
+{
+	if ( !G_CoopIsPlayer( ent ) )
+	{
+		return;
+	}
+	if ( ent->s.number == 0 )
+	{
+		CGCam_Fade( (float *)src, (float *)dst, ms );
+	}
+	else
+	{
+		gi.SendServerCommand( ent->s.number, "fade %i %g %g %g %g %g %g %g %g", ms, src[0], src[1], src[2], src[3], dst[0], dst[1], dst[2], dst[3] );
+	}
+}
+
+void G_CoopFadeInPlayer( gentity_t *ent, int ms )
+{
+	if ( !G_CoopIsPlayer( ent ) )
+	{
+		return;
+	}
+	if ( ent->s.number == 0 )
+	{
+		CG_CoopFadeIn( ms );
+	}
+	else
+	{
+		gi.SendServerCommand( ent->s.number, "fadein %i", ms );
+	}
+}
+
+// the host's cgame state after a co-op respawn: no death fade, no locked camera
+static void G_CoopAfterRespawn( gentity_t *ent )
+{
+	if ( in_camera )
+	{
+		return;
+	}
+	G_CoopFadeInPlayer( ent, 700 );
+	if ( ent->s.number == 0 )
+	{
+		cg.overrides.active &= ~CG_OVERRIDE_3RD_PERSON_CDP;
+		cg.overrides.thirdPersonCameraDamp = 0;
+	}
+	else if ( client_camera.fade_color[3] > 0.0f && !cg.missionStatusShow && !cg.missionStatusDeadTime )
+	{	// a script death fade (t1_rail/death_fade) tripped by the joiner landed on the
+		// alive host's screen; outside a cutscene it has no purpose once the joiner is back
+		CG_CoopFadeIn( 700 );
+	}
 }
 
 // forget the camera entity when the level goes away
@@ -881,8 +945,9 @@ qboolean G_CoopTryDown( gentity_t *targ, gentity_t *attacker, int mod, int dflag
 		|| targ->s.m_iVehicleNum != 0
 		|| ( targ->client->ps.eFlags & ( EF_HELD_BY_RANCOR|EF_HELD_BY_WAMPA|EF_HELD_BY_SAND_CREATURE ) )
 		|| in_camera
-		|| ( mod == MOD_FALLING && targ->client->ps.groundEntityNum == ENTITYNUM_NONE ) )
-	{	// no way to lie on the ground there: a real death
+		|| ( mod == MOD_FALLING && targ->client->ps.groundEntityNum == ENTITYNUM_NONE )
+		|| ( attacker && attacker->classname && !Q_stricmp( attacker->classname, "trigger_hurt" ) ) )
+	{	// no way to lie on the ground there (a pit floor is out of reach for a revive): a real death
 		return qfalse;
 	}
 

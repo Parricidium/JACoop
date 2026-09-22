@@ -1162,7 +1162,7 @@ void hurt_touch( gentity_t *self, gentity_t *other, trace_t *trace )
 
 	if ( self->spawnflags & 2 )
 	{//player only
-		if ( other->s.number )
+		if ( !G_CoopIsPlayer( other ) )	// coop: PLAYERONLY means any player
 		{
 			return;
 		}
@@ -1234,13 +1234,12 @@ void hurt_touch( gentity_t *self, gentity_t *other, trace_t *trace )
 				if ( G_CoopIsPlayer( other ) && other->health <= 0 )
 				{
 					if ( self->count )
-					{
-						extern void CGCam_Fade( vec4_t source, vec4_t dest, float duration );
-						float	src[4] = {0,0,0,0},dst[4]={0,0,0,1};
-						CGCam_Fade( src, dst, self->count );
+					{	// coop: the fade belongs to the player who fell (a remote client gets it as a command)
+						vec4_t	src = {0,0,0,0}, dst = {0,0,0,1};
+						G_CoopFadePlayer( other, src, dst, self->count );
 					}
-					if ( self->spawnflags & 16 )
-					{//lock cam
+					if ( ( self->spawnflags & 16 ) && other->s.number == 0 )
+					{//lock cam (coop: cg.overrides is the host's own cgame state)
 						cg.overrides.active |= CG_OVERRIDE_3RD_PERSON_CDP;
 						cg.overrides.thirdPersonCameraDamp = 0;
 					}

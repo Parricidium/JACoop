@@ -171,7 +171,8 @@ static void CG_ConfigStringModified( void ) {
 }
 
 static void CG_CenterPrint_f( void ) {
-	CG_CenterPrint( CG_Argv( 1 ), SCREEN_HEIGHT * 0.25 );
+	// coop: optional second argument, the screen height fraction ("cp @SP_INGAME_EXIT_VIEW 0.95")
+	CG_CenterPrint( CG_Argv( 1 ), cgi_Argc() > 2 ? atof( CG_Argv( 2 ) ) * SCREEN_HEIGHT : SCREEN_HEIGHT * 0.25 );
 }
 
 static void CG_Print_f( void ) {
@@ -230,12 +231,15 @@ static serverCommand_t	commands[] = {
 	{ "cs",					CG_ConfigStringModified },
 	{ "ct",					CG_CaptionText_f },
 	{ "cts",				CG_CaptionTextStop },
+	{ "fade",				CG_CoopFade_f },		// coop: screen fade of our own death (falling)
+	{ "fadein",				CG_CoopFadeIn_f },		// coop: fade back in (respawn)
 	{ "limb",				CG_CoopLimb_f },			// coop: a dismembered limb (host describes the cut)
 	{ "lt",					CG_LCARSText_f },
 	{ "mf",					CG_CoopMissionFailed_f },	// coop: host raised the mission-failed screen
 	{ "print",				CG_Print_f },
 	{ "snd",				CG_CoopSound_f },	// coop: host-side sound forwarded to remote clients
 	{ "st",					CG_ScrollText_f },
+	{ "tp",					CG_CoopThirdPerson_f },	// coop: host toggles our third person (vehicle, emplaced gun)
 	{ "wp",					CG_CoopSelectWeapon_f },	// coop: host put a weapon in our hand (saber sync)
 };
 

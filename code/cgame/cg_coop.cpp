@@ -1246,6 +1246,53 @@ void CG_CoopSelectWeapon_f( void )
 	cg.weaponSelectTime = cg.time;
 }
 
+/*
+================
+Screen fades of a co-op death
+
+A falling death (trigger_hurt FALLING, target_kill) fades the screen of the
+player who fell. The host's game module writes the host's own client_camera
+straight, and sends "fade" / "fadein" to a remote client (g_coop.cpp
+G_CoopFadePlayer); CGCam_UpdateFade / CGCam_DrawWideScreen run outside
+cutscenes here too, and CG_CoopSyncCamera only owns the fade while a
+broadcast camera exists.
+================
+*/
+// fade back from whatever is on the screen (no-op when nothing is up)
+void CG_CoopFadeIn( int ms )
+{
+	vec4_t clear = { 0, 0, 0, 0 };
+	if ( client_camera.fade_color[3] > 0.0f || ( client_camera.info_state & CAMERA_FADING ) )
+	{
+		CGCam_Fade( client_camera.fade_color, clear, ms );
+	}
+}
+
+// "fade <ms> <sr> <sg> <sb> <sa> <dr> <dg> <db> <da>"
+void CG_CoopFade_f( void )
+{
+	vec4_t src, dst;
+	const int ms = atoi( CG_Argv( 1 ) );
+	for ( int i = 0; i < 4; i++ )
+	{
+		src[i] = atof( CG_Argv( 2 + i ) );
+		dst[i] = atof( CG_Argv( 6 + i ) );
+	}
+	CGCam_Fade( src, dst, ms );
+}
+
+// "fadein <ms>"
+void CG_CoopFadeIn_f( void )
+{
+	CG_CoopFadeIn( atoi( CG_Argv( 1 ) ) );
+}
+
+// "tp <0|1>": the host puts us in / out of third person (vehicle, emplaced gun)
+void CG_CoopThirdPerson_f( void )
+{
+	cgi_Cvar_Set( "cg_thirdperson", atoi( CG_Argv( 1 ) ) ? "1" : "0" );
+}
+
 void CG_CoopMissionFailed_f( void )
 {
 	extern int statusTextIndex;

@@ -417,6 +417,8 @@ void G_CoopRunRespawns( void );
 void G_CoopPlaceBeside( gentity_t *ent, gentity_t *mate );
 void G_CoopGatherJoiners( qboolean all );
 void G_CoopTeleportCommand( gentity_t *ent );
+void G_CoopFadePlayer( gentity_t *ent, const vec4_t src, const vec4_t dst, int ms );
+void G_CoopFadeInPlayer( gentity_t *ent, int ms );
 gentity_t *G_CoopLivingTeammate( const gentity_t *self );
 void G_CoopInitDownedCvars( void );
 void G_CoopResetDowned( void );
