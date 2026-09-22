@@ -432,8 +432,14 @@ void G_CheckVictoryScript(gentity_t *self)
 	}
 }
 
+extern cvar_t *g_developer;
+
 qboolean OnSameTeam( gentity_t *ent1, gentity_t *ent2 )
 {
+	if ( G_CoopFriendlyFireOn( ent1, ent2 ) )
+	{// coop: with friendly fire on two players are not allies any more
+		return qfalse;
+	}
 	if ( ent1->s.number < MAX_CLIENTS
 		&& ent1->client
 		&& ent1->client->playerTeam == TEAM_FREE )
@@ -4065,6 +4071,7 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 		}
 		else	// Player died, fire off scoreboard soon
 		{
+			G_CoopAnnounceKill( self, attacker, qfalse );	// coop: team kill message
 			if ( !G_CoopPlayerDied( self ) )	// coop: respawn beside a teammate instead, unless nobody is left
 			{
 				cg.missionStatusDeadTime = level.time + 1000;	// Too long?? Too short??
@@ -5657,6 +5664,23 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 //		damage = ceil((float)damage/2.0f);
 //	}
 
+	// coop: friendly fire between two players (g_coopFriendlyFire). Off, the hit is
+	// dropped here so it does not even eat the target's shield; at 2 it is halved.
+	const int coopFFScale = G_CoopFriendlyFireScale( targ, attacker );
+	if ( coopFFScale >= 0 && g_developer->integer )
+	{	// coop: developer 1 traces every player-on-player hit
+		gi.Printf( "coop: friendly fire %s -> %s, %i dmg, scale %i, mod %i\n",
+			attacker->client->pers.netname, targ->client->pers.netname, damage, coopFFScale, mod );
+	}
+	if ( coopFFScale == 0 )
+	{
+		return;
+	}
+	if ( coopFFScale > 0 && coopFFScale < 100 )
+	{
+		damage = ( damage * coopFFScale + 99 ) / 100;	// round up: a hit always stings
+	}
+
 	client = targ->client;
 
 	if ( client ) {
@@ -5705,7 +5729,8 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 		// the world itself (a door or lift it blocks, lava, drowning, a pit): a real death then
 		return;
 	}
-	if ( G_CoopIsPlayer( attacker ) && targ->client && attacker->client && targ->client->playerTeam == attacker->client->playerTeam )
+	if ( G_CoopIsPlayer( attacker ) && targ->client && attacker->client && targ->client->playerTeam == attacker->client->playerTeam
+		&& !G_CoopFriendlyFireOn( targ, attacker ) )	// coop: friendly fire pushes like a real hit
 	{//player doesn't do knockback against allies unless he kills them
 		dflags |= DAMAGE_DEATH_KNOCKBACK;
 	}
@@ -6631,7 +6656,11 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 				//1) player doesn't take damage from teammates unless they're angry at him
 				if ( G_CoopIsPlayer( targ ) )
 				{//the player
-					if ( attacker->enemy != targ && attacker != targ )
+					if ( G_CoopFriendlyFireOn( targ, attacker ) )
+					{// coop: a teammate really is shooting at us (g_coopFriendlyFire)
+						yellAtAttacker = qfalse;
+					}
+					else if ( attacker->enemy != targ && attacker != targ )
 					{//an NPC shot the player by accident
 						takeDamage = qfalse;
 					}
