@@ -3975,8 +3975,11 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 		//player killing a jedi with a lightsaber spawns a matrix-effect entity
 		if ( d_slowmodeath->integer )
 		{
-			if ( G_CoopIsPlayer( self ) )
+			if ( G_CoopIsPlayer( self ) && !G_CoopLivingTeammate( self ) && !G_CoopDownedActive() )
 			{//what the hell, always do slow-mo when player dies
+				// coop: only for a real mission failure (the last one standing). A death
+				// that ends in a respawn must not spin everyone's camera around the body
+				// nor slow the whole game down (10 s at 0.25 for a fall into a pit)
 				//FIXME: don't do this when crushed to death?
 				if ( meansOfDeath == MOD_FALLING && self->client->ps.groundEntityNum == ENTITYNUM_NONE )
 				{//falling to death, have not hit yet
