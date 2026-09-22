@@ -164,7 +164,7 @@ static void UI_CoopSendForce( const playerState_t *ps )
 }
 
 // coop: one cvar the lobby menu can test. Host: "host" (waiting in the lobby),
-// "hostwait" (a joiner still downloads our skins) or "hoststart" (NOUVELLE
+// "hostwait" (a joiner still downloads our skins, or sends us its own) or "hoststart" (NOUVELLE
 // PARTIE pressed, joiners create their characters); joiner: "dl" (fetching the
 // host's skins), the ready flag "0"/"1", or during the start "char" (character
 // to create) / "chardone" (validated, waiting for the others). Refreshed every
@@ -183,8 +183,8 @@ static void UI_CoopLobbyState( void )
 	else
 	{
 		const char *dl = Cvar_VariableString( "cl_coopTransferState" );
-		if ( !Q_stricmp( dl, "list" ) || !Q_stricmp( dl, "downloading" ) )
-		{
+		if ( !Q_stricmp( dl, "list" ) || !Q_stricmp( dl, "downloading" ) || !Q_stricmp( dl, "uploading" ) )
+		{	// coop: "uploading" = our own mods going up to the host, same panel
 			Cvar_Set( "ui_coopLobbyState", "dl" );
 		}
 		else

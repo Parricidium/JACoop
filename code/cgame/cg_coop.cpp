@@ -186,6 +186,8 @@ static int CG_CoopSplitSpec( char *spec, const char **fields, int maxFields )
 	return n;
 }
 
+extern void WP_SaberLoadParms( void );
+
 static void CG_CoopSetupSaber( gentity_t *gent, int saberNum, const char *saberName, const char *colors )
 {
 	saberInfo_t *saber = &gent->client->ps.saber[saberNum];
@@ -194,10 +196,11 @@ static void CG_CoopSetupSaber( gentity_t *gent, int saberNum, const char *saberN
 	{
 		return;
 	}
-	WP_SaberParseParms( saberName, saber );
+	const qboolean known = WP_SaberParseParms( saberName, saber );
 	if ( cg_developer.integer )
-	{
-		Com_Printf( "coop: ent %i saber%i '%s' colours '%s'\n", gent->s.number, saberNum + 1, saberName, colors );
+	{	// the hilt may come from a pack we downloaded: say whether we know it now
+		Com_Printf( "coop: ent %i saber%i '%s'%s model '%s' colours '%s'\n", gent->s.number, saberNum + 1, saberName,
+			known ? "" : " (INCONNU)", saber->model ? saber->model : "", colors );
 	}
 	// blade colours, comma separated, in blade order
 	int blade = 0;
@@ -1491,7 +1494,13 @@ static void CG_CoopRegisterTablesAgain( void )
 	}
 }
 
-static void CG_CoopCheckPaksGen( void )
+// called every frame on the host as well as on the joiners: the host loads a
+// pack when a joiner finishes pushing its own mod up (sv_coop_transfer.cpp),
+// and its cgs.skins[] / cgs.model_draw[] tables hold the 0 of the failed
+// registration exactly like a joiner's do after a download. On the host
+// coopChar[] is empty (the game module builds the characters and
+// G_CoopCheckPaksGen builds them again), so only the tables are refreshed.
+void CG_CoopCheckPaksGen( void )
 {
 	if ( coopPaksGenSeen == cg_coopPaksGen.integer )
 	{
@@ -1500,6 +1509,10 @@ static void CG_CoopCheckPaksGen( void )
 	if ( coopPaksGenSeen != -1 )
 	{
 		int n = 0;
+		// same as on the host: the .sab files of a pack that just arrived have
+		// never been parsed, so re-read them before rebuilding the characters
+		// (CG_CoopSetupSaber calls WP_SaberParseParms on that very list)
+		WP_SaberLoadParms();
 		CG_CoopRegisterTablesAgain();
 		for ( int i = 0; i < MAX_GENTITIES; i++ )
 		{
@@ -1586,8 +1599,6 @@ void CG_CoopSyncCamera( void )
 	{
 		return;
 	}
-	CG_CoopCheckPaksGen();
-
 	centity_t *cam = NULL;
 	for ( int i = 0; i < cg.snap->numEntities; i++ )
 	{

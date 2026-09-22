@@ -859,6 +859,12 @@ static int CL_CoopLobbyRows( char rows[MAX_CLIENTS][96] ) {
 			state = "   -  verification des skins...";
 		} else if ( dl[0] >= '0' && dl[0] <= '9' ) {
 			state = va( "   -  telechargement %i%%", atoi( dl ) );
+		} else if ( !Q_stricmp( dl, "ulist" ) ) {
+			state = "   -  verification de ses mods...";
+		} else if ( dl[0] == 'u' && dl[1] >= '0' && dl[1] <= '9' ) {
+			state = va( "   -  envoi de ses mods %i%%", atoi( dl + 1 ) );
+		} else if ( !Q_stricmp( dl, "uerr" ) ) {
+			state = ready == 1 ? "   -  pret (echec de l'envoi de ses mods)" : "   -  echec de l'envoi de ses mods";
 		} else if ( !Q_stricmp( dl, "err" ) ) {
 			state = ready == 1 ? "   -  pret (echec du telechargement)" : "   -  echec du telechargement";
 		} else {

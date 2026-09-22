@@ -54,12 +54,14 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define COOP_DL_RESEND_MS	300		// resend the unacknowledged window after this silence
 #define COOP_DL_TIMEOUT_MS	30000	// give up on a client that stops acknowledging
 #define COOP_DL_LIST_CHUNK	900		// chars per coopdl_list command (SV_SendServerCommand caps at 1022)
+#define COOP_UP_TIMEOUT_MS	30000	// ms without a block from a joiner sending us its mods
 
 cvar_t	*sv_coopTransfer;			// offer and serve the packs
 cvar_t	*sv_coopTransferRate;		// KB/s per joiner off the LAN (0 = unlimited)
 cvar_t	*sv_coopTransferRateLan;	// KB/s per joiner on the LAN (0 = unlimited)
 cvar_t	*sv_coopTransferMsgKB;		// KB of blocks per message (0 = 12 on the LAN, 8 elsewhere)
 cvar_t	*sv_coopTransferMaxMB;		// a bigger pk3 is not offered
+cvar_t	*sv_coopUploadMaxMB;		// accepted in all from one joiner's own mods (0 = refuse uploads)
 cvar_t	*sv_coopTransferPending;	// ROM: joiners still listed / downloading (read by the host's lobby menu)
 
 static coopPakInfo_t	sv_coopOffer[MAX_COOP_OFFER];
@@ -75,7 +77,21 @@ void SV_CoopTransferInit( void ) {
 	sv_coopTransferRate = Cvar_Get( "sv_coopTransferRate", "512", CVAR_ARCHIVE );
 	sv_coopTransferRateLan = Cvar_Get( "sv_coopTransferRateLan", "0", CVAR_ARCHIVE );
 	sv_coopTransferMsgKB = Cvar_Get( "sv_coopTransferMsgKB", "0", 0 );
-	sv_coopTransferMaxMB = Cvar_Get( "sv_coopTransferMaxMB", "100", CVAR_ARCHIVE );
+	sv_coopTransferMaxMB = Cvar_Get( "sv_coopTransferMaxMB", "300", CVAR_ARCHIVE );
+	// The first releases capped a pack at 100 Mo and the value is archived, so a
+	// host that already played once would keep refusing the big hilt packs (the
+	// JKHub collections are 200 Mo and more) even after this default went up.
+	// Raise that exact old default ONCE (the marker cvar is archived too), so a
+	// host that really wants 100 only has to set it again after this one time.
+	if ( !Cvar_VariableIntegerValue( "sv_coopTransferMaxMB2" ) ) {
+		Cvar_Get( "sv_coopTransferMaxMB2", "1", CVAR_ARCHIVE );
+		Cvar_Set( "sv_coopTransferMaxMB2", "1" );
+		if ( sv_coopTransferMaxMB->integer == 100 ) {
+			Cvar_Set( "sv_coopTransferMaxMB", "300" );
+			Com_Printf( "coop: sv_coopTransferMaxMB passe de 100 a 300 Mo (ancienne limite par defaut)\n" );
+		}
+	}
+	sv_coopUploadMaxMB = Cvar_Get( "sv_coopUploadMaxMB", "100", CVAR_ARCHIVE );
 	sv_coopTransferPending = Cvar_Get( "sv_coopTransferPending", "0", CVAR_ROM );
 }
 
@@ -114,6 +130,14 @@ void SV_CoopTransferTagUserinfo( client_t *cl ) {
 	case CDL_FAILED:	v = "err"; break;
 	default:			break;
 	}
+	// coop: the joiner uploads its own mods after its download; 'u' + percentage
+	// so the lobby tells the two apart (and still counts it as busy)
+	switch ( cl->coopup.state ) {
+	case CUL_LISTED:	v = "ulist"; break;
+	case CUL_RECEIVING:	v = va( "u%i", cl->coopup.lastPct ); break;
+	case CUL_FAILED:	v = "uerr"; break;
+	default:			break;
+	}
 	Info_SetValueForKey( cl->userinfo, "coop_dl", v );	// an empty value removes the key
 }
 
@@ -135,6 +159,13 @@ void SV_CoopTransferClose( client_t *cl ) {
 	SV_CoopCloseFile( cl );
 	memset( &cl->coopdl, 0, sizeof( cl->coopdl ) );
 	cl->coopdl.state = CDL_NONE;
+}
+
+// coop: the joiner -> host half, dropped the same way (SV_DropClient, shutdown)
+void SV_CoopUploadReset( client_t *cl ) {
+	SV_CoopUploadClose( cl, qtrue );
+	memset( &cl->coopup, 0, sizeof( cl->coopup ) );
+	cl->coopup.state = CUL_NONE;
 }
 
 static void SV_CoopSetState( client_t *cl, coopDownloadState_t state ) {
@@ -572,6 +603,38 @@ void SV_CoopTransferFrame( void ) {
 		}
 		pending++;
 	}
+	// coop: the other direction - a joiner pushing its own mods counts as busy too,
+	// the host must not be able to start the game while a file is still in flight
+	for ( i = 0; i < MAX_CLIENTS; i++ ) {
+		client_t *cl = &svs.clients[i];
+		coopUpload_t *up = &cl->coopup;
+
+		if ( cl->state < CS_CONNECTED ) {
+			continue;
+		}
+		if ( up->state != CUL_LISTED && up->state != CUL_RECEIVING ) {
+			continue;
+		}
+		if ( up->state == CUL_RECEIVING && now - up->lastBlockTime > COOP_UP_TIMEOUT_MS ) {
+			Com_Printf( "coop: envoi de %s interrompu (timeout)\n", cl->name );
+			SV_CoopUploadClose( cl, qtrue );
+			cl->coopup.state = CUL_FAILED;
+			SV_CoopTransferTagUserinfo( cl );
+			continue;
+		}
+		if ( up->state == CUL_RECEIVING && up->totalBytes > 0 ) {
+			int pct = (int)( (float)up->doneBytes * 100.0f / (float)up->totalBytes );
+
+			if ( pct > 99 ) {
+				pct = 99;
+			}
+			if ( pct / 5 != up->lastPct / 5 ) {
+				up->lastPct = pct;
+				SV_CoopTransferTagUserinfo( cl );
+			}
+		}
+		pending++;
+	}
 	if ( sv_coopTransferPending->integer != pending ) {
 		Cvar_Set( "sv_coopTransferPending", va( "%i", pending ) );
 	}
@@ -590,6 +653,7 @@ void SV_CoopTransferShutdown( void ) {
 	if ( svs.clients ) {
 		for ( i = 0; i < MAX_CLIENTS; i++ ) {
 			SV_CoopTransferClose( &svs.clients[i] );
+			SV_CoopUploadReset( &svs.clients[i] );
 		}
 	}
 	if ( sv_coopTransferPending ) {
@@ -614,4 +678,363 @@ qboolean SV_CoopTransferBlocksMapChange( const char *what ) {
 	}
 	Com_Printf( S_COLOR_YELLOW "coop: transfert de skins en cours vers %i joueur(s), attends la fin avant '%s' (ou sv_coopTransfer 0)\n", sv_coopTransferPending->integer, what );
 	return qtrue;
+}
+
+/*
+=============================================================================
+
+coop: the other direction - a joiner's own mods reach the host
+
+The host cannot download from a joiner the way the joiner downloads from it:
+the server talks first in this engine, and a client has no svc_download of its
+own. So a joiner pushes its packs inside its ordinary command packets, with a
+new opcode (clc_coopUpload), and we drive the flow with reliable commands the
+same way the download does, only mirrored:
+
+  client -> server, reliable:  coopup_list <chunk> <total> <sum>:<size>:<name> ...
+                               coopup_done | coopup_fail <code>
+  server -> client, reliable:  coopup_want <n> <sum1> ... <sumn>   ("coopup_want 0" = nothing)
+                               coopup_ack <file> <block>           (cumulative)
+                               coopup_err <text>
+  client -> server, binary:    [byte clc_coopUpload][short block]
+                               (block 0: [long size][string "<sum>:<name>"]) [short len][len bytes]
+
+A client packet has to stay under MAX_PACKETLEN, so the blocks are COOP_UP_BLK
+(768 B) and one or two fit per packet: ~15-25 KB/s per joiner, which is what a
+skin pack needs and no more.
+
+What arrives is never trusted: the file name is OURS (checksum + sanitized base
+name, FS_CoopOpenUpload), the size must match what was announced, and the pack
+goes through the same checksum and content whitelist as a download before it is
+inserted in the search path (FS_CoopFinishUpload -> FS_CoopAddPak). It lands as
+coopup_<sum>_<name>.pk3, a name FS_CoopPakOfferable does NOT skip, so the next
+joiner that says coopdl_hello is offered it in turn and everybody ends up with
+everybody's mods. Those files are deleted at quit and at startup like the
+downloaded ones (FS_CoopPurgeDownloads).
+=============================================================================
+*/
+
+static void SV_CoopUploadTagState( client_t *cl );
+extern void CL_CoopCheckPaksGen( void );	// client/cl_coop_transfer.cpp: drop the renderer's failed lookups
+
+/*
+==================
+SV_CoopUploadClose
+
+Drop the file in flight (disconnect, failure, end of transfer).
+==================
+*/
+void SV_CoopUploadClose( client_t *cl, qboolean removeTmp ) {
+	if ( cl->coopup.file ) {
+		FS_FCloseFile( cl->coopup.file );
+		cl->coopup.file = 0;
+	}
+	if ( removeTmp && cl->coopup.relTmp[0] ) {
+		FS_CoopRemoveFile( cl->coopup.relTmp );
+	}
+	cl->coopup.relTmp[0] = '\0';
+}
+
+static void SV_CoopUploadSetState( client_t *cl, coopUploadState_t state ) {
+	SV_CoopUploadClose( cl, (qboolean)( state != CUL_DONE ) );
+	cl->coopup.state = state;
+	SV_CoopUploadTagState( cl );
+}
+
+static void SV_CoopUploadFail( client_t *cl, const char *why ) {
+	Com_Printf( "coop: envoi de %s refuse (%s)\n", cl->name, why );
+	SV_SendServerCommand( cl, "coopup_err %s", why );
+	SV_CoopUploadSetState( cl, CUL_FAILED );
+}
+
+// the userinfo tag is shared with the download (one transfer at a time per
+// joiner: it downloads first, then it uploads), see SV_CoopTransferTagUserinfo
+static void SV_CoopUploadTagState( client_t *cl ) {
+	SV_CoopTransferTagUserinfo( cl );
+}
+
+/*
+==================
+SV_CoopUpList_f
+
+"coopup_list <chunk> <total> <sum>:<size>:<name> ...": what the joiner offers.
+When the last chunk is in we answer "coopup_want" with the checksums we do not
+have, within sv_coopUploadMaxMB.
+==================
+*/
+void SV_CoopUpList_f( client_t *cl ) {
+	coopUpload_t *up = &cl->coopup;
+	char cmd[MAX_STRING_CHARS];
+	int chunk, total, i;
+
+	if ( up->state == CUL_RECEIVING || up->state == CUL_DONE ) {
+		return;	// a late chunk of an announce we already answered
+	}
+	if ( !sv_coopTransfer->integer || sv_coopUploadMaxMB->integer <= 0 ) {
+		SV_SendServerCommand( cl, "coopup_want 0" );
+		return;
+	}
+	chunk = atoi( Cmd_Argv( 1 ) );
+	total = atoi( Cmd_Argv( 2 ) );
+	if ( chunk <= 0 || total <= 0 ) {
+		SV_SendServerCommand( cl, "coopup_want 0" );
+		return;
+	}
+	if ( total > MAX_COOP_OFFER ) {
+		total = MAX_COOP_OFFER;
+	}
+	if ( up->state != CUL_LISTED ) {
+		memset( up, 0, sizeof( *up ) );
+		up->state = CUL_LISTED;
+	}
+	up->listTotal = total;
+	for ( i = 3; i < Cmd_Argc() && up->offerCount < total; i++ ) {
+		// <sum>:<size>:<name>
+		char entry[MAX_QPATH * 2], *sizeStr, *nameStr;
+		coopPakInfo_t *info;
+		int j;
+
+		Q_strncpyz( entry, Cmd_Argv( i ), sizeof( entry ) );
+		sizeStr = strchr( entry, ':' );
+		if ( !sizeStr ) {
+			continue;
+		}
+		*sizeStr++ = '\0';
+		nameStr = strchr( sizeStr, ':' );
+		if ( !nameStr ) {
+			continue;
+		}
+		*nameStr++ = '\0';
+		info = &up->offer[up->offerCount];
+		info->checksum = (int)strtoul( entry, NULL, 16 );
+		info->size = atoi( sizeStr );
+		FS_CoopSanitizeName( nameStr, info->name, sizeof( info->name ) );
+		if ( info->size <= 0 ) {
+			continue;
+		}
+		for ( j = 0; j < up->offerCount; j++ ) {
+			if ( up->offer[j].checksum == info->checksum ) {
+				break;
+			}
+		}
+		if ( j < up->offerCount ) {
+			continue;
+		}
+		up->offerCount++;
+		up->listGot++;
+	}
+	if ( up->listGot < up->listTotal ) {
+		return;	// more chunks coming
+	}
+
+	// pick what we lack
+	up->wantCount = 0;
+	up->totalBytes = up->doneBytes = 0;
+	for ( i = 0; i < up->offerCount; i++ ) {
+		if ( FS_CoopHavePak( up->offer[i].checksum ) ) {
+			continue;
+		}
+		if ( up->offer[i].size > sv_coopUploadMaxMB->integer * 1024 * 1024
+			|| up->totalBytes + up->offer[i].size > sv_coopUploadMaxMB->integer * 1024 * 1024 ) {
+			Com_Printf( S_COLOR_YELLOW "coop: %s de %s refuse (%.1f Mo, plus que sv_coopUploadMaxMB)\n",
+				up->offer[i].name, cl->name, up->offer[i].size / ( 1024.0f * 1024.0f ) );
+			continue;
+		}
+		up->want[up->wantCount++] = up->offer[i].checksum;
+		up->totalBytes += up->offer[i].size;
+	}
+	Com_sprintf( cmd, sizeof( cmd ), "coopup_want %i", up->wantCount );
+	for ( i = 0; i < up->wantCount; i++ ) {
+		Q_strcat( cmd, sizeof( cmd ), va( " %08x", up->want[i] ) );
+	}
+	SV_SendServerCommand( cl, "%s", cmd );
+	if ( !up->wantCount ) {
+		Com_Printf( "coop: %s n'a pas de mod que nous n'ayons deja (%i annonce(s))\n", cl->name, up->offerCount );
+		SV_CoopUploadSetState( cl, CUL_DONE );
+		return;
+	}
+	Com_Printf( "coop: %s va nous envoyer %i pk3 (%.1f Mo)\n", cl->name, up->wantCount, up->totalBytes / ( 1024.0f * 1024.0f ) );
+	up->wantIndex = 0;
+	up->curBlock = 0;
+	up->lastPct = 0;
+	up->lastBlockTime = Sys_Milliseconds();
+	up->state = CUL_RECEIVING;
+	SV_CoopUploadTagState( cl );
+}
+
+// the announced entry of a checksum, or NULL
+static const coopPakInfo_t *SV_CoopUpOffer( client_t *cl, int sum ) {
+	int i;
+
+	for ( i = 0; i < cl->coopup.offerCount; i++ ) {
+		if ( cl->coopup.offer[i].checksum == sum ) {
+			return &cl->coopup.offer[i];
+		}
+	}
+	return NULL;
+}
+
+/*
+==================
+SV_CoopUploadRead
+
+One clc_coopUpload block out of a client packet. The bytes are always read (the
+message has to stay in sync) even when the state says we want nothing.
+==================
+*/
+void SV_CoopUploadRead( client_t *cl, msg_t *msg ) {
+	static byte data[COOP_UP_BLK];
+	coopUpload_t *up = &cl->coopup;
+	char header[MAX_STRING_CHARS];
+	int block, size = -1, len;
+
+	block = MSG_ReadShort( msg );
+	header[0] = '\0';
+	if ( block == 0 ) {
+		size = MSG_ReadLong( msg );
+		Q_strncpyz( header, MSG_ReadString( msg ), sizeof( header ) );
+	}
+	len = MSG_ReadShort( msg );
+	if ( len < 0 || len > COOP_UP_BLK ) {
+		SV_DropClient( cl, "bloc coopup invalide" );
+		return;
+	}
+	MSG_ReadData( msg, data, len );
+
+	if ( up->state != CUL_RECEIVING ) {
+		return;
+	}
+	up->ackPending = qtrue;
+
+	if ( block == 0 && !up->file && up->curBlock == 0 ) {
+		// first block of the next file
+		const coopPakInfo_t *info;
+		char *name = strchr( header, ':' );
+		int sum;
+
+		if ( !name ) {
+			return;
+		}
+		*name++ = '\0';
+		sum = (int)strtoul( header, NULL, 16 );
+		if ( up->wantIndex >= up->wantCount || sum != up->want[up->wantIndex] ) {
+			return;	// a late retransmit of the previous file
+		}
+		info = SV_CoopUpOffer( cl, sum );
+		if ( !info || size != info->size ) {
+			SV_CoopUploadFail( cl, "taille annoncee incoherente" );
+			return;
+		}
+		up->curSum = sum;
+		up->curSize = size;
+		up->curCount = 0;
+		Q_strncpyz( up->curName, info->name, sizeof( up->curName ) );
+		// the name is ours: checksum + the sanitized announced name, never a path from the client
+		up->file = FS_CoopOpenUpload( sum, info->name, up->relTmp, sizeof( up->relTmp ) );
+		if ( !up->file ) {
+			SV_CoopUploadFail( cl, "ecriture impossible" );
+			return;
+		}
+		Com_Printf( "coop: reception de %s depuis %s (%.1f Mo)\n", up->curName, cl->name, size / ( 1024.0f * 1024.0f ) );
+	}
+	if ( !up->file ) {
+		return;	// blocks of a file whose block 0 we have not seen
+	}
+	if ( ( up->curBlock & 0xffff ) != block ) {
+		return;	// duplicate or gap; our ack says where we are
+	}
+	if ( len ) {
+		if ( up->curCount + len > up->curSize ) {
+			SV_CoopUploadFail( cl, "plus d'octets qu'annonce" );
+			return;
+		}
+		if ( FS_Write( data, len, up->file ) != len ) {
+			SV_CoopUploadFail( cl, "ecriture impossible" );
+			return;
+		}
+		up->curCount += len;
+		up->doneBytes += len;
+	}
+	up->curBlock++;
+	up->lastBlockTime = Sys_Milliseconds();
+
+	if ( !len ) {
+		// EOF block: close, verify, rename, load, and tell the client at once
+		char why[256];
+		char relTmp[MAX_OSPATH];
+
+		up->ackPending = qfalse;
+		SV_SendServerCommand( cl, "coopup_ack %i %i", up->wantIndex, up->curBlock - 1 );
+		FS_FCloseFile( up->file );
+		up->file = 0;
+		Q_strncpyz( relTmp, up->relTmp, sizeof( relTmp ) );
+		up->relTmp[0] = '\0';
+		if ( up->curCount != up->curSize ) {
+			FS_CoopRemoveFile( relTmp );
+			SV_CoopUploadFail( cl, "fichier incomplet" );
+			return;
+		}
+		if ( !FS_CoopFinishUpload( relTmp, up->curSum, up->curName, why, sizeof( why ) ) ) {
+			SV_CoopUploadFail( cl, why );
+			return;
+		}
+		up->receivedFiles++;
+		up->wantIndex++;
+		up->curBlock = 0;
+		Com_Printf( "coop: %s recu de %s et charge\n", up->curName, cl->name );
+		// Order matters and the packet that carried this block may be read in any
+		// part of the frame: make the renderer forget the models and skins it
+		// failed to find NOW, before the game module sees the generation change
+		// and builds the characters again (it would hit the cached MOD_BAD and
+		// fall back to the stormtrooper a second time).
+		CL_CoopCheckPaksGen();
+		// the pack is in the search path now (cl_coopPaksGen bumped): our own
+		// renderer forgets its failed lookups and the cgame rebuilds the
+		// characters through CL_CoopCheckPaksGen / CG_CoopCheckPaksGen, and the
+		// next joiner is offered the file in turn (coopup_ names are offerable)
+		if ( up->wantIndex >= up->wantCount ) {
+			Com_Printf( "coop: mods de %s recus (%i fichier(s), %.1f Mo)\n", cl->name, up->receivedFiles, up->totalBytes / ( 1024.0f * 1024.0f ) );
+			SV_CoopUploadSetState( cl, CUL_DONE );
+		}
+	}
+}
+
+/*
+==================
+SV_CoopUploadEndOfMessage
+
+End of a client packet that carried blocks: one cumulative ack for the lot.
+==================
+*/
+void SV_CoopUploadEndOfMessage( client_t *cl ) {
+	coopUpload_t *up = &cl->coopup;
+
+	if ( !up->ackPending ) {
+		return;
+	}
+	up->ackPending = qfalse;
+	if ( up->state != CUL_RECEIVING ) {
+		return;
+	}
+	SV_SendServerCommand( cl, "coopup_ack %i %i", up->wantIndex, up->curBlock - 1 );
+}
+
+/*
+==================
+SV_CoopUpDone_f / SV_CoopUpFail_f
+==================
+*/
+void SV_CoopUpDone_f( client_t *cl ) {
+	if ( cl->coopup.state != CUL_RECEIVING && cl->coopup.state != CUL_LISTED ) {
+		return;
+	}
+	SV_CoopUploadSetState( cl, CUL_DONE );
+}
+
+void SV_CoopUpFail_f( client_t *cl ) {
+	if ( cl->coopup.state != CUL_RECEIVING && cl->coopup.state != CUL_LISTED ) {
+		return;
+	}
+	Com_Printf( "coop: %s a abandonne l'envoi de ses mods (%s)\n", cl->name, Cmd_Argv( 1 ) );
+	SV_CoopUploadSetState( cl, CUL_FAILED );
 }

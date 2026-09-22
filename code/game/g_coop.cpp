@@ -1337,6 +1337,7 @@ cvar_t	*g_coopReviveRange;
 cvar_t	*g_coopReviveHealth;
 cvar_t	*g_coopRespawnDelay;
 cvar_t	*g_coopAllDownAuto;
+cvar_t	*g_coopPaksGen;		// coop: the engine bumps it when a pk3 enters the search path at runtime
 extern cvar_t	*g_coopFriendlyFire;
 
 void G_CoopInitDownedCvars( void )
@@ -1348,6 +1349,7 @@ void G_CoopInitDownedCvars( void )
 	g_coopReviveHealth = gi.cvar( "g_coopReviveHealth", "40", CVAR_ARCHIVE );
 	g_coopRespawnDelay = gi.cvar( "g_coopRespawnDelay", "10", CVAR_ARCHIVE );
 	g_coopAllDownAuto = gi.cvar( "g_coopAllDownAuto", "20", CVAR_ARCHIVE );
+	g_coopPaksGen = gi.cvar( "cl_coopPaksGen", "0", CVAR_ROM );
 	// serverinfo: a joiner can read what the host decided
 	g_coopFriendlyFire = gi.cvar( "g_coopFriendlyFire", "1", CVAR_ARCHIVE|CVAR_SERVERINFO );
 }
@@ -1983,6 +1985,55 @@ const char *G_CoopPlayerVar( const gentity_t *ent, const char *key, const cvar_t
 
 // Rebuild a joiner's model/sabers when the character keys in its userinfo change
 // after it spawned (the flags may only reach the client after connect).
+/*
+================
+G_CoopCheckPaksGen
+
+The engine bumps cl_coopPaksGen every time a pk3 enters the search path while
+the game runs. On a joiner that is a pack downloaded from the host; on the HOST
+it is a pack a joiner pushed up (its own character or hilt mod,
+sv_coop_transfer.cpp). Every character that was built while those files were
+missing is a stormtrooper with a default hilt - G_SetG2PlayerModel fell back
+when the model failed to load, and G_CoopRecordModel wrote the fallback into
+the spec the joiners read. So build them all again now that the files are
+there, which republishes the spec and costs nothing when nothing changed.
+The joiners do the same on their side (CG_CoopCheckPaksGen).
+================
+*/
+extern void WP_SaberLoadParms( void );
+
+void G_CoopCheckPaksGen( void )
+{
+	static int	seen = -1;
+	const int	gen = g_coopPaksGen ? g_coopPaksGen->integer : 0;
+
+	if ( seen == gen )
+	{
+		return;
+	}
+	if ( seen == -1 )
+	{	// first look of this map: everything was built with what is loaded now
+		seen = gen;
+		return;
+	}
+	seen = gen;
+	// the hilt definitions are read once at InitGame into SaberParms; a pack that
+	// arrives now carries ext_data/sabers/*.sab nobody has parsed yet, so the
+	// hilt a player picked from it would fall back to the default one
+	WP_SaberLoadParms();
+	int n = 0;
+	for ( int i = 0; i < MAX_CLIENTS; i++ )
+	{
+		gentity_t *ent = G_CoopPlayerSlot( i );
+		if ( ent && ent->inuse && ent->client && ent->health > 0 && ent->client->pers.connected == CON_CONNECTED )
+		{
+			G_InitPlayerFromCvars( ent );
+			n++;
+		}
+	}
+	gi.Printf( "coop: pk3 list changed (gen %i), %i player(s) rebuilt by the game\n", gen, n );
+}
+
 void G_CoopCheckCharacterChange( gentity_t *ent )
 {
 	static char	lastKeys[MAX_CLIENTS][MAX_INFO_STRING];

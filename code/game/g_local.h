@@ -479,6 +479,7 @@ int G_CoopEndLevelReadyState( int slot );
 void G_CoopLobbyInit( void );
 void G_CoopLobbyClientBegin( const gentity_t *ent );
 void G_CoopLobbyFrame( void );
+void G_CoopCheckPaksGen( void );
 qboolean G_CoopIsLobby( void );
 qboolean G_CoopLobbySkipEntity( const gentity_t *ent );
 void G_CoopStoreState( gentity_t *ent );

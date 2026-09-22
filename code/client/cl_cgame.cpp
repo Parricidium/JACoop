@@ -792,8 +792,8 @@ qboolean CL_GetServerCommand( int serverCommandNumber ) {
 		Com_Error (ERR_DISCONNECT,"Server disconnected\n");
 	}
 
-	if ( !Q_strncmp( cmd, "coopdl_", 7 ) ) {
-		return qfalse;	// coop: pk3 transfer, handled by the engine when it arrived (cl_coop_transfer.cpp)
+	if ( !Q_strncmp( cmd, "coopdl_", 7 ) || !Q_strncmp( cmd, "coopup_", 7 ) ) {
+		return qfalse;	// coop: pk3 transfer, both directions, handled by the engine when it arrived (cl_coop_transfer.cpp)
 	}
 
 	if ( !strcmp( cmd, "cs" ) ) {

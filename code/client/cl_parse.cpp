@@ -523,7 +523,7 @@ void CL_ParseCommandString( msg_t *msg ) {
 		while ( *cmd && *(const unsigned char *)cmd <= ' ' ) {
 			cmd++;
 		}
-		if ( !Q_strncmp( cmd, "coopdl_", 7 ) ) {
+		if ( !Q_strncmp( cmd, "coopdl_", 7 ) || !Q_strncmp( cmd, "coopup_", 7 ) ) {
 			CL_CoopTransferServerCommand( cmd );
 		}
 		// "vid" alone = the host's in-game video is over (it may have skipped it): ours ends now,

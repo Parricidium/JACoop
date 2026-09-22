@@ -234,7 +234,8 @@ enum clc_ops_e {
 	clc_bad,
 	clc_nop,
 	clc_move,				// [[usercmd_t]
-	clc_clientCommand		// [string] message
+	clc_clientCommand,		// [string] message
+	clc_coopUpload			// coop: [short block] (block 0: [long size][string "<sum>:<name>"]) [short len][len bytes]
 };
 
 /*
@@ -573,6 +574,14 @@ qboolean FS_WriteToTemporaryFile( const void *data, size_t dataLength, char **te
 #define COOP_DL_NAME_LEN		48		// sanitized pk3 name (with .pk3)
 #define MAX_COOP_OFFER			64		// pk3s a host can offer
 #define COOP_DL_PREFIX			"coopdl_"
+// coop: the other way round (joiner -> host, sv_coop_transfer.cpp / cl_coop_transfer.cpp).
+// A joiner's own mods travel in its command packets (clc_coopUpload); the host writes
+// them as coopup_<checksum>_<name>.pk3, loads them and offers them to the other joiners.
+// Blocks are smaller than the download ones: a client packet must stay well under
+// MAX_PACKETLEN (1400) so the netchan never has to fragment it.
+#define COOP_UP_BLK				768		// bytes per clc_coopUpload block
+#define COOP_UP_WINDOW			32		// blocks in flight
+#define COOP_UP_PREFIX			"coopup_"
 
 typedef struct coopPakInfo_s {
 	char	name[COOP_DL_NAME_LEN];	// "jedi_pack.pk3"
@@ -586,6 +595,8 @@ qboolean	FS_CoopHavePak( int checksum );
 void		FS_CoopSanitizeName( const char *in, char *out, int outSize );
 fileHandle_t FS_CoopOpenDownload( int checksum, const char *name, char *relTmp, int relTmpSize );
 qboolean	FS_CoopFinishDownload( const char *relTmp, int checksum, const char *name, char *why, int whySize );
+fileHandle_t FS_CoopOpenUpload( int checksum, const char *name, char *relTmp, int relTmpSize );
+qboolean	FS_CoopFinishUpload( const char *relTmp, int checksum, const char *name, char *why, int whySize );
 void		FS_CoopUnloadPaks( void );
 void		FS_CoopRemoveFile( const char *relPath );
 void		FS_CoopPurgeDownloads( void );
