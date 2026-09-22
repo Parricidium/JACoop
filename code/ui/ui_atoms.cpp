@@ -281,6 +281,25 @@ qboolean UI_ConsoleCommand( void )
 		return qtrue;
 	}
 
+	if ( Q_stricmp (cmd, "ui_focus") == 0 )
+	{	// coop: which menu answers the keys and the mouse right now
+		Menus_PrintFocus();
+		return qtrue;
+	}
+
+	if ( Q_stricmp (cmd, "ui_click") == 0 )
+	{	// coop: click a named button of the focused menu (hands-off tests)
+		Menus_ClickItem( UI_Argv( 1 ) );
+		return qtrue;
+	}
+
+	if ( Q_stricmp (cmd, "ui_esc") == 0 )
+	{	// coop: the real ESC path, focus and all (hands-off tests)
+		_UI_KeyEvent( A_ESCAPE, qtrue );
+		_UI_KeyEvent( A_ESCAPE, qfalse );
+		return qtrue;
+	}
+
 #ifndef JK2_MODE
 	if ( Q_stricmp (cmd, "ui_load") == 0 )
 	{
