@@ -1452,6 +1452,38 @@ void ClientCommand( int clientNum ) {
 		}
 		return;
 	}
+	if (Q_stricmp (cmd, "coop_hp") == 0)
+	{	// coop dev: "coop_hp" prints, on the host console, every player's health and shield
+		// and every allied NPC's health and enemy - what a friendly fire test needs (cheats)
+		if ( !CheatsOk( ent ) ) return;
+		for ( int i = 0; i < MAX_CLIENTS; i++ )
+		{
+			gentity_t *p = G_CoopPlayerSlot( i );
+			if ( !p )
+			{
+				continue;
+			}
+			gi.Printf( "coop_hp: slot %i %s health %i armor %i pos %i %i %i ang %i %i weap %i%s\n", i, p->client->pers.netname,
+				p->health, p->client->ps.stats[STAT_ARMOR],
+				(int)p->currentOrigin[0], (int)p->currentOrigin[1], (int)p->currentOrigin[2],
+				(int)p->client->ps.viewangles[PITCH], (int)p->client->ps.viewangles[YAW], p->client->ps.weapon,
+				G_CoopIsDowned( p ) ? " DOWNED" : "" );
+			gi.Printf( "coop_hp:      takedamage %i contents %i saber %i invincible %i\n", p->takedamage,
+				p->contents, p->client->ps.SaberActive() ? 1 : 0,
+				p->client->ps.powerups[PW_INVINCIBLE] > level.time ? 1 : 0 );
+		}
+		for ( int i = MAX_CLIENTS; i < globals.num_entities; i++ )
+		{	// allied NPCs: their enemy tells us whether a stray player shot turned them
+			gentity_t *e = &g_entities[i];
+			if ( !e->inuse || !e->client || !e->NPC || e->client->playerTeam != TEAM_PLAYER )
+			{
+				continue;
+			}
+			gi.Printf( "coop_hp: ally %s health %i enemy %i\n", e->NPC_type ? e->NPC_type : e->classname,
+				e->health, e->enemy ? e->enemy->s.number : -1 );
+		}
+		return;
+	}
 	if (Q_stricmp (cmd, "coop_reload") == 0)
 	{	// coop: the host reloads the last checkpoint (everyone-down screen)
 		if ( ent->s.number == 0 )

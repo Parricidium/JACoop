@@ -1337,6 +1337,7 @@ cvar_t	*g_coopReviveRange;
 cvar_t	*g_coopReviveHealth;
 cvar_t	*g_coopRespawnDelay;
 cvar_t	*g_coopAllDownAuto;
+extern cvar_t	*g_coopFriendlyFire;
 
 void G_CoopInitDownedCvars( void )
 {
@@ -1347,6 +1348,73 @@ void G_CoopInitDownedCvars( void )
 	g_coopReviveHealth = gi.cvar( "g_coopReviveHealth", "40", CVAR_ARCHIVE );
 	g_coopRespawnDelay = gi.cvar( "g_coopRespawnDelay", "10", CVAR_ARCHIVE );
 	g_coopAllDownAuto = gi.cvar( "g_coopAllDownAuto", "20", CVAR_ARCHIVE );
+	// serverinfo: a joiner can read what the host decided
+	g_coopFriendlyFire = gi.cvar( "g_coopFriendlyFire", "1", CVAR_ARCHIVE|CVAR_SERVERINFO );
+}
+
+/*
+==============================================================================
+Friendly fire between players (g_coopFriendlyFire)
+
+0 = off. A player's shot does nothing at all to a teammate. Note what the
+    stock ally path did instead: G_Damage drains the armour (CheckArmor) before
+    the TEAM_PLAYER branch decides not to apply the damage, so a teammate's
+    shots emptied the green shield bar and never touched the health.
+1 = on (the default). Full damage: the victim goes down / dies through the
+    normal co-op path (G_CoopTryDown, then the respawn).
+2 = half damage.
+
+Only between two connected players. An NPC ally shooting a player, or a player
+shooting an NPC ally, keeps the stock behaviour (accidental hits are ignored
+and the ally does not turn on you).
+==============================================================================
+*/
+
+cvar_t	*g_coopFriendlyFire;
+
+// percentage of the damage one player does to another, or -1 when this is not
+// a player-versus-player hit at all (nothing to change)
+int G_CoopFriendlyFireScale( const gentity_t *targ, const gentity_t *attacker )
+{
+	if ( !targ || !attacker || targ == attacker
+		|| !G_CoopIsPlayer( targ ) || !G_CoopIsPlayer( attacker ) )
+	{
+		return -1;
+	}
+	if ( G_CoopIsLobby() || !g_coopFriendlyFire )
+	{
+		return 0;	// never in the lobby
+	}
+	switch ( g_coopFriendlyFire->integer )
+	{
+	case 0:		return 0;
+	case 2:		return 50;
+	default:	return 100;
+	}
+}
+
+qboolean G_CoopFriendlyFireOn( const gentity_t *targ, const gentity_t *attacker )
+{
+	return (qboolean)( G_CoopFriendlyFireScale( targ, attacker ) > 0 );
+}
+
+// team kill message, only when a player did it to another player
+void G_CoopAnnounceKill( const gentity_t *victim, const gentity_t *attacker, qboolean downed )
+{
+	if ( !victim || !attacker || victim == attacker
+		|| !G_CoopIsPlayer( victim ) || !G_CoopIsPlayer( attacker ) )
+	{
+		return;
+	}
+	if ( downed )
+	{
+		gi.SendServerCommand( -1, "print \"^1%s ^7a mis a terre ^1%s\n\"", attacker->client->pers.netname, victim->client->pers.netname );
+	}
+	else
+	{
+		gi.SendServerCommand( -1, "print \"^1%s ^7a tue ^1%s\n\"", attacker->client->pers.netname, victim->client->pers.netname );
+	}
+	gi.Printf( "coop: team kill - %s %s %s\n", attacker->client->pers.netname, downed ? "downed" : "killed", victim->client->pers.netname );
 }
 
 // the level goes away (or comes back): nobody is down
@@ -1546,7 +1614,14 @@ qboolean G_CoopTryDown( gentity_t *targ, gentity_t *attacker, int mod, int dflag
 		}
 	}
 
-	gi.SendServerCommand( -1, "print \"^1%s ^7est a terre !\n\"", targ->client->pers.netname );
+	if ( G_CoopIsPlayer( attacker ) && attacker != targ )
+	{	// coop: a teammate did this (g_coopFriendlyFire), say who
+		G_CoopAnnounceKill( targ, attacker, qtrue );
+	}
+	else
+	{
+		gi.SendServerCommand( -1, "print \"^1%s ^7est a terre !\n\"", targ->client->pers.netname );
+	}
 	gi.Printf( "coop: %s downed (mod %i), bleeds out in %i s\n", targ->client->pers.netname, mod, bleed / 1000 );
 	return qtrue;
 }

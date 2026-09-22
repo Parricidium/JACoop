@@ -10760,7 +10760,8 @@ void ForceGrip( gentity_t *self )
 		{//FIXME: maybe can pull them out?
 			return;
 		}
-		if ( self->enemy && traceEnt != self->enemy && traceEnt->client->playerTeam == self->client->playerTeam )
+		if ( self->enemy && traceEnt != self->enemy && traceEnt->client->playerTeam == self->client->playerTeam
+			&& !G_CoopFriendlyFireOn( traceEnt, self ) )	// coop: friendly fire lets you grip a teammate
 		{//can't accidently grip your teammate in combat
 			return;
 		}
@@ -11015,7 +11016,8 @@ void ForceLightningDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, flo
 
 	if ( traceEnt && traceEnt->takedamage )
 	{
-		if ( !traceEnt->client || traceEnt->client->playerTeam != self->client->playerTeam || self->enemy == traceEnt || traceEnt->enemy == self )
+		if ( !traceEnt->client || traceEnt->client->playerTeam != self->client->playerTeam || self->enemy == traceEnt || traceEnt->enemy == self
+			|| G_CoopFriendlyFireOn( traceEnt, self ) )	// coop: friendly fire
 		{//an enemy or object
 			int	dmg;
 			//FIXME: check for client using FP_ABSORB

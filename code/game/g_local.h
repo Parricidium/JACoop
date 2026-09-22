@@ -436,12 +436,15 @@ qboolean G_CoopAnyPlayerUp( void );
 void G_CoopReviveCancel( gentity_t *reviver );
 void G_CoopClearDowned( gentity_t *ent );
 qboolean G_CoopTryDown( gentity_t *targ, gentity_t *attacker, int mod, int dflags );
+int G_CoopFriendlyFireScale( const gentity_t *targ, const gentity_t *attacker );	// -1 = not a player vs player hit
+qboolean G_CoopFriendlyFireOn( const gentity_t *targ, const gentity_t *attacker );
+void G_CoopAnnounceKill( const gentity_t *victim, const gentity_t *attacker, qboolean downed );
 void G_CoopDownedThink( gentity_t *ent, usercmd_t *ucmd );
 void G_CoopDownedFrame( void );
 void G_CoopReloadCheckpoint( void );
 qboolean G_CoopDeferAutosave( void );
 qboolean CanUseInfrontOf( gentity_t *ent );	// g_utils.cpp
-extern cvar_t *g_coopDowned, *g_coopRespawnDelay;
+extern cvar_t *g_coopDowned, *g_coopRespawnDelay, *g_coopFriendlyFire;
 const char *G_CoopPlayerVar( const gentity_t *ent, const char *key, const cvar_t *hostCvar );
 void G_CoopCheckCharacterChange( gentity_t *ent );
 void G_InitPlayerFromCvars( gentity_t *ent );
