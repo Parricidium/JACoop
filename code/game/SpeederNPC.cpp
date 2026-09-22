@@ -825,7 +825,7 @@ void AnimateRiders( Vehicle_t *pVeh )
 		{
 			if (pVeh->m_pPilot->s.number<MAX_CLIENTS)
 			{
-				CG_ChangeWeapon(WP_NONE);
+				G_CoopRiderWeapon( pVeh->m_pPilot, WP_NONE );	// coop: the rider's own client
 			}
 
 			pVeh->m_pPilot->client->ps.weapon = WP_NONE;
@@ -859,13 +859,13 @@ void AnimateRiders( Vehicle_t *pVeh )
 		//--------------------------------------
 #ifndef _JK2MP
 		if (HasWeapon &&
-			(pVeh->m_pPilot->s.number>=MAX_CLIENTS || (cg.weaponSelectTime+500)<cg.time) &&
+			(pVeh->m_pPilot->s.number!=0 || (cg.weaponSelectTime+500)<cg.time) &&	// coop: cg.weaponSelectTime is the host's own timer
 			(Turbo || (pilotPS->weapon==WP_SABER && !pilotPS->SaberActive())))
 		{
 			if (pVeh->m_pPilot->s.number<MAX_CLIENTS)
 			{
 				pVeh->m_pPilot->client->ps.stats[ STAT_WEAPONS ] |= 1;					// Riding means you get WP_NONE
-				CG_ChangeWeapon(WP_NONE);
+				G_CoopRiderWeapon( pVeh->m_pPilot, WP_NONE );	// coop: the rider's own client
 			}
 
 			pVeh->m_pPilot->client->ps.weapon = WP_NONE;

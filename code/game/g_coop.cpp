@@ -26,7 +26,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 // wire. A serverless remote client has none of that, so the host packs each
 // character's appearance into a "model spec" configstring
 //
-//     model;skin;surfOff;surfOn;saber1;colors1;saber2;colors2;class;r,g,b,a
+//     model;skin;surfOff;surfOn;saber1;colors1;saber2;colors2;class;r,g,b,a;vehicle
 //
 // (';' because JA's three-part skins already use '|') registered in
 // CS_COOP_MODELSPECS and referenced from s.modelindex3, which the entity delta
@@ -203,6 +203,8 @@ void G_CoopUpdateAppearance( gentity_t *ent )
 	Q_strcat( spec, sizeof( spec ), va( ";%i", (int)ent->client->NPC_class ) );
 	const byte *rgba = ent->client->renderInfo.customRGBA;
 	Q_strcat( spec, sizeof( spec ), va( ";%i,%i,%i,%i", rgba[0], rgba[1], rgba[2], rgba[3] ) );
+	// vehicles: the .veh name, so the remote cgame can hold a placeholder Vehicle_t (by name: vehicle indices differ per process)
+	Q_strcat( spec, sizeof( spec ), va( ";%s", ( ent->m_pVehicle && ent->m_pVehicle->m_pVehicleInfo && ent->m_pVehicle->m_pVehicleInfo->name ) ? ent->m_pVehicle->m_pVehicleInfo->name : "" ) );
 
 	if ( !strcmp( spec, a->lastSpec ) )
 	{
@@ -687,6 +689,64 @@ void G_CoopFadeInPlayer( gentity_t *ent, int ms )
 	else
 	{
 		gi.SendServerCommand( ent->s.number, "fadein %i", ms );
+	}
+}
+
+/*
+================
+Rider / gunner feedback routed to the right client
+
+Vehicles and emplaced guns switch the rider's view, weapon selection and
+print "press USE to exit" straight into the host's cgame. For a remote
+client the same goes through reliable commands ("tp", "wp", "cp").
+================
+*/
+void G_CoopRiderThirdPerson( gentity_t *rider, qboolean on )
+{
+	if ( !G_CoopIsPlayer( rider ) )
+	{
+		return;
+	}
+	if ( rider->s.number == 0 )
+	{
+		gi.cvar_set( "cg_thirdperson", on ? "1" : "0" );
+	}
+	else
+	{
+		gi.SendServerCommand( rider->s.number, "tp %i", on ? 1 : 0 );
+	}
+}
+
+void G_CoopRiderCenterPrint( gentity_t *rider, const char *str, float yFrac )
+{
+	if ( !G_CoopIsPlayer( rider ) )
+	{
+		return;
+	}
+	if ( rider->s.number == 0 )
+	{
+		CG_CenterPrint( str, SCREEN_HEIGHT * yFrac );
+	}
+	else
+	{
+		gi.SendServerCommand( rider->s.number, "cp %s %g", str, yFrac );
+	}
+}
+
+extern void CG_ChangeWeapon( int num );
+void G_CoopRiderWeapon( gentity_t *rider, int wp )
+{
+	if ( !G_CoopIsPlayer( rider ) )
+	{
+		return;
+	}
+	if ( rider->s.number == 0 )
+	{
+		CG_ChangeWeapon( wp );
+	}
+	else
+	{
+		gi.SendServerCommand( rider->s.number, "wp %i", wp );
 	}
 }
 

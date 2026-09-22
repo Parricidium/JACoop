@@ -726,8 +726,8 @@ bool Board( Vehicle_t *pVeh, bgEntity_t *pEnt )
 #endif
 
 #ifndef _JK2MP
-		gi.cvar_set( "cg_thirdperson", "1" );								//go to third person
-		CG_CenterPrint( "@SP_INGAME_EXIT_VIEW", SCREEN_HEIGHT * 0.86 );		//tell them how to get out!
+		G_CoopRiderThirdPerson( ent, qtrue );								//go to third person (coop: the rider's own client)
+		G_CoopRiderCenterPrint( ent, "@SP_INGAME_EXIT_VIEW", 0.86f );		//tell them how to get out!
 #endif
 
 		//FIXME: rider needs to look in vehicle's direction when he gets in
@@ -813,7 +813,7 @@ bool Board( Vehicle_t *pVeh, bgEntity_t *pEnt )
 		{//switch to weapon none?
 			if (ent->s.number<MAX_CLIENTS)
 			{
-				CG_ChangeWeapon(WP_NONE);
+				G_CoopRiderWeapon( ent, WP_NONE );	// coop: the rider's own client
 			}
 			ent->client->ps.weapon = WP_NONE;
 			G_RemoveWeaponModels( ent );
@@ -1097,7 +1097,7 @@ bool Eject( Vehicle_t *pVeh, bgEntity_t *pEnt, qboolean forceEject )
 #endif
 
 	// If it's the player, stop overrides.
-	if ( ent->s.number < MAX_CLIENTS )
+	if ( ent->s.number == 0 )	// coop: cg.overrides is the host's own cgame state
 	{
 #ifndef _JK2MP
 		cg.overrides.active = 0;

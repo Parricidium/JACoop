@@ -5398,8 +5398,8 @@ extern cvar_t	*g_skippingcin;
 	pm.debugLevel = g_debugMove->integer;
 	pm.noFootsteps = qfalse;//( g_dmflags->integer & DF_NO_FOOTSTEPS ) > 0;
 
-	if ( ent->client && ent->NPC )
-	{
+	if ( ent->client && ( ent->NPC || ( ent->client->ps.eFlags & EF_LOCKED_TO_WEAPON ) ) )
+	{	// coop: a joiner's usercmd still asks for its old weapon while it sits on an emplaced gun; NPCs never change
 		pm.cmd.weapon = ent->client->ps.weapon;
 	}
 

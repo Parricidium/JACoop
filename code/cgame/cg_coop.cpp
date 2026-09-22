@@ -38,6 +38,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "cg_media.h"
 #include "../game/anims.h"
 #include "../game/wp_saber.h"
+#include "../game/g_vehicles.h"
 
 extern qboolean ValidAnimFileIndex( int index );
 extern void G_SetG2PlayerModel( gentity_t * const ent, const char *modelName, const char *customSkin, const char *surfOff, const char *surfOn );
@@ -216,6 +217,38 @@ static void CG_CoopEnsureCharacter( centity_t *cent )
 	gent->inuse = qtrue;
 	gent->client->ps.clientNum = entNum;
 	gent->client->NPC_class = (class_t)atoi( f[8] );
+	// a vehicle: the render code reads its Vehicle_t (muzzle tags, armor low
+	// effect, flying flag) and G_IsRidingVehicle returns it for the rider,
+	// so hold a placeholder with the .veh info, looked up by name
+	if ( gent->client->NPC_class == CLASS_VEHICLE && f[10][0] )
+	{
+		const int vIndex = BG_VehicleGetIndex( f[10] );
+		if ( vIndex > VEHICLE_NONE && vIndex < MAX_VEHICLES )
+		{
+			if ( !gent->m_pVehicle )
+			{
+				gent->m_pVehicle = (Vehicle_t *)G_Alloc( sizeof( Vehicle_t ) );
+			}
+			if ( gent->m_pVehicle )
+			{
+				memset( gent->m_pVehicle, 0, sizeof( Vehicle_t ) );
+				gent->m_pVehicle->m_pParentEntity = gent;
+				gent->m_pVehicle->m_pVehicleInfo = &g_vehicleInfo[vIndex];
+				for ( int i = 0; i < MAX_VEHICLE_MUZZLES; i++ )
+				{
+					gent->m_pVehicle->m_iMuzzleTag[i] = -1;
+				}
+				if ( cg_developer.integer )
+				{
+					Com_Printf( "coop: ent %i vehicle '%s' (index %i)\n", entNum, f[10], vIndex );
+				}
+			}
+		}
+	}
+	else
+	{
+		gent->m_pVehicle = NULL;
+	}
 	// clothing tint (customRGBA is the whole-model colour for the jedi_* player models)
 	{
 		int r = 255, g = 255, b = 255, a = 255;
@@ -429,6 +462,7 @@ void CG_CoopReset( void )
 		gent->playerModel = -1;
 		gent->weaponModel[0] = gent->weaponModel[1] = -1;
 		gent->owner = NULL;
+		gent->m_pVehicle = NULL;
 		gent->inuse = qfalse;
 		if ( gent->client )
 		{
@@ -692,6 +726,16 @@ void CG_CoopSyncCharacter( centity_t *cent )
 	gent->s.eFlags = s->eFlags;
 	gent->client->ps.weapon = s->weapon;
 	gent->client->ps.saberInFlight = s->saberInFlight;
+	// riding: G_IsRidingVehicle reads s.m_iVehicleNum and the camera reads owner (g_vehicles.cpp Board)
+	gent->s.m_iVehicleNum = s->m_iVehicleNum;
+	if ( gent->client->NPC_class != CLASS_VEHICLE )
+	{
+		gent->owner = ( s->m_iVehicleNum > 0 && s->m_iVehicleNum < ENTITYNUM_WORLD ) ? &g_entities[s->m_iVehicleNum] : NULL;
+	}
+	else if ( gent->m_pVehicle )
+	{
+		gent->m_pVehicle->m_iArmor = s->coopHealth;
+	}
 	VectorCopy( cent->lerpOrigin, gent->currentOrigin );
 	VectorCopy( cent->lerpAngles, gent->currentAngles );
 
@@ -1221,6 +1265,7 @@ void CG_CoopFixLocalEntityState( centity_t *cent )
 		cent->currentState.coopHealth = es->coopHealth;
 		cent->currentState.coopMaxHealth = es->coopMaxHealth;
 		cent->currentState.coopLookTarget = es->coopLookTarget;
+		cent->currentState.m_iVehicleNum = es->m_iVehicleNum;
 		return;
 	}
 }
@@ -1238,7 +1283,7 @@ Same screen as the host; it goes away with the host's next level load.
 void CG_CoopSelectWeapon_f( void )
 {
 	const int wp = atoi( CG_Argv( 1 ) );
-	if ( wp <= WP_NONE || wp >= WP_NUM_WEAPONS )
+	if ( wp < WP_NONE || wp >= WP_NUM_WEAPONS )	// WP_NONE: riding a vehicle, dead on an emplaced gun
 	{
 		return;
 	}
@@ -1287,10 +1332,19 @@ void CG_CoopFadeIn_f( void )
 	CG_CoopFadeIn( atoi( CG_Argv( 1 ) ) );
 }
 
-// "tp <0|1>": the host puts us in / out of third person (vehicle, emplaced gun)
+// "tp <1|0|-1>": the host puts us in / out of third person (vehicle, emplaced
+// gun); -1 = back to a gun, first person only if we want it (cg_gunAutoFirst)
 void CG_CoopThirdPerson_f( void )
 {
-	cgi_Cvar_Set( "cg_thirdperson", atoi( CG_Argv( 1 ) ) ? "1" : "0" );
+	const int mode = atoi( CG_Argv( 1 ) );
+	if ( mode > 0 )
+	{
+		cgi_Cvar_Set( "cg_thirdperson", "1" );
+	}
+	else if ( mode == 0 || cg_gunAutoFirst.integer )
+	{
+		cgi_Cvar_Set( "cg_thirdperson", "0" );
+	}
 }
 
 void CG_CoopMissionFailed_f( void )

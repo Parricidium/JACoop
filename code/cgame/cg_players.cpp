@@ -4412,7 +4412,7 @@ static void CG_ForceElectrocution( centity_t *cent, const vec3_t origin, vec3_t 
 
 static void CG_BoltedEffects( centity_t *cent, const vec3_t origin, vec3_t tempAngles )
 {
-	if ( cent->gent && cent->gent->client && cent->gent->client->NPC_class == CLASS_VEHICLE )
+	if ( cent->gent && cent->gent->client && cent->gent->client->NPC_class == CLASS_VEHICLE && cent->gent->m_pVehicle )	// coop: a remote placeholder may have none
 	{
 		Vehicle_t *pVeh = cent->gent->m_pVehicle;
 		gentity_t *parent = cent->gent;
@@ -7640,7 +7640,7 @@ extern vmCvar_t	cg_thirdPersonAlpha;
 					}
 				}
 				// Set the Vehicle Muzzle Point and Direction.
-				else if ( cent->gent && cent->gent->client && cent->gent->client->NPC_class == CLASS_VEHICLE )
+				else if ( cent->gent && cent->gent->client && cent->gent->client->NPC_class == CLASS_VEHICLE && cent->gent->m_pVehicle )	// coop: a remote placeholder may have none
 				{
 					// Get the Position and Direction of the Tag and use that as our Muzzles Properties.
 					mdxaBone_t	boltMatrix;
