@@ -1184,7 +1184,7 @@ static qboolean PM_CheckJump( void )
 				&& pm->ps->groundEntityNum != ENTITYNUM_NONE//not in mid-air
 				&& !(pm->ps->pm_flags&PMF_JUMP_HELD)
 				//&& (float)(level.time-pm->ps->lastStationary) >= (3000.0f*g_timescale->value)//have to have a 3 second running start - relative to force speed slowdown
-				&& (level.time-pm->ps->forcePowerDebounce[FP_SPEED]) <= 250//have to have just started the force speed within the last half second
+				&& (level.time-pm->ps->forcePowerDebounce[FP_SPEED]) <= (G_CoopPersonalTime()?(int)(250.0f/G_CoopTimeScale( pm->ps, qtrue )):250)//have to have just started the force speed within the last half second (coop: real time, the clock is not slowed)
 				&& pm->gent )
 			{//start a force long-jump!
 				vec3_t	jFwdAngs, jFwdVec;
@@ -12843,22 +12843,11 @@ void PM_WeaponLightsaber(void)
 		if ( !addTime )
 		{
 			addTime = weaponData[pm->ps->weapon].fireTime;
-			if ( g_timescale != NULL )
-			{
-				if ( g_timescale->value < 1.0f )
-				{
-					if ( !MatrixMode )
-					{//Special test for Matrix Mode (tm)
-						if ( pm->ps->clientNum == 0 && !player_locked && (pm->ps->forcePowersActive&(1<<FP_SPEED)||pm->ps->forcePowersActive&(1<<FP_RAGE)) )
-						{//player always fires at normal speed
-							addTime *= g_timescale->value;
-						}
-						else if ( g_entities[pm->ps->clientNum].client
-							&& (pm->ps->forcePowersActive&(1<<FP_SPEED)||pm->ps->forcePowersActive&(1<<FP_RAGE)) )
-						{
-							addTime *= g_timescale->value;
-						}
-					}
+			{	// coop: this player's own scale (the world clock is not slowed in co-op)
+				const float ts = G_CoopTimeScale( pm->ps );
+				if ( ts < 1.0f )
+				{//fires at normal speed while the world crawls (SP), 1/ts times faster than a world at normal speed (co-op)
+					addTime *= ts;
 				}
 			}
 		}
@@ -14017,22 +14006,11 @@ static void PM_Weapon( void )
 		}
 	}
 
-	if ( g_timescale != NULL )
-	{
-		if ( g_timescale->value < 1.0f )
-		{
-			if ( !MatrixMode )
-			{//Special test for Matrix Mode (tm)
-				if ( pm->ps->clientNum == 0 && !player_locked && (pm->ps->forcePowersActive&(1<<FP_SPEED)||pm->ps->forcePowersActive&(1<<FP_RAGE)) )
-				{//player always fires at normal speed
-					addTime *= g_timescale->value;
-				}
-				else if ( g_entities[pm->ps->clientNum].client
-					&& (pm->ps->forcePowersActive&(1<<FP_SPEED)||pm->ps->forcePowersActive&(1<<FP_RAGE)) )
-				{
-					addTime *= g_timescale->value;
-				}
-			}
+	{	// coop: this player's own scale (the world clock is not slowed in co-op)
+		const float ts = G_CoopTimeScale( pm->ps );
+		if ( ts < 1.0f )
+		{//fires at normal speed while the world crawls (SP), 1/ts times faster than a world at normal speed (co-op)
+			addTime *= ts;
 		}
 	}
 
@@ -14183,22 +14161,11 @@ static void PM_VehicleWeapon( void )
 		return;
 	}*/
 
-	if ( g_timescale != NULL )
-	{
-		if ( g_timescale->value < 1.0f )
-		{
-			if ( !MatrixMode )
-			{//Special test for Matrix Mode (tm)
-				if ( pm->ps->clientNum == 0 && !player_locked && (pm->ps->forcePowersActive&(1<<FP_SPEED)||pm->ps->forcePowersActive&(1<<FP_RAGE)) )
-				{//player always fires at normal speed
-					addTime *= g_timescale->value;
-				}
-				else if ( g_entities[pm->ps->clientNum].client
-					&& (pm->ps->forcePowersActive&(1<<FP_SPEED)||pm->ps->forcePowersActive&(1<<FP_RAGE)) )
-				{
-					addTime *= g_timescale->value;
-				}
-			}
+	{	// coop: this player's own scale (the world clock is not slowed in co-op)
+		const float ts = G_CoopTimeScale( pm->ps );
+		if ( ts < 1.0f )
+		{//fires at normal speed while the world crawls (SP), 1/ts times faster than a world at normal speed (co-op)
+			addTime *= ts;
 		}
 	}
 
@@ -14382,22 +14349,12 @@ void PM_SetSpecialMoveValues (void )
 		}
 	}
 
-	if ( g_timescale != NULL )
-	{
-		if ( g_timescale->value < 1.0f )
+	{	// coop: this player's own scale - in co-op the world clock is never slowed, so the
+		// power speeds HIM up instead of slowing everyone else (g_coop.cpp G_CoopTimeScale)
+		const float ts = G_CoopTimeScale( pm->ps );
+		if ( ts < 1.0f )
 		{
-			if ( !MatrixMode )
-			{
-				if ( pm->ps->clientNum == 0 && !player_locked && (pm->ps->forcePowersActive&(1<<FP_SPEED)||pm->ps->forcePowersActive&(1<<FP_RAGE)) )
-				{
-					pml.frametime *= (1.0f/g_timescale->value);
-				}
-				else if ( g_entities[pm->ps->clientNum].client
-					&& (pm->ps->forcePowersActive&(1<<FP_SPEED)||pm->ps->forcePowersActive&(1<<FP_RAGE)) )
-				{
-					pml.frametime *= (1.0f/g_timescale->value);
-				}
-			}
+			pml.frametime *= (1.0f/ts);
 		}
 	}
 }

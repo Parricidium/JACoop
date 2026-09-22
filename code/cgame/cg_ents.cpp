@@ -2123,9 +2123,11 @@ int			coopMatrixEnt = -1;	// coop: the matrix entity our camera follows (remote 
 void CG_MatrixEffect ( centity_t *cent )
 {
 	float	MATRIX_EFFECT_TIME = 1000.0f;
-	// coop: the camera belongs to the viewer the host named (ENTITYNUM_NONE = everyone, the SP look);
-	// the timescale is the host's shared clock, a remote client mirrors it from CS_COOP_TIMESCALE
+	// coop: the camera belongs to the viewer the host named (ENTITYNUM_NONE = everyone, the SP look).
+	// With at least two players NOTHING here touches the timescale cvar: the effect
+	// is the camera spin alone so the other players keep a world running at normal speed
 	const qboolean mine = (qboolean)( cent->currentState.otherEntityNum2 == ENTITYNUM_NONE || cent->currentState.otherEntityNum2 == cg_localEntNum );
+	const qboolean coopNoClock = G_CoopPersonalTime();
 	if ( (cent->currentState.boltInfo&MEF_MULTI_SPIN) )
 	{//multiple spins
 		if ( cent->currentState.time2 > 0 )
@@ -2181,7 +2183,7 @@ void CG_MatrixEffect ( centity_t *cent )
 			cg.overrides.thirdPersonRange = 0;
 			MatrixMode = qfalse;
 		}
-		if ( cg_remoteClient )
+		if ( cg_remoteClient || coopNoClock )
 		{
 			coopMatrixEnt = -1;
 		}
@@ -2212,8 +2214,8 @@ void CG_MatrixEffect ( centity_t *cent )
 	}
 
 	if ( !mine )
-	{	// someone else's camera: the host still ramps the shared clock below
-		if ( !cg_remoteClient )
+	{	// someone else's camera: in SP the host still ramps the shared clock below
+		if ( !cg_remoteClient && !coopNoClock )
 		{
 			if ( cent->currentState.angles2[0] )
 			{
@@ -2285,8 +2287,8 @@ void CG_MatrixEffect ( centity_t *cent )
 	}
 
 	//do all the slowdown and vert bob stuff
-	if ( cg_remoteClient )
-	{	// coop: the host's clock reaches us through CS_COOP_TIMESCALE
+	if ( cg_remoteClient || coopNoClock )
+	{	// coop: nobody's clock is scaled - the kill cam is a camera effect for its viewer alone
 	}
 	else if ( cent->currentState.angles2[0] )
 	{

@@ -1906,7 +1906,7 @@ static qboolean CG_PlayerLegsYawFromMovement( centity_t *cent, const vec3_t velo
 	if ( cent->gent && cent->gent->client && cent->gent->client->ps.forcePowersActive & (1 << FP_SPEED) )
 	{//using force speed
 		//scale up the turning speed
-		turnRate /= cg_timescale.value;
+		turnRate /= G_CoopTimeScale( &cent->gent->client->ps, qtrue );	// coop: his own scale
 	}
 	//lerp the legs angle to the new angle
 	angleDiff = AngleDelta( cent->pe.legs.yawAngle, (*yaw+addAngle) );
@@ -5116,7 +5116,9 @@ static void CG_G2SetHeadAnim( centity_t *cent, int anim )
 	int	animFlags = BONE_ANIM_OVERRIDE ;//| BONE_ANIM_BLEND;
 	// animSpeed is 1.0 if the frameLerp (ms/frame) is 50 (20 fps).
 //	float		timeScaleMod = (cg_timescale.value&&gent&&gent->s.clientNum==0&&!player_locked&&!MatrixMode&&gent->client->ps.forcePowersActive&(1<<FP_SPEED))?(1.0/cg_timescale.value):1.0;
-	const float		timeScaleMod = (cg_timescale.value)?(1.0/cg_timescale.value):1.0;
+	// coop: the clock is not slowed in co-op, so the compensation is this player's own
+	const float		headTs = G_CoopPersonalTime() ? G_CoopTimeScale( &gent->client->ps, qtrue ) : cg_timescale.value;
+	const float		timeScaleMod = (headTs)?(1.0/headTs):1.0;
 	float animSpeed = 50.0f / animations[anim].frameLerp * timeScaleMod;
 
 	if (animations[anim].numFrames <= 0)
@@ -7946,7 +7948,9 @@ extern qboolean PM_KickingAnim( int anim );
 			if ( !PM_KickingAnim( cent->gent->client->ps.torsoAnim )
 				|| cent->gent->client->ps.torsoAnim == BOTH_A7_KICK_S )
 			{//not kicking (unless it's the spinning kick)
-				if ( cg_timescale.value < 1.0f && (cent->gent->client->ps.forcePowersActive&(1<<FP_SPEED)) )
+				// coop: his own scale, and only the host may run a damage trace
+				if ( !cg_remoteClient && (cent->gent->client->ps.forcePowersActive&(1<<FP_SPEED))
+					&& G_CoopTimeScale( &cent->gent->client->ps, qtrue ) < 1.0f )
 				{
 					int wait = floor( (float)FRAMETIME/2.0f );
 					//sanity check
@@ -7961,7 +7965,7 @@ extern void WP_SaberUpdateOldBladeData( gentity_t *ent );
 						//FIXME: this causes an ASSLOAD of effects
 						WP_SabersDamageTrace( cent->gent, qtrue );
 						WP_SaberUpdateOldBladeData( cent->gent );
-						cent->gent->client->ps.saberDamageDebounceTime = cg.time + floor((float)wait*cg_timescale.value);
+						cent->gent->client->ps.saberDamageDebounceTime = cg.time + floor((float)wait*G_CoopTimeScale( &cent->gent->client->ps, qtrue ));
 					}
 				}
 			}

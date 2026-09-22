@@ -489,6 +489,8 @@ void G_CoopSetZoomMode( gentity_t *ent, int mode );
 void G_CoopReadZoomMode( gentity_t *ent, usercmd_t *ucmd );
 void G_CoopChangeWeapon( gentity_t *ent, int wp );
 void G_CoopUpdateTimescale( void );
+qboolean G_CoopPersonalTime( void );	// coop: >= 2 players (or a joiner): Force Speed is personal, the world clock is never scaled
+float G_CoopTimeScale( const playerState_t *ps, qboolean noMatrixCheck = qfalse );	// coop: the time scale to compensate this player for (1.0f = nothing to do)
 int	G_SoundIndex( const char *name );
 /*
 Ghoul2 Insert Start

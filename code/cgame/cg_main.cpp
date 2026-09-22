@@ -1948,9 +1948,9 @@ static void CG_GameStateReceived( void ) {
 
 	CG_ParseServerinfo();
 	if ( cg_remoteClient )
-	{	// coop: the host's clock as it is now (CS_COOP_TIMESCALE only changes reach us as "cs" commands)
-		const char *ts = CG_ConfigString( CS_COOP_TIMESCALE );
-		cgi_Cvar_Set( "timescale", ts[0] ? ts : "1" );
+	{	// coop: our clock is never the host's bullet time any more (Force Speed and the kill
+		// cam are personal effects); a scripted slow motion still reaches us as a "ts" command
+		cgi_Cvar_Set( "timescale", "1" );
 	}
 
 	// load the new map

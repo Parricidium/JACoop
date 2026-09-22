@@ -4579,22 +4579,15 @@ extern qboolean		player_locked;
 extern qboolean		MatrixMode;
 float PM_GetTimeScaleMod( gentity_t *gent )
 {
-	if ( g_timescale->value )
+	// coop: the scale this player lives in - the host clock in SP, his own in co-op
+	const float ts = ( gent && gent->client ) ? G_CoopTimeScale( &gent->client->ps ) : 1.0f;
+	if ( ts < 1.0f
+		&& (gent->client->ps.forcePowersActive&(1<<FP_SPEED))
+		&& gent->client->ps.legsAnim != BOTH_FORCELONGLEAP_START
+		&& gent->client->ps.legsAnim != BOTH_FORCELONGLEAP_ATTACK
+		&& gent->client->ps.legsAnim != BOTH_FORCELONGLEAP_LAND )
 	{
-		if ( !MatrixMode
-			&& gent->client->ps.legsAnim != BOTH_FORCELONGLEAP_START
-			&& gent->client->ps.legsAnim != BOTH_FORCELONGLEAP_ATTACK
-			&& gent->client->ps.legsAnim != BOTH_FORCELONGLEAP_LAND )
-		{
-			if ( gent && gent->s.clientNum == 0 && !player_locked && gent->client->ps.forcePowersActive&(1<<FP_SPEED) )
-			{
-				return (1.0 / g_timescale->value);
-			}
-			else if ( gent && gent->client && gent->client->ps.forcePowersActive&(1<<FP_SPEED) )
-			{
-				return (1.0 / g_timescale->value);
-			}
-		}
+		return (1.0f / ts);
 	}
 	return 1.0f;
 }
