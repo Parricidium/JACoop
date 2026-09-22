@@ -96,6 +96,36 @@ typedef struct {
 	int				messageSize;		// used to rate drop packets
 } clientSnapshot_t;
 
+// coop: per-client state of the host -> joiner pk3 transfer (sv_coop_transfer.cpp)
+typedef enum {
+	CDL_NONE,		// no hello yet (old build, cl_coopTransfer 0, or the host's own client)
+	CDL_LISTED,		// offer sent, waiting for coopdl_need / coopdl_done
+	CDL_SENDING,	// files in flight
+	CDL_DONE,		// client reported everything written and loaded
+	CDL_FAILED		// client or server gave up
+} coopDownloadState_t;
+
+typedef struct coopDownload_s {
+	coopDownloadState_t	state;
+	int				helloTime;					// sv.time of the hello
+	int				lastAckTime;				// Sys_Milliseconds of the last coopdl_ack / need (timeout)
+	int				need[MAX_COOP_OFFER];		// checksums the client asked for, in order
+	int				needCount, needIndex;
+	int				totalBytes, ackedBytes;		// progress over all the files
+	int				lastPct;					// last percentage tagged in the userinfo
+	fileHandle_t	file;						// current pack, raw read handle (FS_CoopOpenOffered)
+	int				fileSum, fileSize, fileCount;	// current pack: checksum, size, bytes read so far
+	int				currentBlock;				// next block to read from the file
+	int				clientBlock;				// first block not acknowledged (window start)
+	int				xmitBlock;					// next block to transmit
+	qboolean		eof;						// the EOF block was queued
+	int				sendTime;					// Sys_Milliseconds of the last transmitted block
+	int				eagerThisFrame;				// ack-driven messages sent this server frame
+	int				tokens, tokenTime;			// rate limiting (bytes available, last refill)
+	byte			blocks[COOP_DL_WINDOW][COOP_DL_BLK];
+	int				blockSize[COOP_DL_WINDOW];
+} coopDownload_t;
+
 typedef enum {
 	CS_FREE,		// can be reused for a new connection
 	CS_ZOMBIE,		// client has been disconnected, but don't reuse
@@ -122,9 +152,7 @@ typedef struct client_s {
 	int				lastClientCommand;	// reliable client message sequence
 	gentity_t		*gentity;			// SV_GentityNum(clientnum)
 	char			name[MAX_NAME_LENGTH];			// extracted from userinfo, high bits masked
-	byte			*download;			// file being downloaded
-	int				downloadsize;		// total bytes (can't use EOF because of paks)
-	int				downloadcount;		// bytes sent
+	coopDownload_t	coopdl;				// coop: host -> joiner pk3 transfer (replaces the dead Q3 download fields)
 	int				deltaMessage;		// frame last client usercmd message
 	int				lastPacketTime;		// sv.time when packet was last received
 	int				lastConnectTime;	// sv.time when connection started
@@ -221,6 +249,26 @@ void SV_AddServerCommand( client_t *client, const char *cmd );
 void SV_SendMessageToClient( msg_t *msg, client_t *client );
 void SV_SendClientMessages( void );
 void SV_SendClientSnapshot( client_t *client );
+void SV_UpdateServerCommandsToClient( client_t *client, msg_t *msg );
+
+//
+// sv_coop_transfer.cpp (coop: host -> joiner pk3 transfer)
+//
+extern cvar_t	*sv_coopTransfer;
+extern cvar_t	*sv_coopTransferPending;
+void SV_CoopTransferInit( void );
+void SV_CoopTransferFrame( void );
+void SV_CoopTransferShutdown( void );
+void SV_CoopTransferClose( client_t *cl );
+void SV_CoopTransferWrite( client_t *cl, msg_t *msg );
+void SV_CoopTransferTagUserinfo( client_t *cl );
+qboolean SV_CoopTransferBlocksMapChange( const char *what );
+void SV_CoopHello_f( client_t *cl );
+void SV_CoopNeed_f( client_t *cl );
+void SV_CoopAck_f( client_t *cl );
+void SV_CoopDone_f( client_t *cl );
+void SV_CoopFail_f( client_t *cl );
+void SV_CoopStop_f( client_t *cl );
 
 
 

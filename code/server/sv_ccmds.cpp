@@ -289,6 +289,10 @@ extern void SCR_UnprecacheScreenshot();
 #endif
 static void SV_Map_f( void )
 {
+	if ( SV_CoopTransferBlocksMapChange( Cmd_Argv( 0 ) ) )
+	{	// coop: joiners are still downloading the host's skins (lobby only)
+		return;
+	}
 	Cvar_Set( sCVARNAME_PLAYERSAVE, "");
 	Cvar_Set( "spawntarget", "" );
 	Cvar_Set("tier_storyinfo", "0");

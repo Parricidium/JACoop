@@ -188,10 +188,7 @@ void SV_DropClient( client_t *drop, const char *reason ) {
 	}
 	drop->state = CS_ZOMBIE;		// become free in a few seconds
 
-	if (drop->download)	{
-		FS_FreeFile (drop->download);
-		drop->download = NULL;
-	}
+	SV_CoopTransferClose( drop );	// coop: pk3 transfer in flight, if any
 
 	// call the prog function for removing a client
 	// this will remove the body, among other things
@@ -329,6 +326,7 @@ SV_UpdateUserinfo_f
 */
 static void SV_UpdateUserinfo_f( client_t *cl ) {
 	Q_strncpyz( cl->userinfo, Cmd_Argv(1), sizeof(cl->userinfo) );
+	SV_CoopTransferTagUserinfo( cl );	// coop: the client's copy never carries our transfer state
 
 	SV_UserinfoChanged( cl );
 	// call prog code to allow overrides
@@ -343,6 +341,13 @@ typedef struct {
 static ucmd_t ucmds[] = {
 	{"userinfo", SV_UpdateUserinfo_f},
 	{"disconnect", SV_Disconnect_f},
+	// coop: host -> joiner pk3 transfer (sv_coop_transfer.cpp)
+	{"coopdl_hello", SV_CoopHello_f},
+	{"coopdl_need", SV_CoopNeed_f},
+	{"coopdl_ack", SV_CoopAck_f},
+	{"coopdl_done", SV_CoopDone_f},
+	{"coopdl_fail", SV_CoopFail_f},
+	{"coopdl_stop", SV_CoopStop_f},
 
 	{NULL, NULL}
 };
