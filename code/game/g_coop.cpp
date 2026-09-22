@@ -441,6 +441,61 @@ qboolean G_CoopIsPlayer( const gentity_t *ent )
 	return (qboolean)( ent && ent->s.number < MAX_CLIENTS && ent->client && ent->inuse );
 }
 
+/*
+================
+G_CoopNote
+
+Crash breadcrumb. The host's process has died on JD's machine leaving nothing
+behind but a Windows fault record, so the events able to take a client's
+entity with them (a mover blocking on a player, a co-op death, a refused free)
+each drop one line in qconsole.log. The last lines of the log then say where
+the game was when it went.
+
+Rate limited: a mover grinding a body calls its blocked function every frame.
+================
+*/
+#define COOP_NOTE_REPEAT	3000	// ms before the very same note is printed again
+
+static char	coopLastNote[192];
+static int	coopLastNoteTime;
+
+void G_CoopNote( const char *text )
+{
+	if ( !text || !text[0] )
+	{
+		return;
+	}
+	if ( G_CoopNumPlayers() < 2 )
+	{	// alone: the log stays exactly the stock game's
+		return;
+	}
+	if ( !strcmp( text, coopLastNote ) && level.time - coopLastNoteTime < COOP_NOTE_REPEAT )
+	{
+		return;
+	}
+	Q_strncpyz( coopLastNote, text, sizeof( coopLastNote ) );
+	coopLastNoteTime = level.time;
+	gi.Printf( "coop: note: %s\n", text );
+}
+
+// name an entity the way a breadcrumb wants it: who it is, not what it points at
+const char *G_CoopEntName( const gentity_t *ent )
+{
+	if ( !ent )
+	{
+		return "none";
+	}
+	if ( ent->s.number < MAX_CLIENTS && ent->client && ent->inuse )
+	{	// no health here: the text has to stay the same from frame to frame or the
+		// rate limit above never catches a mover grinding the same body
+		return va( "player %i '%s'", ent->s.number, ent->client->pers.netname );
+	}
+	return va( "ent %i '%s' targetname '%s'%s", ent->s.number,
+		ent->classname ? ent->classname : "?",
+		ent->targetname ? ent->targetname : "-",
+		ent->client ? " (NPC)" : "" );
+}
+
 // number of connected players
 int G_CoopNumPlayers( void )
 {
@@ -773,6 +828,10 @@ static void G_CoopRespawn( gentity_t *ent )
 	const int		slot = ent->s.number;
 	playerState_t	*dead = &coopDeathState[slot];
 	gentity_t		*mate = G_CoopLivingTeammate( ent );
+
+	// coop: breadcrumb - a respawn walks ClientSpawn over a client that may still be
+	// inside a mover, so the log must say it happened before anything else goes wrong
+	G_CoopNote( va( "respawning %s beside %s", G_CoopEntName( ent ), G_CoopEntName( mate ) ) );
 
 	ClientSpawn( ent, eNO );
 
@@ -1274,7 +1333,18 @@ void G_CoopClientBegin( const gentity_t *ent )
 		coopMissionFailedSent[ent->s.number] = qfalse;
 	}
 	if ( ent->s.number > 0 && ent->s.number < MAX_CLIENTS )
-	{	// what G_CoopMirrorCvars already told the others
+	{
+		// coop: from here on the host is running a session that can die on something
+		// only two players ever reach, and it dies without an error of its own (see
+		// G_CoopNote). Start writing qconsole.log, flushed line by line, so the last
+		// lines say where it was. Solo never gets here, so solo keeps the stock
+		// behaviour of writing nothing.
+		if ( !gi.cvar( "logfile", "0", CVAR_TEMP )->integer )
+		{
+			gi.cvar_set( "logfile", "2" );
+			gi.Printf( "coop: logging this session to base/qconsole.log (a crash leaves its last lines there)\n" );
+		}
+		// what G_CoopMirrorCvars already told the others
 		if ( coopSentSkip )
 		{
 			gi.SendServerCommand( ent->s.number, "skip %i", coopSentSkip );

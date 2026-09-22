@@ -871,6 +871,21 @@ Marks the entity as free
 =================
 */
 void G_FreeEntity( gentity_t *ed ) {
+	// coop: a player's entity is never freed. Nothing in the game does it on
+	// purpose (ClientDisconnect unlinks and clears inuse itself), but plenty of
+	// stock "remove whatever is in the way" code only tests s.number, which used
+	// to mean "not the player" back when the player was the only client and was
+	// always entity 0. Freeing a joiner memsets its gentity, ->client goes with
+	// it and the ghoul2 instance is destroyed while the server still holds the
+	// client: the host dies building the next snapshot, with no error of its own.
+	// The call sites are fixed one by one; this is the net under them.
+	if ( ed && ed->inuse && ed->client && ed->s.number < MAX_CLIENTS
+		&& ed->client->pers.connected != CON_DISCONNECTED )
+	{
+		G_CoopNote( va( "refused to free %s (classname '%s')", G_CoopEntName( ed ),
+			ed->classname ? ed->classname : "?" ) );
+		return;
+	}
 	gi.unlinkentity (ed);		// unlink from world
 	G_CoopClearAppearance( ed );	// coop
 

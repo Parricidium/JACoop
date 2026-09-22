@@ -1549,6 +1549,20 @@ void ClientCommand( int clientNum ) {
 		if ( !CheatsOk( ent ) ) return;
 		if ( gi.argc() < 2 ) { gi.SendServerCommand( ent - g_entities, "print \"usage: coop_use <targetname>\\n\"" ); return; }
 		G_UseTargets2( ent, ent, gi.argv( 1 ) );
+		for ( int i = MAX_CLIENTS; i < globals.num_entities; i++ )
+		{	// say what was fired and where it stands: a mover test needs to know
+			// whether the thing actually moved (and which way)
+			gentity_t *e = &g_entities[i];
+			if ( !e->inuse || !e->targetname || Q_stricmp( e->targetname, gi.argv( 1 ) ) )
+			{
+				continue;
+			}
+			gi.Printf( "coop_use: ent %i '%s' origin %i %i %i moverState %i abs %i %i %i .. %i %i %i\n", i,
+				e->classname ? e->classname : "?",
+				(int)e->currentOrigin[0], (int)e->currentOrigin[1], (int)e->currentOrigin[2], e->moverState,
+				(int)e->absmin[0], (int)e->absmin[1], (int)e->absmin[2],
+				(int)e->absmax[0], (int)e->absmax[1], (int)e->absmax[2] );
+		}
 		return;
 	}
 	if (Q_stricmp (cmd, "coop_set") == 0)

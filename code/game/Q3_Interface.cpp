@@ -1421,6 +1421,11 @@ void moveAndRotateCallback( gentity_t *ent )
 }
 
 void Blocked_Mover( gentity_t *ent, gentity_t *other ) {
+	if ( G_CoopIsPlayer( other ) )
+	{	// coop: breadcrumb, as in Blocked_Door (g_mover.cpp)
+		G_CoopNote( va( "mover %s blocked by %s", G_CoopEntName( ent ), G_CoopEntName( other ) ) );
+	}
+
 	// remove anything other than a client -- no longer the case
 
 	// don't remove security keys or goodie keys
@@ -1429,7 +1434,9 @@ void Blocked_Mover( gentity_t *ent, gentity_t *other ) {
 		// should we be doing anything special if a key blocks it... move it somehow..?
 	}
 	// if your not a client, or your a dead client remove yourself...
-	else if ( other->s.number && (!other->client || (other->client && other->health <= 0 && other->contents == CONTENTS_CORPSE && !other->message)) )
+	// coop: see Blocked_Door (g_mover.cpp) - "s.number" means "not the player" in
+	// stock code, which is false for a joiner and would free a live client
+	else if ( !G_CoopIsPlayer( other ) && other->s.number && (!other->client || (other->client && other->health <= 0 && other->contents == CONTENTS_CORPSE && !other->message)) )
 	{
 		if ( !IIcarusInterface::GetIcarus()->IsRunning( other->m_iIcarusID ) /*!other->taskManager || !other->taskManager->IsRunning()*/ )
 		{

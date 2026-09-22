@@ -408,6 +408,8 @@ void G_CoopClearAppearance( const gentity_t *ent );
 void G_CoopUpdateAppearance( gentity_t *ent );
 void G_CoopFixClientScriptName( gentity_t *ent );
 qboolean G_CoopIsPlayer( const gentity_t *ent );
+void G_CoopNote( const char *text );			// crash breadcrumb, one line in the log
+const char *G_CoopEntName( const gentity_t *ent );	// how a breadcrumb names an entity
 int G_CoopNumPlayers( void );
 gentity_t *G_CoopNearestPlayer( const vec3_t org, qboolean aliveOnly );
 qboolean G_CoopAnyPlayerAlive( void );

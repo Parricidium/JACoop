@@ -4086,6 +4086,10 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 		}
 		else	// Player died, fire off scoreboard soon
 		{
+			// coop: breadcrumb, so a log that stops right here says who died of what
+			G_CoopNote( va( "%s died at %i %i %i, mod %i, killed by %s", G_CoopEntName( self ),
+				(int)self->currentOrigin[0], (int)self->currentOrigin[1], (int)self->currentOrigin[2],
+				meansOfDeath, G_CoopEntName( attacker ) ) );
 			G_CoopAnnounceKill( self, attacker, qfalse );	// coop: team kill message
 			if ( !G_CoopPlayerDied( self ) )	// coop: respawn beside a teammate instead, unless nobody is left
 			{

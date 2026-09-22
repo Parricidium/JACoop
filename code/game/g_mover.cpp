@@ -256,6 +256,7 @@ qboolean	G_TryPushingEntity( gentity_t *check, gentity_t *pusher, vec3_t move, v
 	{//Do damage
 		if ( (pusher->spawnflags&MOVER_CRUSHER)//a crusher
  			&& check->s.clientNum >= MAX_CLIENTS//not the player
+			&& !G_CoopIsPlayer( check )	// coop: nor one of the other players
 			&& check->client //NPC
 			&& check->health <= 0 //dead
 			&& G_OkayToRemoveCorpse( check ) )//okay to remove him
@@ -1156,6 +1157,12 @@ Blocked_Door
 */
 void Blocked_Door( gentity_t *ent, gentity_t *other ) {
 
+	if ( G_CoopIsPlayer( other ) )
+	{	// coop: breadcrumb - a mover grinding a player is the last thing the host did
+		// before it died on JD's machine (see G_CoopNote)
+		G_CoopNote( va( "door %s blocked by %s", G_CoopEntName( ent ), G_CoopEntName( other ) ) );
+	}
+
 	// remove anything other than a client -- no longer the case
 
 	// don't remove security keys or goodie keys
@@ -1164,7 +1171,12 @@ void Blocked_Door( gentity_t *ent, gentity_t *other ) {
 		// should we be doing anything special if a key blocks it... move it somehow..?
 	}
 	// if your not a client, or your a dead client remove yourself...
-	else if ( other->s.number && (!other->client || (other->client && other->health <= 0 && other->contents == CONTENTS_CORPSE && !other->message)) )
+	// coop: "other->s.number" was Raven's "this is not the player": the player was the
+	// only client and always entity 0. A joiner sits at 1..3, so a joiner crushed to
+	// death by a mover fell in here and had its gentity freed - memset, ->client gone
+	// with it - while the server still held the client. The host then died building
+	// the next snapshot (JD's crash on Corellia). Players are never freed.
+	else if ( !G_CoopIsPlayer( other ) && other->s.number && (!other->client || (other->client && other->health <= 0 && other->contents == CONTENTS_CORPSE && !other->message)) )
 	{
 		if ( !IIcarusInterface::GetIcarus()->IsRunning( other->m_iIcarusID ) /*!other->taskManager || !other->taskManager->IsRunning()*/ )
 		{
@@ -1178,6 +1190,7 @@ void Blocked_Door( gentity_t *ent, gentity_t *other ) {
 	{
 		if ( (ent->spawnflags&MOVER_CRUSHER)//a crusher
  			&& other->s.clientNum >= MAX_CLIENTS//not the player
+			&& !G_CoopIsPlayer( other )	// coop: nor one of the other players
 			&& other->client //NPC
 			&& other->health <= 0 //dead
 			&& G_OkayToRemoveCorpse( other ) )//okay to remove him
