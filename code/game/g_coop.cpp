@@ -469,8 +469,10 @@ void G_CoopNote( const char *text )
 	{	// alone: the log stays exactly the stock game's
 		return;
 	}
-	if ( !strcmp( text, coopLastNote ) && level.time - coopLastNoteTime < COOP_NOTE_REPEAT )
-	{
+	if ( !strcmp( text, coopLastNote ) && level.time >= coopLastNoteTime
+		&& level.time - coopLastNoteTime < COOP_NOTE_REPEAT )
+	{	// (level.time restarts on a level change, hence the lower bound: a note
+		// must not be swallowed on the first frames of the next mission)
 		return;
 	}
 	Q_strncpyz( coopLastNote, text, sizeof( coopLastNote ) );
