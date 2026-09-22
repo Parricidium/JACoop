@@ -773,6 +773,7 @@ void InitGame(  const char *mapname, const char *spawntarget, int checkSum, cons
 	memset( &level, 0, sizeof( level ) );
 	level.time = levelTime;
 	G_CoopLobbyInit();	// coop: lobby map? fresh campaign?
+	G_CoopEndLevelInit();	// coop: nothing of the previous mission's end-of-level flow survives
 	level.globalTime = globalTime;
 	Q_strncpyz( level.mapname, mapname, sizeof(level.mapname) );
 	if ( spawntarget != NULL && spawntarget[0] )

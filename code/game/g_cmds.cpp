@@ -1436,6 +1436,18 @@ void ClientCommand( int clientNum ) {
 		}
 		return;
 	}
+	if (Q_stricmp (cmd, "coop_endnext") == 0 || Q_stricmp (cmd, "coop_endvote") == 0 || Q_stricmp (cmd, "coop_endwpn") == 0
+		|| Q_stricmp (cmd, "coop_endready") == 0 || Q_stricmp (cmd, "coop_endgo") == 0)
+	{	// coop: end-of-mission flow (g_coop_endlevel.cpp)
+		G_CoopEndLevelCommand( ent, cmd );
+		return;
+	}
+	if (Q_stricmp (cmd, "coop_endlevel") == 0)
+	{	// coop dev: fake the end of the mission the way a level-end script does (cheats)
+		if ( !CheatsOk( ent ) ) return;
+		G_CoopEndLevelTestCommand();
+		return;
+	}
 	if (Q_stricmp (cmd, "coop_start") == 0 || Q_stricmp (cmd, "coop_go") == 0 || Q_stricmp (cmd, "coop_cancel") == 0 || Q_stricmp (cmd, "coop_chardone") == 0)
 	{	// coop: lobby start flow (g_coop_lobby.cpp)
 		G_CoopStartCommand( ent, cmd );

@@ -1867,9 +1867,13 @@ void G_ChangeMap (const char *mapname, const char *spawntarget, qboolean hub)
 
 	if (mapname[0] == '+')	//fire up the menu instead
 	{
-		gi.SendConsoleCommand( va("uimenu %s\n", mapname+1) );
 		gi.cvar_set("skippingCinematic", "0");
 		gi.cvar_set("timescale", "1");
+		if ( G_CoopEndLevelMenu( mapname+1 ) )
+		{	// coop: everybody gets the debrief, the vote and the loadout instead
+			return;
+		}
+		gi.SendConsoleCommand( va("uimenu %s\n", mapname+1) );
 		return;
 	}
 

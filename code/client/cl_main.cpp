@@ -763,12 +763,15 @@ const char *CL_GetCoopServerText( int index ) {
 // coop: the lobby menu is fullscreen, so the cgame does not run under it and
 // the queued "cs" server commands are not applied: the players' list would
 // freeze at what it was when the menu opened. Apply the newest CS_COOP_LOBBY
-// update ourselves (CL_SetConfigstring is idempotent, the cgame re-applies it
-// when it resumes). Only that configstring is touched.
+// and CS_COOP_ENDLEVEL updates ourselves (CL_SetConfigstring is idempotent,
+// the cgame re-applies them when it resumes). Only those two are touched.
+static const int coopPumpedStrings[] = { CS_COOP_LOBBY, CS_COOP_ENDLEVEL };
+#define COOP_PUMPED_COUNT ( (int)( sizeof( coopPumpedStrings ) / sizeof( coopPumpedStrings[0] ) ) )
+
 static void CL_CoopLobbyPump( void ) {
 	static int	lastSeq;
-	const char	*newest = NULL;
-	int			seq, from;
+	const char	*newest[COOP_PUMPED_COUNT] = { NULL };
+	int			seq, from, i;
 
 	if ( cls.state < CA_ACTIVE ) {
 		lastSeq = 0;
@@ -789,21 +792,26 @@ static void CL_CoopLobbyPump( void ) {
 		while ( *s && *(const unsigned char *)s <= ' ' ) {
 			s++;	// SV_SendServerCommand's opcode byte
 		}
-		if ( !Q_strncmp( s, "cs ", 3 ) && atoi( s + 3 ) == CS_COOP_LOBBY ) {
-			newest = s;
+		if ( Q_strncmp( s, "cs ", 3 ) ) {
+			continue;
+		}
+		for ( i = 0; i < COOP_PUMPED_COUNT; i++ ) {
+			if ( atoi( s + 3 ) == coopPumpedStrings[i] ) {
+				newest[i] = s;
+			}
 		}
 	}
 	lastSeq = clc.serverCommandSequence;
-	if ( newest ) {
+	for ( i = 0; i < COOP_PUMPED_COUNT; i++ ) {
 		// cs <index> "<value>"
 		char value[MAX_STRING_CHARS];
-		const char *q = strchr( newest, '"' );
+		const char *q = newest[i] ? strchr( newest[i], '"' ) : NULL;
 		if ( q ) {
 			const char *end;
 			q++;
 			end = strrchr( q, '"' );
 			Q_strncpyz( value, q, end ? Q_min( (int)( end - q ) + 1, (int)sizeof( value ) ) : (int)sizeof( value ) );
-			CL_SetConfigstring( CS_COOP_LOBBY, value );
+			CL_SetConfigstring( coopPumpedStrings[i], value );
 		}
 	}
 }
@@ -837,7 +845,11 @@ static int CL_CoopLobbyRows( char rows[MAX_CLIENTS][96] ) {
 			}
 		}
 		const char *state;
-		if ( ready == 2 ) {
+		if ( ready == 5 ) {
+			state = "   -  prepare son equipement...";
+		} else if ( ready == 6 ) {
+			state = "   -  PRET";
+		} else if ( ready == 2 ) {
 			state = "   (hote)";
 		} else if ( ready == 3 ) {
 			state = "   -  cree son personnage...";
@@ -875,6 +887,94 @@ const char *CL_GetCoopLobbyText( int index ) {
 	static char rows[MAX_CLIENTS][96];
 	const int n = CL_CoopLobbyRows( rows );
 	return ( index >= 0 && index < n ) ? rows[index] : "";
+}
+
+// coop end of mission: the host publishes the whole panel in CS_COOP_ENDLEVEL
+// (game/g_coop_endlevel.cpp) as
+//   "<phase>\t<title>\t<stats>\t<info>|<map>\t<label>\t<votes>\t<voters>|..."
+// record 0 being the header and the next ones the missions to vote for.
+static const char *CL_CoopEndString( void ) {
+	CL_CoopLobbyPump();
+	if ( cls.state < CA_LOADING || !cl.gameState.stringOffsets[CS_COOP_ENDLEVEL] ) {
+		return "";
+	}
+	return cl.gameState.stringData + cl.gameState.stringOffsets[CS_COOP_ENDLEVEL];
+}
+
+// one field of one record, in a rotating buffer (copy it before the 4th call)
+static const char *CL_CoopEndField( int rec, int field ) {
+	static char	buf[4][160];
+	static int	next;
+	char		*out;
+	int			f;
+
+	next = ( next + 1 ) & 3;
+	out = buf[next];
+	out[0] = '\0';
+	const char *s = CL_CoopEndString();
+	for ( f = 0; f < rec && s; f++ ) {
+		s = strchr( s, '|' );
+		if ( s ) {
+			s++;
+		}
+	}
+	if ( !s || !*s ) {
+		return out;
+	}
+	for ( f = 0; f < field; f++ ) {
+		const char *tab = strchr( s, '\t' );
+		const char *bar = strchr( s, '|' );
+		if ( !tab || ( bar && bar < tab ) ) {
+			return out;	// that record has no such field
+		}
+		s = tab + 1;
+	}
+	const char *end = s;
+	while ( *end && *end != '\t' && *end != '|' ) {
+		end++;
+	}
+	Q_strncpyz( out, s, Q_min( (int)( end - s ) + 1, (int)sizeof( buf[0] ) ) );
+	return out;
+}
+
+// 'N' none, 'D' debrief, 'V' vote, 'L' loadout, 'W' the host is on the stock screens
+char CL_GetCoopEndPhase( void ) {
+	const char *s = CL_CoopEndString();
+	return s[0] ? s[0] : 'N';
+}
+
+// field 1 = mission title, 2 = stats line, 3 = state line
+const char *CL_GetCoopEndHeader( int field ) {
+	return CL_CoopEndField( 0, field );
+}
+
+int CL_GetCoopEndCount( void ) {
+	const char *s = CL_CoopEndString();
+	int n = 0;
+	while ( ( s = strchr( s, '|' ) ) != NULL ) {
+		n++;
+		s++;
+	}
+	return n;
+}
+
+const char *CL_GetCoopEndText( int index ) {
+	static char	row[192];
+	char		label[160], votes[16], voters[160];
+
+	if ( index < 0 || index >= CL_GetCoopEndCount() ) {
+		return "";
+	}
+	Q_strncpyz( label, CL_CoopEndField( index + 1, 1 ), sizeof( label ) );
+	Q_strncpyz( votes, CL_CoopEndField( index + 1, 2 ), sizeof( votes ) );
+	Q_strncpyz( voters, CL_CoopEndField( index + 1, 3 ), sizeof( voters ) );
+	const int n = atoi( votes );
+	if ( n > 0 ) {
+		Com_sprintf( row, sizeof( row ), "%s   -   %i voix  (%s)", label, n, voters );
+	} else {
+		Q_strncpyz( row, label, sizeof( row ) );
+	}
+	return row;
 }
 
 // Fill 'out' with "ip:port" for row 'index'. Returns qfalse if out of range.

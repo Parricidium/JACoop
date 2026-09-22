@@ -734,7 +734,10 @@ Ghoul2 Insert End
 // every set the host did); stock maps use at most 19 distinct names
 #define MAX_COOP_SOUNDSETS		32
 #define CS_COOP_SOUNDSETS		(CS_COOP_TIMESCALE + 1)
-#define CS_MAX					(CS_COOP_SOUNDSETS + MAX_COOP_SOUNDSETS)
+// coop: end of a mission, shared by the host with everybody (g_coop_endlevel.cpp):
+// "<phase>\t<title>\t<stats>\t<info>|<map>\t<label>\t<votes>\t<voters>|..."
+#define CS_COOP_ENDLEVEL		(CS_COOP_SOUNDSETS + MAX_COOP_SOUNDSETS)
+#define CS_MAX					(CS_COOP_ENDLEVEL + 1)
 
 #if (CS_MAX) > MAX_CONFIGSTRINGS
 #error overflow: (CS_MAX) > MAX_CONFIGSTRINGS

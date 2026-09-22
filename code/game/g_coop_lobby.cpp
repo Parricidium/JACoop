@@ -238,9 +238,12 @@ void G_CoopOnJoinerBegin( gentity_t *ent )
 	if ( s )
 	{
 		G_CoopApplySaved( ent, s );
-		gi.Printf( "coop: %s continues with its saved character\n", ent->client->pers.netname );
+		gi.Printf( "coop: %s continues with its saved character (weapons %i, weapon %i)\n",
+			ent->client->pers.netname, ent->client->ps.stats[STAT_WEAPONS], ent->client->ps.weapon );
 	}
 	G_CoopInitFromHost( ent );
+	gi.Printf( "coop: %s enters with weapons %i (weapon %i), force max %i\n",
+		ent->client->pers.netname, ent->client->ps.stats[STAT_WEAPONS], ent->client->ps.weapon, ent->client->ps.forcePowerMax );
 	coopLastPoints[ent->s.number] = -1;
 	coopCharDone[ent->s.number] = qfalse;
 	if ( coopLobby )
@@ -478,6 +481,11 @@ static void G_CoopUpdateLobbyList( void )
 				ready = coopCharDone[i] ? 4 : 3;	// character validated / being created
 			}
 		}
+		const int endReady = G_CoopEndLevelReadyState( i );
+		if ( endReady >= 0 )
+		{	// coop: between two missions, PRET replaces the lobby's ready flag (host included)
+			ready = endReady ? 6 : 5;
+		}
 		Q_strcat( now, sizeof( now ), va( "|%s\t%i\t%s\t%s", ent->client->pers.netname, ready, G_CoopPlayerVar( ent, "g_char_model", g_char_model ), dl ) );
 	}
 	if ( strcmp( now, last ) )
@@ -495,7 +503,8 @@ void G_CoopLobbyFrame( void )
 		coopLobbyMenuTime = 0;
 		gi.SendServerCommand( 0, "coopmenu coopLobby" );	// through the cgame, like the joiners
 	}
-	if ( G_CoopNumPlayers() < 2 && !coopLobby )
+	G_CoopEndLevelFrame();	// coop: end of a mission (debrief, vote, loadout); it ends itself if everybody left
+	if ( G_CoopNumPlayers() < 2 && !coopLobby && !G_CoopEndLevelActive() )
 	{
 		return;
 	}

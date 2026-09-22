@@ -460,6 +460,22 @@ void G_CoopUpdateObjectives( void );
 void G_CoopUpdateMissionFailed( void );
 void G_CoopClientBegin( const gentity_t *ent );
 // coop lobby and per-joiner progression (g_coop_lobby.cpp)
+// coop: end-of-mission flow, g_coop_endlevel.cpp
+typedef enum {
+	COOPEND_NONE,
+	COOPEND_DEBRIEF,
+	COOPEND_VOTE,
+	COOPEND_LOADOUT,
+	COOPEND_WAIT		// no mission to choose: the host is on the stock screens
+} coopEndPhase_t;
+void G_CoopEndLevelInit( void );
+qboolean G_CoopEndLevelMenu( const char *menuName );
+void G_CoopEndLevelFrame( void );
+void G_CoopEndLevelCommand( gentity_t *ent, const char *cmd );
+void G_CoopEndLevelTestCommand( void );
+qboolean G_CoopEndLevelActive( void );
+int G_CoopEndLevelReadyState( int slot );
+
 void G_CoopLobbyInit( void );
 void G_CoopLobbyClientBegin( const gentity_t *ent );
 void G_CoopLobbyFrame( void );
