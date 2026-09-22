@@ -408,6 +408,19 @@ void SV_CheckTimeouts( void ) {
 SV_CheckPaused
 ==================
 */
+// coop: true while another player is connected to this host (its menus must not stop the world)
+qboolean SV_HasRemoteClients( void ) {
+	if ( !com_sv_running || !com_sv_running->integer || !svs.clients ) {
+		return qfalse;
+	}
+	for ( int i = 1; i < MAX_CLIENTS; i++ ) {
+		if ( svs.clients[i].state >= CS_CONNECTED ) {
+			return qtrue;
+		}
+	}
+	return qfalse;
+}
+
 qboolean SV_CheckPaused( void ) {
 	if ( !cl_paused->integer ) {
 		return qfalse;

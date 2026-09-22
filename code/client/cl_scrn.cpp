@@ -418,6 +418,14 @@ void SCR_DrawScreenField( stereoFrame_t stereoFrame ) {
 
 	qboolean uiFullscreen = _UI_IsFullscreen();
 
+	// coop: when the world keeps running under a fullscreen menu (a remote client, or a host with
+	// players connected), the cgame must keep running too: that is where the host's server commands
+	// (lobby phases, character screens, everyone-down) are executed. The menu covers it anyway.
+	extern qboolean SV_HasRemoteClients( void );
+	if ( uiFullscreen && cls.state == CA_ACTIVE && cls.cgameStarted && ( !com_sv_running->integer || SV_HasRemoteClients() ) ) {
+		uiFullscreen = qfalse;
+	}
+
 	// if the menu is going to cover the entire screen, we
 	// don't need to render anything under it
 	if ( !uiFullscreen ) {
