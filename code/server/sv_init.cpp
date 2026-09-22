@@ -66,7 +66,52 @@ void SV_SetConfigstring (int index, const char *val) {
 	// send it to all the clients if we aren't
 	// spawning a new server
 	if ( sv.state == SS_GAME ) {
-		SV_SendServerCommand( NULL, "cs %i \"%s\"\n", index, val );
+		client_t	*client;
+		int			j;
+
+		for ( j = 0, client = svs.clients; j < MAX_CLIENTS; j++, client++ ) {
+			if ( client->state == CS_PRIMED ) {
+				// coop: still loading the level: nothing goes out to it before it
+				// enters the world, so just remember the index (SV_UpdateConfigstrings)
+				if ( !client->csUpdated[index] ) {
+					client->csUpdated[index] = qtrue;
+					client->csPending++;
+				}
+				continue;
+			}
+			if ( client->state < CS_PRIMED ) {
+				continue;
+			}
+			SV_SendServerCommand( client, "cs %i \"%s\"\n", index, val );
+		}
+	}
+}
+
+/*
+===============
+SV_UpdateConfigstrings
+
+coop: send the configstrings that changed while the client was loading, as
+many as the reliable window can take now (SV_SendClientSnapshot calls again
+for the rest once the client acknowledges).
+===============
+*/
+void SV_UpdateConfigstrings( client_t *client ) {
+	int	index;
+
+	if ( !client->csPending ) {
+		return;
+	}
+	for ( index = 0; index < MAX_CONFIGSTRINGS && client->csPending; index++ ) {
+		if ( !client->csUpdated[index] ) {
+			continue;
+		}
+		if ( client->reliableSequence - client->reliableAcknowledge >= MAX_RELIABLE_COMMANDS - 8 ) {
+			return;		// keep some room for the game's own commands
+		}
+		client->csUpdated[index] = qfalse;
+		client->csPending--;
+		SV_SendServerCommand( client, "cs %i \"%s\"\n", index, sv.configstrings[index] );
 	}
 }
 
@@ -181,7 +226,10 @@ void SV_Startup( void ) {
 	// sv_maxclients * PACKET_BACKUP * MAX_SNAPSHOT_ENTITIES. The leading
 	// factor must scale with the client count or one client's snapshots
 	// overwrite another's.
-	svs.numSnapshotEntities = MAX_CLIENTS * 4 * 64;
+	// coop: it must also be deep enough that a remote client's delta base
+	// (up to PACKET_BACKUP frames back) is still in the ring, else every
+	// snapshot to it is a full one (see SV_WriteSnapshotToClient).
+	svs.numSnapshotEntities = MAX_CLIENTS * PACKET_BACKUP * MAX_SNAPSHOT_ENTITIES;
 	svs.initialized = qtrue;
 
 	Cvar_Set( "sv_running", "1" );

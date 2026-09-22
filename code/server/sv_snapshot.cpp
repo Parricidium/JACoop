@@ -290,7 +290,6 @@ static int SV_CoopMoverSoundIndex( int handle )
 	return i;
 }
 
-#define	MAX_SNAPSHOT_ENTITIES	1024
 typedef struct {
 	int		numSnapshotEntities;
 	int		snapshotEntities[MAX_SNAPSHOT_ENTITIES];
@@ -786,6 +785,12 @@ void SV_SendClientSnapshot( client_t *client ) {
 
 	MSG_Init (&msg, msg_buf, sizeof(msg_buf));
 	msg.allowoverflow = qtrue;
+
+	// coop: configstrings left over from the load, as the window drains
+	if ( client->csPending )
+	{
+		SV_UpdateConfigstrings( client );
+	}
 
 	// (re)send any reliable server commands
 	SV_UpdateServerCommandsToClient( client, &msg );
