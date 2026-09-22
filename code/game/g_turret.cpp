@@ -370,6 +370,11 @@ static void turret_aim( gentity_t *self )
 			self->speed -= ( diffPitch );//desiredAngles[PITCH];
 		}
 
+		// coop: the pitch is a host ghoul2 bone override; remote clients redo it from
+		// s.angles2 (pitch, and which bone/sign: bit 1 turbo, bit 0 inverted)
+		self->s.angles2[0] = self->speed;
+		self->s.angles2[1] = ( ( self->spawnflags & SPF_TURRETG2_TURBO ) ? 2 : 0 ) | ( ( self->spawnflags & 2 ) ? 1 : 0 );
+
 		// Note that this is NOT interpolated, so it will be less smooth...On the other hand, it does use Ghoul2 to blend, so it may smooth it out a bit?
 		if ( (self->spawnflags&SPF_TURRETG2_TURBO) )
 		{

@@ -715,8 +715,12 @@ static clientSnapshot_t *SV_BuildClientSnapshot( client_t *client ) {
 			// scales the walk/run animations by it (PM_SetAnimFinal, resultspeed)
 			VectorCopy( ent->client->velocity, state->pos.trDelta );
 		}
-		if ( frame->ps.clientNum != 0 && state->eType == ET_MOVER && state->loopSound )
-		{	// coop: host-local sfx handle -> CS_SOUNDS index (see SV_CoopMoverSoundIndex)
+		if ( frame->ps.clientNum != 0 && state->loopSound
+			&& ( state->eType == ET_MOVER
+				|| ( !ent->client && state->eType != ET_ITEM && state->time2 > 0 && state->time2 < MAX_COOP_SOUNDSETS ) ) )
+		{	// coop: host-local sfx handle -> CS_SOUNDS index (see SV_CoopMoverSoundIndex);
+			// fx_runner / misc_weapon_shooter loops come from CAS_GetBModelSound as well
+			// (g_fx.cpp): those carry their sound set's slot in s.time2 (G_ParsePrecaches)
 			state->loopSound = SV_CoopMoverSoundIndex( state->loopSound );
 		}
 		if ( frame->ps.clientNum != 0 && ( state->event & ~EV_EVENT_BITS ) == EV_BMODEL_SOUND && state->eventParm )

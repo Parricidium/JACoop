@@ -1550,6 +1550,8 @@ G_ParsePrecaches
 -------------------------
 */
 
+extern int G_CoopSoundSetIndex( const char *name );	// g_coop.cpp
+
 void G_ParsePrecaches( void )
 {
 	gentity_t	*ent = NULL;
@@ -1568,6 +1570,19 @@ void G_ParsePrecaches( void )
 		if VALIDSTRING( ent->soundSet )
 		{
 			(*as_preCacheMap)[ (char *) ent->soundSet ] = 1;
+
+			// coop: publish the name (CS_COOP_SOUNDSETS) and tag the entity with
+			// its slot, so a remote client precaches the set and, for the
+			// local-set emitters (not movers: those use the bmodel sounds), plays
+			// it at the entity like the host's cgame does (CG_AddLocalSet)
+			if ( !ent->client && ent->s.eType != ET_MOVER && ent->s.eType != ET_ITEM && !ent->s.time2 )
+			{
+				ent->s.time2 = G_CoopSoundSetIndex( ent->soundSet );
+			}
+			else
+			{
+				G_CoopSoundSetIndex( ent->soundSet );
+			}
 		}
 	}
 }

@@ -91,6 +91,29 @@ static void CG_CoopTearDown( centity_t *cent )
 
 /*
 ================
+CG_CoopModelSpecChanged
+
+The host rewrote a CS_COOP_MODELSPECS slot (G_CoopModelSpecIndex recycling):
+every character built from it must be rebuilt from the new string.
+================
+*/
+void CG_CoopModelSpecChanged( int specIndex )
+{
+	if ( !cg_remoteClient || specIndex <= 0 )
+	{
+		return;
+	}
+	for ( int i = 0; i < MAX_GENTITIES; i++ )
+	{
+		if ( coopChar[i].specIndex == specIndex )
+		{
+			coopChar[i].specIndex = -1;		// never matches: CG_CoopEnsureCharacter tears down and rebuilds
+		}
+	}
+}
+
+/*
+================
 CG_CoopSplitSpec
 
 Split "a;b;c" into fields in place. Returns the number of fields.
@@ -215,7 +238,11 @@ static void CG_CoopEnsureCharacter( centity_t *cent )
 	gent->s.number = entNum;
 	gent->inuse = qtrue;
 	gent->client->ps.clientNum = entNum;
-	gent->client->NPC_class = (class_t)atoi( f[8] );
+	const class_t npcClass = (class_t)atoi( f[8] );
+	// a vehicle (swoop, tauntaun...) is built as a plain character: G_SetG2PlayerModel /
+	// G_SetG2PlayerModelInfo take the vehicle path through m_pVehicle, which only the
+	// host game creates (the class is put back below for CG_Player's vehicle angles)
+	gent->client->NPC_class = ( npcClass == CLASS_VEHICLE ) ? CLASS_NONE : npcClass;
 	// clothing tint (customRGBA is the whole-model colour for the jedi_* player models)
 	{
 		int r = 255, g = 255, b = 255, a = 255;
@@ -252,6 +279,7 @@ static void CG_CoopEnsureCharacter( centity_t *cent )
 	}
 
 	G_SetG2PlayerModel( gent, modelName, skin[0] ? skin : NULL, surfOff[0] ? surfOff : NULL, surfOn[0] ? surfOn : NULL );
+	gent->client->NPC_class = npcClass;
 	if ( gent->playerModel < 0 )
 	{
 		return;
@@ -288,6 +316,13 @@ modelindex3 (g_items.cpp), everything else in modelindex.
 ================
 */
 static int coopG2Key[MAX_GENTITIES];	// CS_MODELS index the ghoul2 in this slot was built from (0 = none, -1 = a limb)
+
+// Emplaced guns / E-Webs / turrets: CG_General animates the gun from host-only
+// fields (activator, health, bolts, bounceCount); the host networks the user
+// (s.otherEntityNum), the health (s.coopHealth) and the turret pitch (s.angles2)
+typedef enum { COOP_GUN_NONE, COOP_GUN_EWEB, COOP_GUN_CHAIR, COOP_GUN_TURRET } coopGunKind_t;
+static byte		coopGunKind[MAX_GENTITIES];
+static float	coopTurretPitch[MAX_GENTITIES][2];	// last angles2 applied
 
 // Dismemberment: the host cuts the victim's ghoul2 into a limb entity
 // (ET_THINKER) and turns the limb's surfaces off on the victim - all of it in
@@ -408,6 +443,7 @@ everything; the snapshot rebuilds it.
 ================
 */
 static int			coopDownMax;		// downed overlay: the bleed-out total, taken from the first frame down
+static char			coopSoundSetName[MAX_COOP_SOUNDSETS][64];	// CS_COOP_SOUNDSETS, as gentity soundSet pointers
 static qboolean		coopAllDownShown;	// the everyone-down screen is up: no overlay under it
 
 void CG_CoopReset( void )
@@ -430,6 +466,8 @@ void CG_CoopReset( void )
 		gent->weaponModel[0] = gent->weaponModel[1] = -1;
 		gent->owner = NULL;
 		gent->inuse = qfalse;
+		gent->soundSet = NULL;
+		gent->setTime = 0;
 		if ( gent->client )
 		{
 			memset( gent->client->ps.saber, 0, sizeof( gent->client->ps.saber ) );
@@ -439,7 +477,54 @@ void CG_CoopReset( void )
 	}
 	memset( coopChar, 0, sizeof( coopChar ) );
 	memset( coopG2Key, 0, sizeof( coopG2Key ) );
+	memset( coopGunKind, 0, sizeof( coopGunKind ) );
+	memset( coopTurretPitch, 0, sizeof( coopTurretPitch ) );
+	memset( coopSoundSetName, 0, sizeof( coopSoundSetName ) );
 	Com_Printf( "coop: remote client state reset for the new level\n" );
+}
+
+/*
+================
+CG_CoopSyncSoundSet
+
+Local ambient sets (target_speaker & co): the host tags each emitter with its
+CS_COOP_SOUNDSETS slot in s.time2 (G_ParsePrecaches); the placeholder gets the
+name so CG_AddLocalSet plays it here like on the host.
+================
+*/
+static void CG_CoopSyncSoundSet( centity_t *cent )
+{
+	const entityState_t	*s = &cent->currentState;
+	gentity_t			*gent = cent->gent;
+	const int			idx = s->time2;
+
+	if ( s->eType == ET_MOVER || s->eType == ET_PLAYER || s->eType == ET_ITEM || idx <= 0 || idx >= MAX_COOP_SOUNDSETS )
+	{
+		if ( gent->soundSet )
+		{
+			gent->soundSet = NULL;
+			gent->setTime = 0;
+		}
+		return;
+	}
+	if ( !coopSoundSetName[idx][0] )
+	{
+		const char *name = CG_ConfigString( CS_COOP_SOUNDSETS + idx );
+		if ( !name[0] )
+		{
+			return;
+		}
+		Q_strncpyz( coopSoundSetName[idx], name, sizeof( coopSoundSetName[idx] ) );
+	}
+	if ( gent->soundSet != coopSoundSetName[idx] )
+	{
+		gent->soundSet = coopSoundSetName[idx];
+		gent->setTime = 0;
+		if ( cg_developer.integer )
+		{
+			Com_Printf( "coop: ent %i local sound set '%s'\n", s->number, gent->soundSet );
+		}
+	}
 }
 
 static void CG_CoopEnsureG2Model( centity_t *cent )
@@ -500,6 +585,12 @@ static void CG_CoopEnsureG2Model( centity_t *cent )
 		memset( &coopChar[entNum], 0, sizeof( coopChar[0] ) );
 	}
 	coopG2Key[entNum] = key;
+	coopGunKind[entNum] = COOP_GUN_NONE;
+	if ( gent->activator && gent->activator->owner == gent )
+	{
+		gent->activator->owner = NULL;
+	}
+	gent->activator = NULL;
 	if ( !key )
 	{
 		return;
@@ -508,6 +599,45 @@ static void CG_CoopEnsureG2Model( centity_t *cent )
 	gent->s.number = entNum;
 	gent->inuse = qtrue;
 	gent->playerModel = gi.G2API_InitGhoul2Model( gent->ghoul2, name, key, NULL_HANDLE, NULL_HANDLE, 0, 0 );
+	if ( gent->playerModel >= 0 && s->eType == ET_GENERAL )
+	{	// the bolts and bones CG_General's gun code needs (SP_emplaced_eweb / SP_emplaced_gun / turrets)
+		// (CG_Player aims the gun through lowerLumbarBone/upperLumbarBone and seats
+		// the user on headBolt: same bones and bolts as SP_emplaced_eweb / SP_emplaced_gun)
+		if ( strstr( name, "eweb_model" ) )
+		{
+			gent->handLBolt = gi.G2API_AddBolt( &gent->ghoul2[gent->playerModel], "*cannonflash" );
+			gent->handRBolt = -1;
+			gent->headBolt = gi.G2API_AddBolt( &gent->ghoul2[gent->playerModel], "cannon_Xrot" );
+			gent->rootBone = gi.G2API_GetBoneIndex( &gent->ghoul2[gent->playerModel], "model_root", qtrue );
+			gent->lowerLumbarBone = gi.G2API_GetBoneIndex( &gent->ghoul2[gent->playerModel], "cannon_Yrot", qtrue );
+			gent->upperLumbarBone = gi.G2API_GetBoneIndex( &gent->ghoul2[gent->playerModel], "cannon_Xrot", qtrue );
+			gi.G2API_SetBoneAnglesIndex( &gent->ghoul2[gent->playerModel], gent->lowerLumbarBone, vec3_origin, BONE_ANGLES_POSTMULT, POSITIVE_Z, NEGATIVE_X, NEGATIVE_Y, NULL, 0, 0 );
+			gi.G2API_SetBoneAnglesIndex( &gent->ghoul2[gent->playerModel], gent->upperLumbarBone, vec3_origin, BONE_ANGLES_POSTMULT, POSITIVE_Z, NEGATIVE_X, NEGATIVE_Y, NULL, 0, 0 );
+			gent->bounceCount = 1;
+			coopGunKind[entNum] = COOP_GUN_EWEB;
+			if ( cg_developer.integer )
+			{
+				Com_Printf( "coop: ent %i E-Web bolts flash %i seat %i bones root %i yrot %i xrot %i\n", entNum, gent->handLBolt, gent->headBolt, gent->rootBone, gent->lowerLumbarBone, gent->upperLumbarBone );
+			}
+		}
+		else if ( strstr( name, "turret_chair" ) )
+		{
+			gent->headBolt = gi.G2API_AddBolt( &gent->ghoul2[gent->playerModel], "*seat" );
+			gent->handLBolt = gi.G2API_AddBolt( &gent->ghoul2[gent->playerModel], "*flash01" );
+			gent->handRBolt = gi.G2API_AddBolt( &gent->ghoul2[gent->playerModel], "*flash02" );
+			gent->rootBone = gi.G2API_GetBoneIndex( &gent->ghoul2[gent->playerModel], "base_bone", qtrue );
+			gent->lowerLumbarBone = gi.G2API_GetBoneIndex( &gent->ghoul2[gent->playerModel], "swivel_bone", qtrue );
+			gent->upperLumbarBone = -1;
+			gi.G2API_SetBoneAnglesIndex( &gent->ghoul2[gent->playerModel], gent->lowerLumbarBone, vec3_origin, BONE_ANGLES_POSTMULT, POSITIVE_Y, POSITIVE_Z, POSITIVE_X, NULL, 0, 0 );
+			gent->bounceCount = 0;
+			coopGunKind[entNum] = COOP_GUN_CHAIR;
+		}
+		else if ( strstr( name, "turret_canon" ) || strstr( name, "laser_cannon_model" ) )
+		{
+			coopGunKind[entNum] = COOP_GUN_TURRET;
+			coopTurretPitch[entNum][0] = coopTurretPitch[entNum][1] = 0;
+		}
+	}
 	if ( s->eType == ET_GENERAL && s->weapon == WP_SABER && gent->playerModel >= 0 )
 	{	// a thrown saber: CG_General draws its blade from bolt 0 ("*flash") of model weaponModel[0]
 		gi.G2API_AddBolt( &gent->ghoul2[gent->playerModel], "*flash" );
@@ -774,6 +904,77 @@ void CG_CoopSyncCharacter( centity_t *cent )
 
 /*
 ================
+CG_CoopSyncGun
+
+Emplaced gun / E-Web: CG_General keys its chair code on gent->s.weapon,
+gent->activator (whose owner must be the gun and who must be EF_LOCKED_TO_WEAPON)
+and gent->health; fill them from the wire. Turret: redo the host's pitch bone
+override.
+================
+*/
+static void CG_CoopSyncGun( centity_t *cent )
+{
+	gentity_t			*gent = cent->gent;
+	const entityState_t	*s = &cent->currentState;
+	const int			entNum = s->number;
+
+	if ( coopGunKind[entNum] == COOP_GUN_TURRET )
+	{
+		if ( gent->playerModel < 0 || gent->playerModel >= gent->ghoul2.size() )
+		{
+			return;
+		}
+		if ( s->angles2[0] != coopTurretPitch[entNum][0] || s->angles2[1] != coopTurretPitch[entNum][1] )
+		{
+			const int	mode = (int)s->angles2[1];
+			const float	pitch = s->angles2[0];
+			vec3_t		angles;
+
+			coopTurretPitch[entNum][0] = s->angles2[0];
+			coopTurretPitch[entNum][1] = s->angles2[1];
+			if ( mode & 2 )
+			{	// turbo turret: "pitch" bone (turret_SetBoneAngles)
+				VectorSet( angles, 0.0f, 0.0f, ( mode & 1 ) ? -pitch : pitch );
+				gi.G2API_SetBoneAngles( &gent->ghoul2[gent->playerModel], "pitch", angles, BONE_ANGLES_POSTMULT, POSITIVE_Y, NEGATIVE_Z, NEGATIVE_X, NULL, 100, cg.time );
+			}
+			else
+			{
+				VectorSet( angles, ( mode & 1 ) ? pitch : -pitch, 0.0f, 0.0f );
+				gi.G2API_SetBoneAngles( &gent->ghoul2[gent->playerModel], "Bone_body", angles, BONE_ANGLES_POSTMULT, POSITIVE_Y, POSITIVE_Z, POSITIVE_X, NULL, 100, cg.time );
+			}
+		}
+		return;
+	}
+
+	gent->s.weapon = s->weapon;
+	gent->s.apos = s->apos;		// the chair code copies s.apos.trBase into lerpAngles
+	VectorCopy( s->angles, gent->s.angles );		// base yaw (E-Web turret offset)
+	VectorCopy( cent->lerpOrigin, gent->currentOrigin );	// seat bolt matrix (CG_Player)
+	gent->health = s->coopHealth;
+	gent->max_health = Q_max( gent->max_health, gent->health );
+
+	const int	userNum = s->otherEntityNum;
+	gentity_t	*user = ( userNum >= 0 && userNum < ENTITYNUM_WORLD && g_entities[userNum].client ) ? &g_entities[userNum] : NULL;
+	if ( gent->activator != user )
+	{
+		if ( gent->activator && gent->activator->owner == gent )
+		{
+			gent->activator->owner = NULL;
+		}
+		gent->activator = user;
+		if ( cg_developer.integer )
+		{
+			Com_Printf( "coop: gun %i now used by %i\n", entNum, user ? userNum : -1 );
+		}
+	}
+	if ( user )
+	{
+		user->owner = gent;
+	}
+}
+
+/*
+================
 CG_CoopSyncEntity
 
 Called for every packet entity on the remote client, before it is rendered.
@@ -796,6 +997,16 @@ void CG_CoopSyncEntity( centity_t *cent )
 	}
 	CG_CoopEnsureG2Model( cent );
 	CG_CoopEnsureCharacter( cent );
+	CG_CoopSyncSoundSet( cent );
+	if ( coopGunKind[cent->currentState.number] )
+	{
+		CG_CoopSyncGun( cent );
+	}
+	if ( cent->currentState.eType == ET_ITEM )
+	{	// orientation / glow flags and saber pitch (G_CoopItemSyncFlags)
+		cent->gent->spawnflags = cent->currentState.time2 & 0xff;
+		cent->gent->random = (float)(short)( ( cent->currentState.time2 >> 8 ) & 0xffff );
+	}
 	if ( cent->currentState.eType == ET_GENERAL && cent->currentState.weapon == WP_SABER )
 	{	// thrown saber: the blade is drawn from its owner's saber data (CG_General)
 		const int owner = cent->currentState.otherEntityNum;
@@ -1244,6 +1455,32 @@ void CG_CoopSelectWeapon_f( void )
 	}
 	cg.weaponSelect = wp;
 	cg.weaponSelectTime = cg.time;
+}
+
+/*
+================
+CG_CoopFog_f
+
+"fog r g b": fx_rain lightning flash of the global fog (g_fx.cpp fx_rain_fog);
+the host applies it straight to its renderer, we get the command.
+================
+*/
+void CG_CoopFog_f( void )
+{
+	vec3_t color;
+
+	if ( !cg_remoteClient || !gi.WE_SetTempGlobalFogColor )
+	{
+		return;
+	}
+	color[0] = atof( CG_Argv( 1 ) );
+	color[1] = atof( CG_Argv( 2 ) );
+	color[2] = atof( CG_Argv( 3 ) );
+	if ( cg_developer.integer )
+	{
+		Com_Printf( "coop: fog flash %g %g %g\n", color[0], color[1], color[2] );
+	}
+	gi.WE_SetTempGlobalFogColor( color );
 }
 
 void CG_CoopMissionFailed_f( void )

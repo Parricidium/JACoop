@@ -728,13 +728,18 @@ Ghoul2 Insert End
 #define CS_COOP_MODELSPECS		(CS_WORLD_FX + MAX_WORLD_FX)
 #define CS_COOP_OBJECTIVES		(CS_COOP_MODELSPECS + MAX_COOP_MODELSPECS)	// coop: host mission objectives (one char per objective)
 #define CS_COOP_LOBBY			(CS_COOP_OBJECTIVES + 1)	// coop: "L|name\tready\tmodel|..." (L = lobby, G = in game)
-#define CS_MAX					(CS_COOP_LOBBY + 1)
+// coop: ambient sound set names of the level's entities (target_speaker & co carry
+// their slot in s.time2, so a remote client can play the local set and precache
+// every set the host did); stock maps use at most 19 distinct names
+#define MAX_COOP_SOUNDSETS		32
+#define CS_COOP_SOUNDSETS		(CS_COOP_LOBBY + 1)
+#define CS_MAX					(CS_COOP_SOUNDSETS + MAX_COOP_SOUNDSETS)
 
 #if (CS_MAX) > MAX_CONFIGSTRINGS
 #error overflow: (CS_MAX) > MAX_CONFIGSTRINGS
 #endif
 
-#define	MAX_GAMESTATE_CHARS	16000
+#define	MAX_GAMESTATE_CHARS	32000	// coop: was 16000; CS_COOP_MODELSPECS (up to 128 specs) plus a full CS_SOUNDS table came close
 typedef struct {
 	int			stringOffsets[MAX_CONFIGSTRINGS];
 	char		stringData[MAX_GAMESTATE_CHARS];

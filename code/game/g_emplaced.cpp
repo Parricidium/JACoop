@@ -170,6 +170,7 @@ void EWebPositionUser(gentity_t *owner, gentity_t *eweb)
 //----------------------------------------------------------
 void eweb_pain( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, const vec3_t point, int damage, int mod,int hitLoc )
 {
+	self->s.coopHealth = self->health;	// coop: remote cgame draws the wreck / on shader from it
 	if ( self->health <= 0 )
 	{
 		// play pain effect?
@@ -196,6 +197,7 @@ void eweb_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int d
 
 
 	self->health = 0;
+	self->s.coopHealth = 0;	// coop
 //	self->s.weapon = WP_EMPLACED_GUN; // we need to be able to switch back to the old weapon
 
 	self->takedamage = qfalse;
@@ -363,6 +365,7 @@ void eweb_use( gentity_t *self, gentity_t *other, gentity_t *activator )
 	// Allow us to point from one to the other
 	activator->owner = self; // kind of dumb, but when we are locked to the weapon, we are owned by it.
 	self->activator = activator;
+	self->s.otherEntityNum = activator->s.number;	// coop: the remote cgame animates the gun from its user
 
 	G_RemoveWeaponModels( activator );
 
@@ -387,6 +390,7 @@ extern void ChangeWeapon( gentity_t *ent, int newWeapon );
 	activator->client->ps.eFlags |= EF_LOCKED_TO_WEAPON;
 	activator->owner = self; // kind of dumb, but when we are locked to the weapon, we are owned by it.
 	self->activator = activator;
+	self->s.otherEntityNum = activator->s.number;	// coop: the remote cgame animates the gun from its user
 	self->delay = level.time; // can't disconnect from the thing for half a second
 
 	// Let the gun be considered an enemy
@@ -464,6 +468,8 @@ void SP_emplaced_eweb( gentity_t *ent )
 
 	ent->max_health = ent->health;
 	ent->dflags |= DAMAGE_CUSTOM_HUD; // dumb, but we draw a custom hud
+	ent->s.coopHealth = ent->health;			// coop
+	ent->s.otherEntityNum = ENTITYNUM_NONE;		// coop: no user yet
 
 	ent->s.modelindex = G_ModelIndex( name );
 	ent->playerModel = gi.G2API_InitGhoul2Model( ent->ghoul2, name, ent->s.modelindex, NULL_HANDLE, NULL_HANDLE, 0, 0 );
@@ -586,6 +592,7 @@ void emplaced_gun_use( gentity_t *self, gentity_t *other, gentity_t *activator )
 		// Allow us to point from one to the other
 		activator->owner = self; // kind of dumb, but when we are locked to the weapon, we are owned by it.
 		self->activator = activator;
+		self->s.otherEntityNum = activator->s.number;	// coop: the remote cgame animates the gun from its user
 
 		G_RemoveWeaponModels( activator );
 
@@ -629,6 +636,7 @@ extern void ChangeWeapon( gentity_t *ent, int newWeapon );
 		activator->client->ps.eFlags |= EF_LOCKED_TO_WEAPON;
 		activator->owner = self; // kind of dumb, but when we are locked to the weapon, we are owned by it.
 		self->activator = activator;
+		self->s.otherEntityNum = activator->s.number;	// coop: the remote cgame animates the gun from its user
 		self->delay = level.time; // can't disconnect from the thing for half a second
 
 		// Let the gun be considered an enemy
@@ -665,6 +673,7 @@ extern void ChangeWeapon( gentity_t *ent, int newWeapon );
 //----------------------------------------------------------
 void emplaced_gun_pain( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, const vec3_t point, int damage, int mod,int hitLoc )
 {
+	self->s.coopHealth = self->health;	// coop: remote cgame draws the wreck / on shader from it
 	if ( self->health <= 0 )
 	{
 		// play pain effect?
@@ -698,6 +707,7 @@ void emplaced_gun_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacke
 	self->svFlags &= ~SVF_ANIMATING;
 
 	self->health = 0;
+	self->s.coopHealth = 0;	// coop
 //	self->s.weapon = WP_EMPLACED_GUN; // we need to be able to switch back to the old weapon
 
 	self->takedamage = qfalse;
@@ -829,6 +839,8 @@ void SP_emplaced_gun( gentity_t *ent )
 
 	ent->max_health = ent->health;
 	ent->dflags |= DAMAGE_CUSTOM_HUD; // dumb, but we draw a custom hud
+	ent->s.coopHealth = ent->health;			// coop
+	ent->s.otherEntityNum = ENTITYNUM_NONE;		// coop: no user yet
 
 	ent->s.modelindex = G_ModelIndex( name );
 	ent->playerModel = gi.G2API_InitGhoul2Model( ent->ghoul2, name, ent->s.modelindex, NULL_HANDLE, NULL_HANDLE, 0, 0 );
@@ -1075,6 +1087,7 @@ extern void CG_ChangeWeapon( int num );
 	ent->owner->svFlags &= ~SVF_NONNPC_ENEMY;
 	ent->owner->delay = level.time;
 	ent->owner->activator = NULL;
+	ent->owner->s.otherEntityNum = ENTITYNUM_NONE;	// coop
 
 	if ( !ent->NPC )
 	{
