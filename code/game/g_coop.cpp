@@ -666,43 +666,326 @@ qboolean G_CoopPlayerDied( gentity_t *self )
 	return qtrue;
 }
 
-extern void G_DisplaceSpawnOrigin( vec3_t origin );
 extern qboolean G_SpawnOriginIsFree( vec3_t org );
 extern void G_AddWeaponModels( gentity_t *ent );
+extern vec3_t playerMins;
+extern vec3_t playerMaxs;
+
+/*
+==============================================================================
+Putting a player down next to another one
+
+G_SpawnOriginIsFree() only sees clients that are solid, and right after a
+cutscene the players often are not (CONTENTS_BODY cleared while the camera
+runs). Two joiners gathered on the same host therefore used to get the very
+same spot and ended up inside each other, unable to move: SP has no
+player-versus-player unstick in PM_ code.
+
+So a placement "pass" remembers every spot it hands out (plus where the live
+players already stand) and no two players ever get the same one. What slips
+through anyway - a script teleport, a respawn, a lift - is caught once per
+frame by G_CoopUnstickPlayers() below.
+==============================================================================
+*/
+
+#define COOP_PLACE_MAX		(2 * MAX_CLIENTS)	// where everybody stands now, plus where we put them
+#define COOP_PLACE_SPACING	44.0f	// player box is 32 wide: leaves a real gap
+#define COOP_PLACE_HEIGHT	56.0f	// two spots this far apart in Z do not fight
+
+static vec3_t	coopPlaceTaken[COOP_PLACE_MAX];
+static int		coopPlaceNumTaken = 0;
+static qboolean	coopPlacePassOpen = qfalse;
+
+static void G_CoopPlaceReserve( const vec3_t org )
+{
+	if ( coopPlaceNumTaken < COOP_PLACE_MAX )
+	{
+		VectorCopy( org, coopPlaceTaken[coopPlaceNumTaken] );
+		coopPlaceNumTaken++;
+	}
+}
+
+// true when a player standing at org would sit on a spot this pass already used
+static qboolean G_CoopPlaceIsTaken( const vec3_t org )
+{
+	for ( int i = 0; i < coopPlaceNumTaken; i++ )
+	{
+		vec3_t d;
+		VectorSubtract( org, coopPlaceTaken[i], d );
+		if ( fabs( d[2] ) < COOP_PLACE_HEIGHT && ( d[0] * d[0] + d[1] * d[1] ) < ( COOP_PLACE_SPACING * COOP_PLACE_SPACING ) )
+		{
+			return qtrue;
+		}
+	}
+	return qfalse;
+}
+
+// open a pass: the mate's spot and everybody else's are taken from the start
+static void G_CoopPlaceBeginPass( const gentity_t *mate )
+{
+	coopPlaceNumTaken = 0;
+	coopPlacePassOpen = qtrue;
+	if ( mate )
+	{
+		G_CoopPlaceReserve( mate->currentOrigin );
+	}
+	for ( int i = 0; i < MAX_CLIENTS; i++ )
+	{
+		const gentity_t *other = G_CoopPlayerSlot( i );
+		if ( other && other != mate && other->health > 0 )
+		{
+			G_CoopPlaceReserve( other->currentOrigin );
+		}
+	}
+}
+
+static void G_CoopPlaceEndPass( void )
+{
+	coopPlacePassOpen = qfalse;
+	coopPlaceNumTaken = 0;
+}
+
+// settle org on the floor under it, so nobody is left hanging in the air
+static void G_CoopPlaceDropToFloor( vec3_t org )
+{
+	trace_t	tr;
+	vec3_t	below;
+
+	VectorCopy( org, below );
+	below[2] -= 64;
+	gi.trace( &tr, org, playerMins, playerMaxs, below, ENTITYNUM_NONE, MASK_PLAYERSOLID & ~CONTENTS_BODY, (EG2_Collision)0, 0 );
+	if ( !tr.allsolid && !tr.startsolid && tr.fraction < 1.0f )
+	{
+		VectorCopy( tr.endpos, org );
+		org[2] += 1.0f;
+	}
+}
+
+// ring of candidates around base, growing outwards; yawStart makes two players
+// placed in the same pass walk the ring in a different order
+static void G_CoopPlaceFindSpot( const vec3_t base, float yawStart, vec3_t out )
+{
+	static const float	radii[] = { 48.0f, 72.0f, 104.0f, 144.0f, 192.0f };
+	vec3_t				cand;
+
+	VectorCopy( base, cand );
+	if ( G_SpawnOriginIsFree( cand ) && !G_CoopPlaceIsTaken( cand ) )
+	{
+		G_CoopPlaceDropToFloor( cand );
+		if ( !G_CoopPlaceIsTaken( cand ) )
+		{
+			VectorCopy( cand, out );
+			return;
+		}
+	}
+
+	for ( int r = 0; r < (int)ARRAY_LEN( radii ); r++ )
+	{
+		for ( int a = 0; a < 8; a++ )
+		{
+			const float yaw = yawStart + a * 45.0f + ( ( r & 1 ) ? 22.5f : 0.0f );
+			const float rad = yaw * ( M_PI / 180.0f );
+
+			VectorCopy( base, cand );
+			cand[0] += cos( rad ) * radii[r];
+			cand[1] += sin( rad ) * radii[r];
+			if ( !G_SpawnOriginIsFree( cand ) )
+			{
+				continue;
+			}
+			G_CoopPlaceDropToFloor( cand );
+			if ( G_CoopPlaceIsTaken( cand ) )
+			{
+				continue;
+			}
+			VectorCopy( cand, out );
+			return;
+		}
+	}
+
+	// nowhere clear at all: drop him on the mate and let the per-frame unstick sort it out
+	VectorCopy( base, out );
+}
 
 // move a freshly spawned player next to mate (no-op without one)
 void G_CoopPlaceBeside( gentity_t *ent, gentity_t *mate )
 {
-	if ( !mate || !mate->client || mate == ent )
+	if ( !ent || !ent->client || !mate || !mate->client || mate == ent )
 	{
 		return;
 	}
-	vec3_t origin;
-	VectorCopy( mate->currentOrigin, origin );
-	origin[2] += 9;
-	G_DisplaceSpawnOrigin( origin );
-	if ( VectorCompare( origin, mate->currentOrigin ) || Distance( origin, mate->currentOrigin ) < 16.0f )
-	{	// the mate did not count as an obstacle (cutscene, non-solid): step aside anyway
-		vec3_t right;
-		AngleVectors( mate->client->ps.viewangles, NULL, right, NULL );
-		VectorMA( mate->currentOrigin, 48.0f, right, origin );
-		origin[2] += 9;
-		if ( !G_SpawnOriginIsFree( origin ) )
-		{
-			VectorMA( mate->currentOrigin, -48.0f, right, origin );
-			origin[2] += 9;
-			if ( !G_SpawnOriginIsFree( origin ) )
-			{
-				VectorCopy( mate->currentOrigin, origin );
-				origin[2] += 9;
-			}
-		}
+	const qboolean ownPass = (qboolean)!coopPlacePassOpen;
+	if ( ownPass )
+	{
+		G_CoopPlaceBeginPass( mate );
 	}
+
+	vec3_t base, origin;
+	VectorCopy( mate->currentOrigin, base );
+	base[2] += 9;
+	// start each player on his own side of the ring (slot number), from the mate's right
+	G_CoopPlaceFindSpot( base, mate->client->ps.viewangles[YAW] + 90.0f + ent->s.number * 47.0f, origin );
+	G_CoopPlaceReserve( origin );
+
 	VectorCopy( origin, ent->client->ps.origin );
 	VectorCopy( origin, ent->currentOrigin );
 	SetClientViewAngle( ent, mate->client->ps.viewangles );
 	ent->client->ps.eFlags ^= EF_TELEPORT_BIT;
 	gi.linkentity( ent );
+
+	if ( ownPass )
+	{
+		G_CoopPlaceEndPass();
+	}
+}
+
+/*
+================
+G_CoopUnstickPlayers
+
+Safety net, once per server frame. Two live players whose boxes overlap can
+never free themselves (they are solid to each other and nothing pushes them
+apart), so slide them apart a few units a frame until they are clear. Only
+into room the world allows and never off a ledge: they must still be able to
+block each other normally, just not stay stuck.
+================
+*/
+#define COOP_UNSTICK_STEP	3.0f
+
+static qboolean G_CoopUnstickGroundBelow( const vec3_t org )
+{
+	trace_t	tr;
+	vec3_t	start, below;
+
+	VectorCopy( org, start );
+	VectorCopy( org, below );
+	below[2] -= 64;
+	gi.trace( &tr, start, playerMins, playerMaxs, below, ENTITYNUM_NONE, MASK_PLAYERSOLID & ~CONTENTS_BODY, (EG2_Collision)0, 0 );
+	return (qboolean)( tr.fraction < 1.0f );
+}
+
+// slide ent along dir, ignoring other bodies (that is what we are escaping from);
+// false when the world would not let him move that way at all
+static qboolean G_CoopUnstickNudge( gentity_t *ent, const vec3_t dir, float dist )
+{
+	trace_t	tr;
+	vec3_t	start, end;
+
+	VectorCopy( ent->currentOrigin, start );
+	VectorMA( start, dist, dir, end );
+	gi.trace( &tr, start, ent->mins, ent->maxs, end, ent->s.number, MASK_PLAYERSOLID & ~CONTENTS_BODY, (EG2_Collision)0, 0 );
+	if ( tr.allsolid || tr.startsolid )
+	{	// already half inside the world (a mover pushed him into it, a teleport
+		// dropped him low): the sweep tells us nothing, judge the target alone
+		trace_t	dest;
+		gi.trace( &dest, end, ent->mins, ent->maxs, end, ent->s.number, MASK_PLAYERSOLID & ~CONTENTS_BODY, (EG2_Collision)0, 0 );
+		if ( dest.allsolid || dest.startsolid )
+		{
+			return qfalse;
+		}
+		VectorCopy( end, tr.endpos );
+	}
+	else if ( tr.fraction <= 0.0f )
+	{
+		return qfalse;		// the world holds him here; the other one will move instead
+	}
+	if ( !G_CoopUnstickGroundBelow( tr.endpos ) && G_CoopUnstickGroundBelow( start ) )
+	{
+		return qfalse;		// would shove him off a ledge
+	}
+	VectorCopy( tr.endpos, ent->currentOrigin );
+	VectorCopy( tr.endpos, ent->client->ps.origin );
+	gi.linkentity( ent );
+	return qtrue;
+}
+
+static qboolean G_CoopUnstickCandidate( const gentity_t *ent )
+{
+	if ( !ent || !ent->client || !ent->inuse || ent->health <= 0 )
+	{
+		return qfalse;
+	}
+	if ( !( ent->contents & CONTENTS_BODY ) )
+	{
+		return qfalse;	// non-solid (cutscene): nothing blocks anybody
+	}
+	if ( ent->client->ps.eFlags & EF_LOCKED_TO_WEAPON )
+	{
+		return qfalse;
+	}
+	if ( ent->s.m_iVehicleNum )
+	{
+		return qfalse;	// on a swoop: its own code owns the origin
+	}
+	return qtrue;
+}
+
+void G_CoopUnstickPlayers( void )
+{
+	if ( G_CoopNumPlayers() < 2 )
+	{
+		return;
+	}
+	for ( int a = 0; a < MAX_CLIENTS; a++ )
+	{
+		gentity_t *ea = G_CoopPlayerSlot( a );
+		if ( !G_CoopUnstickCandidate( ea ) )
+		{
+			continue;
+		}
+		for ( int b = a + 1; b < MAX_CLIENTS; b++ )
+		{
+			gentity_t *eb = G_CoopPlayerSlot( b );
+			if ( !G_CoopUnstickCandidate( eb ) )
+			{
+				continue;
+			}
+			// boxes overlapping on all three axes? (1 unit of slack: touching is fine)
+			qboolean overlap = qtrue;
+			for ( int k = 0; k < 3; k++ )
+			{
+				if ( eb->currentOrigin[k] + eb->mins[k] >= ea->currentOrigin[k] + ea->maxs[k] - 1.0f
+					|| ea->currentOrigin[k] + ea->mins[k] >= eb->currentOrigin[k] + eb->maxs[k] - 1.0f )
+				{
+					overlap = qfalse;
+					break;
+				}
+			}
+			if ( !overlap )
+			{
+				continue;
+			}
+
+			vec3_t push;
+			VectorSubtract( eb->currentOrigin, ea->currentOrigin, push );
+			push[2] = 0;
+			if ( VectorLength( push ) < 1.0f )
+			{	// exactly on top of each other: a stable direction, the same one every frame
+				const float rad = ( a * 71 + b * 37 ) * ( M_PI / 180.0f );
+				push[0] = cos( rad );
+				push[1] = sin( rad );
+			}
+			VectorNormalize( push );
+			qboolean moved = G_CoopUnstickNudge( eb, push, COOP_UNSTICK_STEP );
+			VectorScale( push, -1.0f, push );
+			if ( G_CoopUnstickNudge( ea, push, COOP_UNSTICK_STEP ) )
+			{
+				moved = qtrue;
+			}
+			if ( !moved )
+			{	// a wall holds them both on that line: try along it instead
+				vec3_t side;
+				side[0] = -push[1];
+				side[1] = push[0];
+				side[2] = 0;
+				if ( !G_CoopUnstickNudge( eb, side, COOP_UNSTICK_STEP ) )
+				{
+					VectorScale( side, -1.0f, side );
+					G_CoopUnstickNudge( ea, side, COOP_UNSTICK_STEP );
+				}
+			}
+		}
+	}
 }
 
 /*
@@ -720,6 +1003,8 @@ void G_CoopGatherJoiners( qboolean all )
 	{
 		return;
 	}
+	// one pass for the whole gather: each joiner gets his own spot around the host
+	G_CoopPlaceBeginPass( host );
 	for ( int i = 1; i < MAX_CLIENTS; i++ )
 	{
 		gentity_t *ent = &g_entities[i];
@@ -736,7 +1021,43 @@ void G_CoopGatherJoiners( qboolean all )
 			continue;
 		}
 		G_CoopPlaceBeside( ent, host );
-		gi.Printf( "coop: %s brought to the host\n", ent->client->pers.netname );
+		gi.Printf( "coop: %s brought to the host (%.0f %.0f %.0f)\n", ent->client->pers.netname,
+			ent->currentOrigin[0], ent->currentOrigin[1], ent->currentOrigin[2] );
+	}
+	G_CoopPlaceEndPass();
+}
+
+/*
+================
+G_CoopStackPlayers
+
+"coop_stack" (cheats, the host): drop every player on the host's exact spot,
+without the kill box a real teleport carries. Nothing in the game does this -
+it is how the tests check that G_CoopUnstickPlayers() always gets everybody
+out of everybody else again.
+================
+*/
+void G_CoopStackPlayers( void )
+{
+	gentity_t *host = &g_entities[0];
+	if ( !host->inuse || !host->client )
+	{
+		return;
+	}
+	for ( int i = 1; i < MAX_CLIENTS; i++ )
+	{
+		gentity_t *ent = G_CoopPlayerSlot( i );
+		if ( !ent || ent->health <= 0 )
+		{
+			continue;
+		}
+		VectorCopy( host->currentOrigin, ent->client->ps.origin );
+		VectorCopy( host->currentOrigin, ent->currentOrigin );
+		VectorClear( ent->client->ps.velocity );
+		ent->client->ps.eFlags ^= EF_TELEPORT_BIT;
+		gi.linkentity( ent );
+		gi.Printf( "coop_stack: %s dropped on the host (%.0f %.0f %.0f)\n", ent->client->pers.netname,
+			ent->currentOrigin[0], ent->currentOrigin[1], ent->currentOrigin[2] );
 	}
 }
 
@@ -761,6 +1082,8 @@ void G_CoopFollowHostTeleport( const vec3_t from )
 	{
 		return;	// a script nudge, not a relocation
 	}
+	// one pass: two joiners following the same cutscene never land on one another
+	G_CoopPlaceBeginPass( host );
 	for ( int i = 1; i < MAX_CLIENTS; i++ )
 	{
 		gentity_t *ent = &g_entities[i];
@@ -781,8 +1104,10 @@ void G_CoopFollowHostTeleport( const vec3_t from )
 			continue;
 		}
 		G_CoopPlaceBeside( ent, host );
-		gi.Printf( "coop: %s follows the host's script teleport\n", ent->client->pers.netname );
+		gi.Printf( "coop: %s follows the host's script teleport (%.0f %.0f %.0f)\n", ent->client->pers.netname,
+			ent->currentOrigin[0], ent->currentOrigin[1], ent->currentOrigin[2] );
 	}
+	G_CoopPlaceEndPass();
 }
 
 // "coop_tp": a joiner asks to be brought beside the host (stuck behind a locked

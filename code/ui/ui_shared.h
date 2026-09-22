@@ -465,6 +465,8 @@ typedef struct
 } commandDef_t;
 
 menuDef_t	*Menu_GetFocused(void);
+void		Menus_PrintFocus(void);	// coop: "ui_focus" console command
+void		Menus_ClickItem(const char *itemName);	// coop: "ui_click <item>" console command
 
 void		Controls_GetConfig( void );
 void		Controls_SetConfig( void );

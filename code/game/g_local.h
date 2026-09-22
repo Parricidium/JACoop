@@ -420,7 +420,9 @@ qboolean G_CoopPlayerDied( gentity_t *self );
 void G_CoopRunRespawns( void );
 void G_CoopRespawnPendingNow( void );
 void G_CoopPlaceBeside( gentity_t *ent, gentity_t *mate );
+void G_CoopUnstickPlayers( void );	// once per frame: never leave two players inside each other
 void G_CoopGatherJoiners( qboolean all );
+void G_CoopStackPlayers( void );	// cheat/test: everybody on the host's spot, no kill box
 void G_CoopFollowHostTeleport( const vec3_t from );
 void G_CoopTeleportCommand( gentity_t *ent );
 void G_CoopFadePlayer( gentity_t *ent, const vec4_t src, const vec4_t dst, int ms );

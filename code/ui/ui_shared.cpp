@@ -1691,6 +1691,59 @@ menuDef_t *Menu_GetFocused(void)
 	return NULL;
 }
 
+// coop: "ui_focus" on the console - which menus are up and which one takes the
+// keys. A screen that draws but answers nothing is a menu list with no focus.
+void Menus_PrintFocus( void )
+{
+	const menuDef_t *focus = Menu_GetFocused();
+	int				i, shown = 0;
+
+	Com_Printf( "ui_focus: focus=%s\n", focus ? focus->window.name : "(none)" );
+	for (i = 0; i < menuCount; i++)
+	{
+		if (Menus[i].window.flags & WINDOW_VISIBLE)
+		{
+			Com_Printf( "ui_focus: visible %s%s\n", Menus[i].window.name,
+				(Menus[i].window.flags & WINDOW_HASFOCUS) ? " [focus]" : "" );
+			shown++;
+		}
+	}
+	Com_Printf( "ui_focus: %i visible menu(s)\n", shown );
+}
+
+// coop: "ui_click <item>" runs a named item's action script on the focused menu,
+// the way a real mouse click does. Only the hands-off tests use it; nothing in
+// the game calls it.
+void Menus_ClickItem( const char *itemName )
+{
+	menuDef_t *menu = Menu_GetFocused();
+	itemDef_t *item;
+
+	if (!menu)
+	{
+		Com_Printf( "ui_click: no focused menu\n" );
+		return;
+	}
+	item = (itemDef_t *) Menu_FindItemByName( menu, itemName );
+	if (!item)
+	{
+		Com_Printf( "ui_click: menu %s has no item \"%s\"\n", menu->window.name, itemName );
+		return;
+	}
+	if (!(item->window.flags & WINDOW_VISIBLE))
+	{
+		Com_Printf( "ui_click: %s.%s is hidden\n", menu->window.name, itemName );
+		return;
+	}
+	if (!item->action)
+	{
+		Com_Printf( "ui_click: %s.%s has no action\n", menu->window.name, itemName );
+		return;
+	}
+	Com_Printf( "ui_click: %s.%s\n", menu->window.name, itemName );
+	Item_RunScript( item, item->action );
+}
+
 /*
 ===============
 Menus_OpenByName
@@ -5479,17 +5532,19 @@ menuDef_t *Menus_ActivateByName(const char *p)
 	menuDef_t *m = NULL;
 	menuDef_t *focus = Menu_GetFocused();
 
+	// coop: two passes on purpose. Menus_Activate() runs the menu's onOpen, and an
+	// onOpen is allowed to open another menu (the Force screen opens its help popup
+	// through the uiScript forcehelpactive). Clearing WINDOW_HASFOCUS in the same
+	// loop used to wipe the focus that nested call had just given the popup, so the
+	// screen was left with no focused menu at all: Menu_GetFocused() returned NULL,
+	// every click and ESC went nowhere. Pick the menu and drop everybody else's
+	// focus first, activate afterwards.
 	for (i = 0; i < menuCount; i++)
 	{
 		// Look for the name in the current list of windows
 		if (Q_stricmp(Menus[i].window.name, p) == 0)
 		{
 			m = &Menus[i];
-			Menus_Activate(m);
-			if (openMenuCount < MAX_OPEN_MENUS && focus != NULL)
-			{
-				menuStack[openMenuCount++] = focus;
-			}
 		}
 		else
 		{
@@ -5497,7 +5552,15 @@ menuDef_t *Menus_ActivateByName(const char *p)
 		}
 	}
 
-	if (!m)
+	if (m)
+	{
+		Menus_Activate(m);
+		if (openMenuCount < MAX_OPEN_MENUS && focus != NULL)
+		{
+			menuStack[openMenuCount++] = focus;
+		}
+	}
+	else
 	{	// A hack so we don't have to load all three mission menus before we know what tier we're on
 		if (!Q_stricmp( p, "ingameMissionSelect1" ) )
 		{

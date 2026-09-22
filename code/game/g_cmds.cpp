@@ -1526,6 +1526,15 @@ void ClientCommand( int clientNum ) {
 		}
 		return;
 	}
+	if (Q_stricmp (cmd, "coop_stack") == 0)
+	{	// coop dev: drop every joiner on the host's spot (cheats) to check the unstick
+		if ( !CheatsOk( ent ) ) return;
+		if ( ent->s.number == 0 )
+		{
+			G_CoopStackPlayers();
+		}
+		return;
+	}
 	if (Q_stricmp (cmd, "coop_killclass") == 0)
 	{	// coop dev: kill every NPC of this class number (cheats), e.g. remotes without touching Kyle/Rosh
 		if ( !CheatsOk( ent ) ) return;
