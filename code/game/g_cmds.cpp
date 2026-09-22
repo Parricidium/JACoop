@@ -40,7 +40,7 @@ extern void ForceProtect( gentity_t *self );
 extern void ForceAbsorb( gentity_t *self );
 extern void ForceSeeing( gentity_t *self );
 extern void G_CreateG2AttachedWeaponModel( gentity_t *ent, const char *psWeaponModel, int boltNum, int weaponNum );
-extern void G_StartMatrixEffect( gentity_t *ent, int meFlags = 0, int length = 1000, float timeScale = 0.0f, int spinTime = 0 );
+extern void G_StartMatrixEffect( gentity_t *ent, int meFlags = 0, int length = 1000, float timeScale = 0.0f, int spinTime = 0, int viewerNum = -1 );	// coop: viewer = who gets the camera
 extern void ItemUse_Bacta(gentity_t *ent);
 extern gentity_t *G_GetSelfForPlayerCmd( void );
 // coop: a force key from a joiner acts on the joiner; the host keeps the
@@ -1360,7 +1360,7 @@ void Cmd_SaberDrop_f( gentity_t *ent, int saberNum )
 		//change weapons
 		if ( ent->s.number < MAX_CLIENTS )
 		{//player
-			CG_ChangeWeapon( WP_NONE );
+			G_CoopChangeWeapon( ent, WP_NONE );	// coop: a joiner's cgame is remote
 		}
 		else
 		{
@@ -1389,6 +1389,15 @@ void ClientCommand( int clientNum ) {
 	if (Q_stricmp (cmd, "coopforce") == 0)
 	{
 		G_CoopForceCommand( ent );	// coop: a joiner allocated its force points
+		return;
+	}
+	if (Q_stricmp (cmd, "saberAttackCycle") == 0)
+	{	// coop: a joiner's stance key (a host-only server console command in SP;
+		// the host never gets here, SV_GameCommand claims it first)
+		if ( ent->client && ent->health > 0 && !G_CoopIsDowned( ent ) )
+		{
+			G_SaberAttackCycle( G_CoopSelfForCmd( ent ) );
+		}
 		return;
 	}
 	if (Q_stricmp (cmd, "sabertoggle") == 0)
@@ -1608,7 +1617,8 @@ void ClientCommand( int clientNum ) {
 		if ( setStyle > SS_NONE && setStyle < SS_STAFF )
 		{
 			ent->client->ps.saberStylesKnown = (1<<setStyle);
-			cg.saberAnimLevelPending = ent->client->ps.saberAnimLevel = setStyle;
+			ent->client->ps.saberAnimLevel = setStyle;
+			G_SaberSetPendingLevel( ent, setStyle );	// coop: per player
 		}
 	}
 	else if (Q_stricmp (cmd, "taunt") == 0)

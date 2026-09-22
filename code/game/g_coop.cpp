@@ -133,6 +133,31 @@ void G_CoopUpdateAppearance( gentity_t *ent )
 	ent->s.coopMaxHealth = ent->max_health;
 	// head tracking: interest points are host-only, so only entity targets travel
 	ent->s.coopLookTarget = ( ent->client->renderInfo.lookMode == LM_ENT ) ? ent->client->renderInfo.lookTarget : ENTITYNUM_NONE;
+	// Force visuals the remote cgame draws from the placeholder's playerState (lightning, drain,
+	// grip hand blur, rage/protect/absorb shells, speed trails, push/pull hand refraction)
+	{
+		const playerState_t *ps = &ent->client->ps;
+		int f = ps->forcePowersActive & COOPF_ACTIVE_MASK;
+		f |= Q_min( ps->forcePowerLevel[FP_LIGHTNING], 3 ) << COOPF_LVL_LIGHTNING_SHIFT;
+		f |= Q_min( ps->forcePowerLevel[FP_DRAIN], 3 ) << COOPF_LVL_DRAIN_SHIFT;
+		f |= Q_min( ps->forcePowerLevel[FP_PROTECT], 3 ) << COOPF_LVL_PROTECT_SHIFT;
+		f |= Q_min( ps->forcePowerLevel[FP_ABSORB], 3 ) << COOPF_LVL_ABSORB_SHIFT;
+		if ( ps->forceDrainEntityNum >= ENTITYNUM_WORLD )
+		{
+			f |= COOPF_DRAIN_AREA;
+		}
+		if ( ps->powerups[PW_FORCE_PUSH] > level.time )
+		{
+			f |= COOPF_PUSH_LHAND;
+		}
+		if ( ps->powerups[PW_FORCE_PUSH_RHAND] > level.time )
+		{
+			f |= COOPF_PUSH_RHAND;
+		}
+		ent->s.coopForce = f;
+		// victim electrocution: the wire bit sticks on corpses, the timer decides
+		ent->s.coopShockTime = ps->powerups[PW_SHOCKED];
+	}
 	if ( !a->modelName[0] && ent->ghoul2.size() && ent->playerModel >= 0 && ent->playerModel < ent->ghoul2.size() )
 	{
 		// Savegame load: the entity came back with its ghoul2 (and its skin as
@@ -914,10 +939,7 @@ qboolean G_CoopTryDown( gentity_t *targ, gentity_t *attacker, int mod, int dflag
 	}
 	ps->saberLockTime = 0;
 	ps->weaponTime = 500;
-	if ( targ->s.number == 0 )
-	{
-		cg.zoomMode = 0;
-	}
+	G_CoopSetZoomMode( targ, 0 );	// per player
 
 	// fall like a knockdown, from the side the blow came from
 	int anim = BOTH_KNOCKDOWN1;
@@ -1351,6 +1373,216 @@ void G_CoopChunks( int owner, vec3_t origin, const vec3_t normal, const vec3_t m
 	te->s.modelindex = customChunk;
 	te->s.time2 = (int)( baseScale * 100.0f );
 	te->s.modelindex2 = ( customSound > 0 && customSound < 256 ) ? customSound : 0;
+}
+
+/*
+================
+G_CoopMiscModelExplosion
+
+CG_MiscModelExplosion is the same kind of game -> cgame shortcut as
+CG_Chunks: the burst of a misc_model_breakable / func_breakable only ever
+played on the host. Play it locally and send the parameters as a PVS-bound
+temp entity for the remote clients (cg_event.cpp EV_COOP_EXPLOSION).
+================
+*/
+extern void CG_MiscModelExplosion( vec3_t mins, vec3_t maxs, int size, material_t chunkType );
+void G_CoopMiscModelExplosion( gentity_t *self, int size, material_t chunkType )
+{
+	CG_MiscModelExplosion( self->absmin, self->absmax, size, chunkType );	// host, as before
+	if ( G_CoopNumPlayers() < 2 || chunkType == MAT_NONE )
+	{
+		return;
+	}
+	vec3_t mid;
+	VectorAdd( self->absmin, self->absmax, mid );
+	VectorScale( mid, 0.5f, mid );
+	gentity_t *te = G_TempEntity( mid, EV_COOP_EXPLOSION );
+	VectorCopy( self->absmin, te->s.angles );
+	VectorCopy( self->absmax, te->s.angles2 );
+	te->s.eventParm = size;			// 0..2
+	te->s.weapon = (int)chunkType;	// material_t < 256
+}
+
+/*
+================
+G_CoopGlass
+
+func_glass shatters through cgi_R_GetBModelVerts + CG_DoGlass straight into
+the host's cgame (and its sound system). Describe the pane to the remote
+clients; they own the same inline models and rebuild the shards themselves
+(cg_event.cpp EV_COOP_GLASS). Broadcast: a window is a landmark and the
+entity is freed right after.
+================
+*/
+void G_CoopGlass( gentity_t *self )
+{
+	if ( G_CoopNumPlayers() < 2 )
+	{
+		return;
+	}
+	vec3_t mid;
+	VectorAdd( self->absmin, self->absmax, mid );
+	VectorScale( mid, 0.5f, mid );
+	gentity_t *te = G_TempEntity( mid, EV_COOP_GLASS );
+	te->svFlags |= SVF_BROADCAST;
+	te->s.modelindex = self->s.modelindex;
+	VectorCopy( self->pos1, te->s.origin2 );
+	VectorCopy( self->pos2, te->s.angles );
+	te->s.time = (int)self->splashRadius;
+}
+
+/*
+==============================================================================
+Per-player state that stock SP keeps in the host's cgame globals
+
+The game and cgame are one DLL on the host, so the SP code reads
+cg.saberAnimLevelPending / cg.zoomMode for "the player". With several
+players those globals belong to slot 0 only; joiners get their own copy here
+(never saved: joiners are not part of a .sav).
+==============================================================================
+*/
+static int	coopSaberPending[MAX_CLIENTS];
+static int	coopZoomMode[MAX_CLIENTS];
+static int	coopZoomHold[MAX_CLIENTS];	// level.time until which the usercmd echo of an older mode is ignored
+
+// the stance the player asked for (bg_pmove applies it between swings)
+int G_SaberPendingLevel( const gentity_t *ent )
+{
+	if ( !ent || ent->s.number == 0 || ent->s.number >= MAX_CLIENTS )
+	{	// the host, or an NPC it controls: the cgame global as in SP
+		return cg.saberAnimLevelPending;
+	}
+	if ( coopSaberPending[ent->s.number] <= SS_NONE && ent->client )
+	{	// nothing asked yet: whatever the saber gave it
+		return ent->client->ps.saberAnimLevel;
+	}
+	return coopSaberPending[ent->s.number];
+}
+
+void G_SaberSetPendingLevel( gentity_t *ent, int level )
+{
+	if ( !ent || ent->s.number == 0 || ent->s.number >= MAX_CLIENTS )
+	{
+		cg.saberAnimLevelPending = level;
+		return;
+	}
+	coopSaberPending[ent->s.number] = level;
+}
+
+// what the player's screen is zoomed with: 0 none, 1 binoculars, 2 disruptor scope, 3 LA goggles
+int G_CoopZoomMode( const gentity_t *ent )
+{
+	if ( !ent || ent->s.number == 0 || ent->s.number >= MAX_CLIENTS )
+	{	// the host (and the NPC it controls, G_ControlledByPlayer): its own cgame
+		return cg.zoomMode;
+	}
+	return coopZoomMode[ent->s.number];
+}
+
+// a host-side decision (disruptor toggle, death, knockdown, view entity): the joiner's cgame follows
+void G_CoopSetZoomMode( gentity_t *ent, int mode )
+{
+	if ( !ent || ent->s.number == 0 || ent->s.number >= MAX_CLIENTS )
+	{
+		cg.zoomMode = mode;
+		cg.zoomTime = cg.time;
+		cg.zoomLocked = qfalse;
+		return;
+	}
+	if ( coopZoomMode[ent->s.number] != mode )
+	{
+		coopZoomMode[ent->s.number] = mode;
+		coopZoomHold[ent->s.number] = level.time + 700;	// usercmds already in flight still say the old mode
+		gi.SendServerCommand( ent->s.number, "zoom %i", mode );
+	}
+}
+
+// the joiner's cgame reports its zoom in the usercmd (binoculars/goggles toggled locally, scope echoed back)
+void G_CoopReadZoomMode( gentity_t *ent, usercmd_t *ucmd )
+{
+	if ( !ent || !ucmd )
+	{
+		return;
+	}
+	const int mode = ( ucmd->buttons >> BUTTON_COOP_ZOOM_SHIFT ) & 3;
+	ucmd->buttons &= ~BUTTON_COOP_ZOOM_MASK;
+	if ( ent->s.number == 0 || ent->s.number >= MAX_CLIENTS )
+	{
+		return;
+	}
+	if ( mode != coopZoomMode[ent->s.number] && level.time >= coopZoomHold[ent->s.number] )
+	{
+		coopZoomMode[ent->s.number] = mode;
+	}
+}
+
+// game code asking "the player's" cgame to select a weapon: a joiner's cgame is remote
+void G_CoopChangeWeapon( gentity_t *ent, int wp )
+{
+	extern void CG_ChangeWeapon( int num );
+	if ( !ent || ent->s.number == 0 || ent->s.number >= MAX_CLIENTS )
+	{
+		CG_ChangeWeapon( wp );
+		return;
+	}
+	if ( wp == WP_NONE || ( ent->client && ( ent->client->ps.stats[STAT_WEAPONS] & ( 1 << wp ) ) ) )
+	{
+		gi.SendServerCommand( ent->s.number, "wp %i", wp );
+	}
+}
+
+/*
+================
+G_CoopUpdateTimescale
+
+Force Speed / Rage are bullet time for the whole party (SP design, shared
+host clock): one arbiter instead of every player's ClientThink rewriting the
+cvar. The slowest active power wins; the cvar goes back to 1 once nobody is
+speeding or raging. Called once per frame after the client thinks; the value
+reaches the joiners through CS_COOP_TIMESCALE (sv_main.cpp).
+================
+*/
+extern float forceSpeedValue[];
+extern qboolean MatrixMode;
+extern cvar_t *g_timescale;
+extern cvar_t *g_skippingcin;
+void G_CoopUpdateTimescale( void )
+{
+	static float	lastTs = 1.0f;
+	float			ts = 1.0f;
+
+	for ( int i = 0; i < MAX_CLIENTS; i++ )
+	{
+		const gentity_t *ent = &g_entities[i];
+		if ( !ent->inuse || !ent->client || ent->health <= 0 )
+		{
+			continue;
+		}
+		const playerState_t *ps = &ent->client->ps;
+		if ( ps->forcePowersActive & ( 1 << FP_SPEED ) )
+		{
+			ts = Q_min( ts, forceSpeedValue[ps->forcePowerLevel[FP_SPEED]] );
+		}
+		if ( ( ps->forcePowersActive & ( 1 << FP_RAGE ) ) && ps->forcePowerLevel[FP_RAGE] >= FORCE_LEVEL_2 )
+		{
+			ts = Q_min( ts, forceSpeedValue[ps->forcePowerLevel[FP_RAGE] - 1] );
+		}
+	}
+	if ( ts < 1.0f )
+	{	// as in SP, re-assert it every frame while a power runs
+		if ( fabs( g_timescale->value - ts ) > 0.001f )
+		{
+			gi.cvar_set( "timescale", va( "%4.2f", ts ) );
+		}
+	}
+	else if ( lastTs < 1.0f )
+	{	// the last power stopped: back to 1 unless something else owns the clock now
+		if ( g_timescale->value != 1.0f && !MatrixMode && !g_skippingcin->integer && !in_camera )
+		{
+			gi.cvar_set( "timescale", "1" );
+		}
+	}
+	lastTs = ts;
 }
 
 void G_CoopForwardSound( int entNum, int channel, int index, const char *path, int customSet )

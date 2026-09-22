@@ -138,6 +138,11 @@ static void CG_ConfigStringModified( void ) {
 	}
 	else if ( num == CS_MUSIC ) {
 		CG_StartMusic( qtrue );
+	} else if ( num == CS_COOP_TIMESCALE ) {
+		if ( cg_remoteClient )
+		{	// coop: the host's bullet time (see sv_main.cpp); CL_Disconnect restores 1
+			cgi_Cvar_Set( "timescale", str[0] ? str : "1" );
+		}
 	} else if ( num == CS_SERVERINFO ) {
 		CG_ParseServerinfo();
 	} else if ( num >= CS_MODELS && num < CS_MODELS+MAX_MODELS ) {
@@ -218,6 +223,7 @@ static int svcmdcmp( const void *a, const void *b ) {
 }
 
 extern void CG_CoopSelectWeapon_f( void );	// cg_coop.cpp
+extern void CG_CoopZoom_f( void );			// cg_coop.cpp
 extern void CG_CoopLimb_f( void );			// cg_coop.cpp
 
 /* This array MUST be sorted correctly by alphabetical name field */
@@ -237,6 +243,7 @@ static serverCommand_t	commands[] = {
 	{ "snd",				CG_CoopSound_f },	// coop: host-side sound forwarded to remote clients
 	{ "st",					CG_ScrollText_f },
 	{ "wp",					CG_CoopSelectWeapon_f },	// coop: host put a weapon in our hand (saber sync)
+	{ "zoom",				CG_CoopZoom_f },			// coop: host changed our zoom (disruptor scope, death, knockdown)
 };
 
 static const size_t numCommands = ARRAY_LEN( commands );

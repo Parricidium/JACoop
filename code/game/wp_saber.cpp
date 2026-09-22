@@ -136,7 +136,7 @@ extern void Boba_StopFlameThrower( gentity_t *self );
 extern Vehicle_t *G_IsRidingVehicle( gentity_t *ent );
 extern int SaberDroid_PowerLevelForSaberAnim( gentity_t *self );
 extern qboolean G_ValidEnemy( gentity_t *self, gentity_t *enemy );
-extern void G_StartMatrixEffect( gentity_t *ent, int meFlags = 0, int length = 1000, float timeScale = 0.0f, int spinTime = 0 );
+extern void G_StartMatrixEffect( gentity_t *ent, int meFlags = 0, int length = 1000, float timeScale = 0.0f, int spinTime = 0, int viewerNum = -1 );	// coop: viewer = who gets the camera
 extern int PM_AnimLength( int index, animNumber_t anim );
 extern void G_Knockdown( gentity_t *self, gentity_t *attacker, const vec3_t pushDir, float strength, qboolean breakSaberLock );
 extern void G_KnockOffVehicle( gentity_t *pRider, gentity_t *self, qboolean bPull );
@@ -956,7 +956,7 @@ int WP_SaberInitBladeData( gentity_t *ent )
 				}
 			}
 
-			cg.saberAnimLevelPending = ent->client->ps.saberAnimLevel;
+			G_SaberSetPendingLevel( ent, ent->client->ps.saberAnimLevel );	// coop: per player
 			if ( ent->client->sess.missionStats.weaponUsed[WP_SABER] <= 0 )
 			{//let missionStats know that we actually do have the saber, even if we never use it
 				ent->client->sess.missionStats.weaponUsed[WP_SABER] = 1;
@@ -3196,7 +3196,8 @@ qboolean WP_SabersCheckLock2( gentity_t *attacker, gentity_t *defender, sabersLo
 				{
 					meFlags |= MEF_REVERSE_SPIN;
 				}
-				G_StartMatrixEffect( attacker, meFlags, effectTime, 0.75f, spinTime );
+				G_StartMatrixEffect( attacker, meFlags, effectTime, 0.75f, spinTime,
+					( defender->s.number < MAX_CLIENTS ) ? defender->s.number : attacker->s.number );	// coop: the player in the lock
 			}
 		}
 	}
@@ -6617,7 +6618,7 @@ qboolean WP_SaberLaunch( gentity_t *self, gentity_t *saber, qboolean thrown, qbo
 				}
 			}
 		}
-		if ( G_CoopIsPlayer( self ) && (cg.zoomMode || in_camera) )
+		if ( G_CoopIsPlayer( self ) && (G_CoopZoomMode( self ) || in_camera) )	// coop: per player zoom
 		{//can't saber throw when zoomed in or in cinematic
 			return qfalse;
 		}
@@ -6890,7 +6891,7 @@ void WP_SaberCatch( gentity_t *self, gentity_t *saber, qboolean switchToSaber )
 		{
 			if ( self->client->ps.weapon != WP_SABER )
 			{
-				CG_ChangeWeapon( WP_SABER );
+				G_CoopChangeWeapon( self, WP_SABER );	// coop: a joiner's cgame is remote (this used to switch the host)
 			}
 			else
 			{//if it's not active, turn it on
@@ -8285,7 +8286,7 @@ void WP_DropWeapon( gentity_t *dropper, vec3_t velocity )
 		{
 			dropper->client->ps.stats[STAT_WEAPONS] &= ~( 1 << oldWeap );
 		}
-		CG_ChangeWeapon( replaceWeap );
+		G_CoopChangeWeapon( dropper, replaceWeap );	// coop: a joiner's cgame is remote
 	}
 	else
 	{
@@ -8997,7 +8998,7 @@ void ForceThrow( gentity_t *self, qboolean pull, qboolean fake )
 	{//already pull-attacking
 		return;
 	}
-	if ( G_CoopIsPlayer( self ) && (cg.zoomMode || in_camera) )
+	if ( G_CoopIsPlayer( self ) && (G_CoopZoomMode( self ) || in_camera) )	// coop: per player zoom
 	{//can't force throw/pull when zoomed in or in cinematic
 		return;
 	}
@@ -10548,7 +10549,7 @@ void ForceGrip( gentity_t *self )
 	{
 		return;
 	}
-	if ( G_CoopIsPlayer( self ) && (cg.zoomMode || in_camera) )
+	if ( G_CoopIsPlayer( self ) && (G_CoopZoomMode( self ) || in_camera) )	// coop: per player zoom
 	{//can't force grip when zoomed in or in cinematic
 		return;
 	}
@@ -10938,7 +10939,7 @@ void ForceLightning( gentity_t *self )
 	{
 		return;
 	}
-	if ( G_CoopIsPlayer( self ) && (cg.zoomMode || in_camera) )
+	if ( G_CoopIsPlayer( self ) && (G_CoopZoomMode( self ) || in_camera) )	// coop: per player zoom
 	{//can't force lightning when zoomed in or in cinematic
 		return;
 	}
@@ -11188,7 +11189,7 @@ void ForceShootLightning( gentity_t *self )
 	{
 		return;
 	}
-	if ( G_CoopIsPlayer( self ) && cg.zoomMode )
+	if ( G_CoopIsPlayer( self ) && G_CoopZoomMode( self ) )	// coop: per player zoom
 	{//can't force lightning when zoomed in
 		return;
 	}
@@ -11370,7 +11371,7 @@ qboolean ForceDrain2( gentity_t *self )
 		return qtrue;
 	}
 
-	if ( G_CoopIsPlayer( self ) && (cg.zoomMode || in_camera) )
+	if ( G_CoopIsPlayer( self ) && (G_CoopZoomMode( self ) || in_camera) )	// coop: per player zoom
 	{//can't force grip when zoomed in or in cinematic
 		return qtrue;
 	}
@@ -12149,7 +12150,7 @@ void ForceProtect( gentity_t *self )
 			{
 				self->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
 				self->client->ps.pm_time = self->client->ps.weaponTime = self->client->ps.torsoAnimTimer;
-				if ( self->s.number )
+				if ( !G_CoopIsPlayer( self ) )	// coop: a joiner takes the player branch
 				{//NPC
 					self->painDebounceTime = level.time + self->client->ps.torsoAnimTimer;
 				}
@@ -12230,7 +12231,7 @@ void ForceAbsorb( gentity_t *self )
 			{//can't move
 				self->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
 				self->client->ps.pm_time = self->client->ps.legsAnimTimer = self->client->ps.torsoAnimTimer;// = self->client->ps.forcePowerDuration[FP_ABSORB];
-				if ( self->s.number )
+				if ( !G_CoopIsPlayer( self ) )	// coop: a joiner takes the player branch
 				{//NPC
 					self->painDebounceTime = level.time + self->client->ps.pm_time;//self->client->ps.forcePowerDuration[FP_ABSORB];
 				}
@@ -12310,7 +12311,7 @@ void ForceRage( gentity_t *self )
 				self->client->ps.weaponTime = self->client->ps.torsoAnimTimer;
 				self->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
 				self->client->ps.pm_time = self->client->ps.torsoAnimTimer;
-				if ( self->s.number )
+				if ( !G_CoopIsPlayer( self ) )	// coop: a joiner takes the player branch
 				{//NPC
 					self->painDebounceTime = level.time + self->client->ps.torsoAnimTimer;
 				}
@@ -12340,7 +12341,7 @@ void ForceJumpCharge( gentity_t *self, usercmd_t *ucmd )
 	{
 		return;
 	}
-	if ( G_CoopIsPlayer( self ) && cg.zoomMode )
+	if ( G_CoopIsPlayer( self ) && G_CoopZoomMode( self ) )	// coop: per player zoom
 	{//can't force jump when zoomed in
 		return;
 	}
@@ -12459,7 +12460,7 @@ void ForceJump( gentity_t *self, usercmd_t *ucmd )
 	{
 		return;
 	}
-	if ( G_CoopIsPlayer( self ) && (cg.zoomMode || in_camera) )
+	if ( G_CoopIsPlayer( self ) && (G_CoopZoomMode( self ) || in_camera) )	// coop: per player zoom
 	{//can't force jump when zoomed in or in cinematic
 		return;
 	}
@@ -13032,16 +13033,7 @@ void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower )
 		self->client->ps.forcePowerDebounce[FP_LEVITATION] = 0;
 		break;
 	case FP_SPEED:
-		if ( G_CoopIsPlayer( self ) )
-		{//player using force speed
-			if ( g_timescale->value != 1.0 )
-			{
-				if ( !(self->client->ps.forcePowersActive&(1<<FP_RAGE))||self->client->ps.forcePowerLevel[FP_RAGE] < FORCE_LEVEL_2 )
-				{//not slowed down because of force rage
-					gi.cvar_set("timescale", "1");
-				}
-			}
-		}
+		// coop: the timescale is owned by G_CoopUpdateTimescale (one arbiter for every player)
 		//FIXME: reset my current anim, keeping current frame, but with proper anim speed
 		//		otherwise, the anim will continue playing at high speed
 		self->s.loopSound = 0;
@@ -13207,16 +13199,7 @@ void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower )
 		{//still had time left, we cut it short
 			self->client->ps.forceRageRecoveryTime -= (self->client->ps.forcePowerDuration[FP_RAGE] - level.time);//minus however much time you had left when you cut it short
 		}
-		if ( G_CoopIsPlayer( self ) )
-		{//player using force speed
-			if ( g_timescale->value != 1.0 )
-			{
-				if ( !(self->client->ps.forcePowersActive&(1<<FP_SPEED)) )
-				{//not slowed down because of force speed
-					gi.cvar_set("timescale", "1");
-				}
-			}
-		}
+		// coop: the timescale is owned by G_CoopUpdateTimescale (one arbiter for every player)
 		//FIXME: reset my current anim, keeping current frame, but with proper anim speed
 		//		otherwise, the anim will continue playing at high speed
 		self->s.loopSound = 0;
@@ -13491,24 +13474,7 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 		}
 		break;
 	case FP_SPEED:
-		speed = forceSpeedValue[self->client->ps.forcePowerLevel[FP_SPEED]];
-		if ( G_CoopIsPlayer( self ) )
-		{//player using force speed
-			if ( !(self->client->ps.forcePowersActive&(1<<FP_RAGE))
-				|| self->client->ps.forcePowerLevel[FP_SPEED] >= self->client->ps.forcePowerLevel[FP_RAGE] )
-			{//either not using rage or rage is at a lower level than speed
-				gi.cvar_set("timescale", va("%4.2f", speed));
-				if ( g_timescale->value > speed )
-				{
-					newSpeed = g_timescale->value - 0.05;
-					if ( newSpeed < speed )
-					{
-						newSpeed = speed;
-					}
-					gi.cvar_set("timescale", va("%4.2f", newSpeed));
-				}
-			}
-		}
+		// coop: the timescale is owned by G_CoopUpdateTimescale (one arbiter for every player)
 		break;
 	case FP_PUSH:
 		break;
@@ -13938,24 +13904,7 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 		{
 			self->client->ps.stats[STAT_HEALTH] = self->health;
 
-			speed = forceSpeedValue[self->client->ps.forcePowerLevel[FP_RAGE]-1];
-			if ( G_CoopIsPlayer( self ) )
-			{//player using force rage
-				if ( !(self->client->ps.forcePowersActive&(1<<FP_SPEED))
-					|| self->client->ps.forcePowerLevel[FP_RAGE] > self->client->ps.forcePowerLevel[FP_SPEED]+1 )
-				{//either not using speed or speed is at a lower level than rage
-					gi.cvar_set("timescale", va("%4.2f", speed));
-					if ( g_timescale->value > speed )
-					{
-						newSpeed = g_timescale->value - 0.05;
-						if ( newSpeed < speed )
-						{
-							newSpeed = speed;
-						}
-						gi.cvar_set("timescale", va("%4.2f", newSpeed));
-					}
-				}
-			}
+			// coop: the timescale is owned by G_CoopUpdateTimescale (one arbiter for every player)
 		}
 		break;
 	case FP_DRAIN:

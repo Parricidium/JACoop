@@ -330,6 +330,8 @@ typedef enum {
 	EV_GLOBAL_SOUND,		// no attenuation
 	EV_COOP_SOUND,			// coop: host-side sound for remote clients (temp entity: otherEntityNum = source, time2 = channel, eventParm = sound index)
 	EV_COOP_CHUNKS,			// coop: CG_Chunks debris for remote clients (temp entity, see G_CoopChunks)
+	EV_COOP_EXPLOSION,		// coop: CG_MiscModelExplosion burst for remote clients (temp entity: angles = absmin, angles2 = absmax, eventParm = size, weapon = material)
+	EV_COOP_GLASS,			// coop: func_glass shatter for remote clients (temp entity: modelindex = inline model, origin2 = dmgPt, angles = dmgDir, time = radius)
 
 	EV_PLAY_EFFECT,
 	EV_PLAY_MUZZLE_EFFECT,

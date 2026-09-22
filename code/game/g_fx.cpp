@@ -66,6 +66,8 @@ void fx_runner_think( gentity_t *ent )
 	// Assume angles, we'll do a cross product on the other end to finish up
 	AngleVectors( ent->currentAngles, ent->pos3, NULL, NULL );
 	MakeNormalVectors( ent->pos3, ent->pos4, temp ); // there IS a reason this is done...it's so that it doesn't break every effect in the game...
+	VectorCopy( ent->pos3, ent->s.origin2 );	// coop: the axis for remote clients (pos3/pos4 never travel; CG_Mover ignores these)
+	VectorCopy( ent->pos4, ent->s.angles2 );
 
 	ent->nextthink = level.time + ent->delay + Q_flrand(0.0f, 1.0f) * ent->random;
 

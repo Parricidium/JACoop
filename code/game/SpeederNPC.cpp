@@ -669,7 +669,7 @@ extern void CG_ChangeWeapon( int num );
 
 
 #ifndef _JK2MP
-extern void G_StartMatrixEffect( gentity_t *ent, int meFlags = 0, int length = 1000, float timeScale = 0.0f, int spinTime = 0 );
+extern void G_StartMatrixEffect( gentity_t *ent, int meFlags = 0, int length = 1000, float timeScale = 0.0f, int spinTime = 0, int viewerNum = -1 );	// coop: viewer = who gets the camera
 #endif
 
 

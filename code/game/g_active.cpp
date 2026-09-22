@@ -244,10 +244,10 @@ void G_SetViewEntity( gentity_t *self, gentity_t *viewEntity )
 		return;
 	}
 
-	if ( G_CoopIsPlayer( self ) && cg.zoomMode )
+	if ( G_CoopIsPlayer( self ) && G_CoopZoomMode( self ) )	// coop: per player
 	{
 		// yeah, it should really toggle them so it plays the end sound....
-		cg.zoomMode = 0;
+		G_CoopSetZoomMode( self, 0 );
 	}
 	if ( viewEntity->s.number == self->client->ps.viewEntity )
 	{
@@ -706,7 +706,7 @@ void G_SetClientSound( gentity_t *ent ) {
 
 //==============================================================
 extern void G_Knockdown( gentity_t *self, gentity_t *attacker, const vec3_t pushDir, float strength, qboolean breakSaberLock );
-extern void G_StartMatrixEffect( gentity_t *ent, int meFlags = 0, int length = 1000, float timeScale = 0.0f, int spinTime = 0 );
+extern void G_StartMatrixEffect( gentity_t *ent, int meFlags = 0, int length = 1000, float timeScale = 0.0f, int spinTime = 0, int viewerNum = -1 );	// coop: viewer = who gets the camera
 void G_GetMassAndVelocityForEnt( gentity_t *ent, float *mass, vec3_t velocity )
 {
 	if( ent->client )
@@ -4286,7 +4286,7 @@ void G_CheckClientIdle( gentity_t *ent, usercmd_t *ucmd )
 	{
 		return;
 	}
-	if ( G_CoopIsPlayer( ent ) && ( !cg.renderingThirdPerson || cg.zoomMode ) )
+	if ( G_CoopIsPlayer( ent ) && ( !cg.renderingThirdPerson || G_CoopZoomMode( ent ) ) )	// coop: per player zoom
 	{
 		if ( ent->client->idleTime < level.time )
 		{
@@ -4874,7 +4874,7 @@ extern cvar_t	*g_skippingcin;
 //			ucmd->angles[PITCH] = 0;
 //		}
 
-		if ( cg.zoomMode == 2 )
+		if ( G_CoopZoomMode( ent ) == 2 )	// coop: per player
 		{
 			// Any kind of movement when the player is NOT ducked when the disruptor gun is zoomed will cause us to auto-magically un-zoom
 			if ( ( (ucmd->forwardmove||ucmd->rightmove)
@@ -4886,9 +4886,7 @@ extern cvar_t	*g_skippingcin;
 			{
 				// already zooming, so must be wanting to turn it off
 				G_Sound( ent, G_SoundIndex( "sound/weapons/disruptor/zoomend.wav" ));
-				cg.zoomMode = 0;
-				cg.zoomTime = cg.time;
-				cg.zoomLocked = qfalse;
+				G_CoopSetZoomMode( ent, 0 );
 			}
 		}
 
@@ -5148,7 +5146,7 @@ extern cvar_t	*g_skippingcin;
 					else if ( forceKnockdown //forced
 						|| ent->client->NPC_class == CLASS_DESANN //desann always knocks people down
 						|| ( ( (groundEnt->s.number&&(groundEnt->s.weapon!=WP_SABER||!groundEnt->NPC||groundEnt->NPC->rank<Q_irand(RANK_CIVILIAN,RANK_CAPTAIN+1)))  //an NPC who is either not a saber user or passed the rank-based probability test
-								|| ((G_CoopIsPlayer( ent )||G_ControlledByPlayer(groundEnt)) && !Q_irand( 0, 3 )&&cg.renderingThirdPerson&&!cg.zoomMode) )//or a player in third person, 25% of the time
+								|| ((G_CoopIsPlayer( ent )||G_ControlledByPlayer(groundEnt)) && !Q_irand( 0, 3 )&&cg.renderingThirdPerson&&!G_CoopZoomMode( ent )) )//or a player in third person, 25% of the time // coop: per player zoom
 							&& groundEnt->client->playerTeam != ent->client->playerTeam//and not on the same team
 							&& ent->client->ps.legsAnim != BOTH_JUMPATTACK6 ) )//not in the sideways-spinning jump attack
 					{
@@ -5554,6 +5552,8 @@ void ClientThink( int clientNum, usercmd_t *ucmd ) {
 	usercmd_t sav_ucmd = {0};
 
 	ent = g_entities + clientNum;
+	G_CoopReadZoomMode( ent, ucmd );	// coop: a joiner's zoom mode travels in its usercmd
+
 
 	if ( ent->s.number<MAX_CLIENTS )
 	{

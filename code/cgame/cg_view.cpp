@@ -2083,7 +2083,7 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 			}
 		}
 	}
-	cgi_SetUserCmdValue( cg.weaponSelect, speed, mPitchOverride, mYawOverride );
+	cgi_SetUserCmdValue( cg.weaponSelect | ( ( cg.zoomMode & 3 ) << 8 ), speed, mPitchOverride, mYawOverride );	// coop: zoom in the high byte (BUTTON_COOP_ZOOM_*)
 	extern float coopLastMouseSpeed, coopLastMouseFov, coopLastMouseTs;
 	coopLastMouseSpeed = speed;	// coop: shown by coop_ents (mouse dead = sensitivity 0)
 	coopLastMouseFov = cg.refdef.fov_y;

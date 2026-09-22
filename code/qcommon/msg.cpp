@@ -621,6 +621,9 @@ Ghoul2 Insert Start
 { NETF(coopHealth), 32 },
 { NETF(coopMaxHealth), 32 },
 { NETF(coopLookTarget), GENTITYNUM_BITS },
+{ NETF(coopForce), 32 },
+{ NETF(coopShockTime), 32 },
+{ NETF(coopPushTime), 32 },
 };
 
 
@@ -1046,6 +1049,8 @@ static const netField_t	playerStateFields[] =
 { PSF(forcePowerMax), 16 },
 { PSF(saberStylesKnown), 16 },
 { PSF(saberAnimLevel), 8 },
+{ PSF(forceDrainEntityNum), GENTITYNUM_BITS },	// coop: own drain sweep beam in third person (never negative: entnum or ENTITYNUM_NONE)
+{ PSF(forcePowerDuration[FP_SPEED]), 32 },		// coop: own Force Speed FOV/camera ramp (level.time based)
 { PSF(forcePowerLevel[0]), 4 },
 { PSF(forcePowerLevel[1]), 4 },
 { PSF(forcePowerLevel[2]), 4 },

@@ -204,7 +204,7 @@ PROTOCOL
 // CS_LIGHT_STYLES = CS_PLAYERS + MAX_CLIENTS renumbers every later configstring,
 // so a mismatched (stock 1-client) build must be rejected at connect rather than
 // left to silently desync.
-#define	PROTOCOL_VERSION	1044	// JACoop: distinct from stock and from jk2coop (41)
+#define	PROTOCOL_VERSION	1045	// JACoop: distinct from stock and from jk2coop (41); 1045 = force/combat netfields
 
 #define	PORT_SERVER			27960
 

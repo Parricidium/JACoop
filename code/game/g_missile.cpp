@@ -66,6 +66,7 @@ void G_MissileBounceEffect( gentity_t *ent, vec3_t org, vec3_t dir, qboolean hit
 		{
 			gentity_t *tent = G_TempEntity( org, EV_GRENADE_BOUNCE );
 			VectorCopy( dir, tent->pos1 );
+			VectorCopy( dir, tent->s.angles2 );	// coop: pos1 for remote clients
 			tent->s.weapon = ent->s.weapon;
 		}
 		break;
@@ -432,6 +433,7 @@ void G_BounceMissile( gentity_t *ent, trace_t *trace ) {
 
 	VectorCopy( ent->currentOrigin, ent->s.pos.trBase );
 	VectorCopy( trace->plane.normal, ent->pos1 );
+	VectorCopy( ent->pos1, ent->s.angles2 );	// coop: pos1 for remote clients (EV_MISSILE_STICK)
 
 	if ( ent->s.weapon != WP_SABER
 		&& ent->s.weapon != WP_THERMAL
@@ -574,6 +576,8 @@ void G_MissileImpacted( gentity_t *ent, gentity_t *other, vec3_t impactPos, vec3
 	}
 
 	VectorCopy( normal, ent->pos1 );
+	VectorCopy( normal, ent->s.angles2 );	// coop: pos1/alt_fire for remote clients (impact effect and mark)
+	ent->s.time2 = ent->alt_fire ? 1 : 0;
 
 	if ( ent->owner )//&& G_CoopIsPlayer( ent->owner ) )
 	{
@@ -892,6 +896,8 @@ void G_ExplodeMissile( gentity_t *ent )
 	G_AddEvent( ent, EV_MISSILE_MISS, DirToByte( dir ) );
 
 	ent->freeAfterEvent = qtrue;*/
+	VectorCopy( dir, ent->s.angles2 );	// coop: pos1/alt_fire for remote clients
+	ent->s.time2 = ent->alt_fire ? 1 : 0;
 
 	// splash damage
 	if ( ent->splashDamage )
@@ -1287,6 +1293,8 @@ void G_RunMissile( gentity_t *ent )
 	vec3_t		oldOrg;
 	trace_t		tr;
 	int			trHitLoc=HL_NONE;
+
+	ent->s.time2 = ent->alt_fire ? 1 : 0;	// coop: alt-fire model/trail/sound on remote clients (CG_Missile reads gentity alt_fire)
 
 	if ( (ent->s.eFlags&EF_HELD_BY_SAND_CREATURE) )
 	{//in a sand creature's mouth

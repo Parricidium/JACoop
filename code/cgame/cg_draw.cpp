@@ -280,16 +280,18 @@ static void CG_DrawSaberStyle(const centity_t	*cent,const int xPos,const int yPo
 	{//uninitialized after a loadgame, cheat across and get it
 		cg.saberAnimLevelPending = CG_LocalPS( cent )->saberAnimLevel;
 	}
+	// coop: a remote client never runs pmove, so the pending style is stale there; the playerState is networked
+	const int style = cg_remoteClient ? CG_LocalPS( cent )->saberAnimLevel : cg.saberAnimLevelPending;
 
 	// don't need to draw ammo, but we will draw the current saber style in this window
-	if (cg.saberAnimLevelPending == SS_FAST
-		|| cg.saberAnimLevelPending == SS_TAVION )
+	if (style == SS_FAST
+		|| style == SS_TAVION )
 	{
 		index = OHB_SABERSTYLE_FAST;
 	}
-	else if (cg.saberAnimLevelPending == SS_MEDIUM
-		|| cg.saberAnimLevelPending == SS_DUAL
-		|| cg.saberAnimLevelPending == SS_STAFF )
+	else if (style == SS_MEDIUM
+		|| style == SS_DUAL
+		|| style == SS_STAFF )
 	{
 		index = OHB_SABERSTYLE_MEDIUM;
 	}
@@ -1672,7 +1674,7 @@ static void CG_DrawSimpleSaberStyle( const centity_t *cent )
 		cg.saberAnimLevelPending = cent->gent->client->ps.saberAnimLevel;
 	}
 
-	switch ( cg.saberAnimLevelPending )
+	switch ( cg_remoteClient ? CG_LocalPS( cent )->saberAnimLevel : cg.saberAnimLevelPending )	// coop: see above
 	{
 	default:
 	case SS_FAST:
@@ -2936,12 +2938,18 @@ static void CG_ScanForCrosshairEntity( qboolean scanAll )
 	//FIXME: debounce this to about 10fps?
 
 	cg_forceCrosshair = qfalse;
-	if ( !cg_remoteClient && cg_entities[cg_localEntNum].gent && cg_entities[cg_localEntNum].gent->client ) // coop: remote client has no server eyePoint // <-Mike said it should always do this   //if (cg_crosshairForceHint.integer &&
+	if ( cg_entities[cg_localEntNum].gent && cg_entities[cg_localEntNum].gent->client ) // <-Mike said it should always do this   //if (cg_crosshairForceHint.integer &&
 	{//try to check for force-affectable stuff first
 		vec3_t d_f, d_rt, d_up;
 
+		if ( cg_remoteClient )
+		{	// coop: no server eyePoint here, the snapshot playerState is the eye
+			VectorCopy( cg.snap->ps.origin, start );
+			start[2] += cg.snap->ps.viewheight;
+			AngleVectors( cg.snap->ps.viewangles, d_f, d_rt, d_up );
+		}
 		// If you're riding a vehicle and not being drawn.
-		if ( ( pVeh = G_IsRidingVehicle( cg_entities[cg_localEntNum].gent ) ) != NULL && cg_entities[cg_localEntNum].currentState.eFlags & EF_NODRAW )
+		else if ( ( pVeh = G_IsRidingVehicle( cg_entities[cg_localEntNum].gent ) ) != NULL && cg_entities[cg_localEntNum].currentState.eFlags & EF_NODRAW )
 		{
 			VectorCopy( cg_entities[pVeh->m_pParentEntity->s.number].lerpOrigin, start );
 			AngleVectors( cg_entities[pVeh->m_pParentEntity->s.number].lerpAngles, d_f, d_rt, d_up );

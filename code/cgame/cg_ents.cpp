@@ -2117,9 +2117,13 @@ extern cvar_t	*g_saberRealisticCombat;
 extern Vehicle_t *G_IsRidingVehicle( gentity_t *ent );
 qboolean	MatrixMode = qfalse;
 extern cvar_t	*g_skippingcin;
+int			coopMatrixEnt = -1;	// coop: the matrix entity our camera follows (remote client), -1 none
 void CG_MatrixEffect ( centity_t *cent )
 {
 	float	MATRIX_EFFECT_TIME = 1000.0f;
+	// coop: the camera belongs to the viewer the host named (ENTITYNUM_NONE = everyone, the SP look);
+	// the timescale is the host's shared clock, a remote client mirrors it from CS_COOP_TIMESCALE
+	const qboolean mine = (qboolean)( cent->currentState.otherEntityNum2 == ENTITYNUM_NONE || cent->currentState.otherEntityNum2 == cg_localEntNum );
 	if ( (cent->currentState.boltInfo&MEF_MULTI_SPIN) )
 	{//multiple spins
 		if ( cent->currentState.time2 > 0 )
@@ -2166,12 +2170,20 @@ void CG_MatrixEffect ( centity_t *cent )
 
 	if (stopEffect)
 	{//time is up or this is a falling spin and they hit the ground or mission end screen is up
-		cg.overrides.active &= ~(/*CG_OVERRIDE_3RD_PERSON_ENT|*/CG_OVERRIDE_3RD_PERSON_RNG|CG_OVERRIDE_3RD_PERSON_ANG|CG_OVERRIDE_3RD_PERSON_POF);
-		//cg.overrides.thirdPersonEntity = 0;
-		cg.overrides.thirdPersonAngle = 0;
-		cg.overrides.thirdPersonPitchOffset = 0;
-		cg.overrides.thirdPersonRange = 0;
-		if ( g_skippingcin->integer )
+		if ( mine )
+		{
+			cg.overrides.active &= ~(/*CG_OVERRIDE_3RD_PERSON_ENT|*/CG_OVERRIDE_3RD_PERSON_RNG|CG_OVERRIDE_3RD_PERSON_ANG|CG_OVERRIDE_3RD_PERSON_POF);
+			//cg.overrides.thirdPersonEntity = 0;
+			cg.overrides.thirdPersonAngle = 0;
+			cg.overrides.thirdPersonPitchOffset = 0;
+			cg.overrides.thirdPersonRange = 0;
+			MatrixMode = qfalse;
+		}
+		if ( cg_remoteClient )
+		{
+			coopMatrixEnt = -1;
+		}
+		else if ( g_skippingcin->integer )
 		{//skipping?  don't mess with timescale
 			/*
 			if ( g_timescale->integer < 100 )
@@ -2184,7 +2196,6 @@ void CG_MatrixEffect ( centity_t *cent )
 		{//set it back to 1
 			cgi_Cvar_Set( "timescale", "1.0" );
 		}
-		MatrixMode = qfalse;
 		cent->gent->e_clThinkFunc = clThinkF_NULL;
 		cent->gent->e_ThinkFunc = thinkF_G_FreeEntity;
 		cent->gent->nextthink = cg.time + 500;
@@ -2196,6 +2207,31 @@ void CG_MatrixEffect ( centity_t *cent )
 		{
 			elapsedTime -= MATRIX_EFFECT_TIME;
 		}
+	}
+
+	if ( !mine )
+	{	// someone else's camera: the host still ramps the shared clock below
+		if ( !cg_remoteClient )
+		{
+			if ( cent->currentState.angles2[0] )
+			{
+				cgi_Cvar_Set( "timescale", va("%4.2f",cent->currentState.angles2[0]) );
+			}
+			else if ( !(cent->currentState.boltInfo&MEF_NO_TIMESCALE) )
+			{
+				float timescale = (elapsedTime/MATRIX_EFFECT_TIME);
+				if ( timescale < 0.01f )
+				{
+					timescale = 0.01f;
+				}
+				cgi_Cvar_Set( "timescale", va("%4.2f",timescale) );
+			}
+		}
+		return;
+	}
+	if ( cg_remoteClient )
+	{
+		coopMatrixEnt = cent->currentState.number;
 	}
 
 	MatrixMode = qtrue;
@@ -2247,7 +2283,10 @@ void CG_MatrixEffect ( centity_t *cent )
 	}
 
 	//do all the slowdown and vert bob stuff
-	if ( cent->currentState.angles2[0] )
+	if ( cg_remoteClient )
+	{	// coop: the host's clock reaches us through CS_COOP_TIMESCALE
+	}
+	else if ( cent->currentState.angles2[0] )
 	{
 		cgi_Cvar_Set( "timescale", va("%4.2f",cent->currentState.angles2[0]) );
 	}

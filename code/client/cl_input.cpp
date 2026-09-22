@@ -646,7 +646,9 @@ void CL_FinishMove( usercmd_t *cmd ) {
 	int		i;
 
 	// copy the state that the cgame is currently sending
-	cmd->weapon = cl.cgameUserCmdValue;
+	cmd->weapon = cl.cgameUserCmdValue & 0xff;
+	// coop: the cgame's zoom mode (binoculars/scope/goggles) in bits 10-11, the host keeps it per player
+	cmd->buttons = ( cmd->buttons & ~BUTTON_COOP_ZOOM_MASK ) | ( ( ( cl.cgameUserCmdValue >> 8 ) & 3 ) << BUTTON_COOP_ZOOM_SHIFT );
 
 	if (cl.gcmdSendValue)
 	{
