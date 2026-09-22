@@ -145,6 +145,41 @@ or just a streaming cinematic.
 */
 
 
+// coop: joiner side of the host -> joiner pk3 transfer (cl_coop_transfer.cpp)
+typedef enum {
+	CLDL_IDLE,		// nothing asked (host's own client, cl_coopTransfer 0, no answer)
+	CLDL_WAITLIST,	// hello sent, waiting for the offer
+	CLDL_RECEIVING,	// files in flight
+	CLDL_DONE,		// everything written, verified and loaded
+	CLDL_FAILED
+} clientCoopDownloadState_t;
+
+typedef struct clientCoopDownload_s {
+	clientCoopDownloadState_t state;
+	int				helloTime;					// cls.realtime of the hello
+	int				listGot, listTotal;			// offer entries received / announced
+	coopPakInfo_t	offer[MAX_COOP_OFFER];
+	int				offerCount;
+	int				need[MAX_COOP_OFFER];		// checksums asked, in order (the server's file index)
+	int				needCount, needIndex;
+	int				totalBytes, doneBytes;		// progress over all the files
+	int				startTime;					// cls.realtime of the first block
+	int				lastTickTime, bytesAtLastTick;
+	float			speed;						// bytes per second, smoothed
+	struct {
+		int				sum;
+		char			name[COOP_DL_NAME_LEN];
+		int				size;
+		int				block;					// next expected block
+		int				count;					// bytes written
+		fileHandle_t	file;					// the .tmp being written (0 = none)
+		char			relTmp[MAX_OSPATH];		// fs_homepath-relative name of the .tmp
+	} cur;
+	int				lastBlockTime;				// cls.realtime (timeout)
+	int				downloadedFiles;
+	qboolean		ackPending;					// a block arrived in this message: ack once at its end
+} clientCoopDownload_t;
+
 typedef struct {
 	int			lastPacketSentTime;			// for retransmits
 	int			lastPacketTime;
@@ -162,6 +197,8 @@ typedef struct {
 	// reliable messages received from server
 	int			serverCommandSequence;
 	char		*serverCommands[MAX_RELIABLE_COMMANDS];
+
+	clientCoopDownload_t coopdl;	// coop: pk3 transfer (wiped with the connection, survives gamestates)
 
 	// big stuff at end of structure so most offsets are 15 bits or less
 	netchan_t	netchan;
@@ -369,6 +406,18 @@ extern int cl_connectedToCheatServer;
 void CL_SystemInfoChanged( void );
 void CL_ParseServerMessage( msg_t *msg );
 
+//
+// cl_coop_transfer.cpp (coop: host -> joiner pk3 transfer)
+//
+extern cvar_t	*cl_coopTransfer;
+void CL_CoopTransferInit( void );
+void CL_CoopTransferHello( void );
+void CL_CoopTransferServerCommand( const char *s );
+void CL_ParseDownload( msg_t *msg );
+void CL_CoopTransferEndOfMessage( void );
+void CL_CoopTransferFrame( void );
+void CL_CoopTransferAbort( void );
+
 //====================================================================
 
 //
@@ -440,6 +489,7 @@ void CIN_CloseAllVideos(void);
 //
 // cl_cgame.c
 //
+void CL_SetConfigstring( int index, const char *s );	// coop
 qboolean CL_InitCGameVM( void *gameLibrary );
 void CL_InitCGame( void );
 void CL_ShutdownCGame( void );

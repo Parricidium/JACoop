@@ -150,16 +150,26 @@ static void UI_CoopSendForce( const playerState_t *ps )
 	ui.Cmd_ExecuteText( EXEC_APPEND, cmd );
 }
 
-// coop: one cvar the lobby menu can test: "host", or the ready flag ("0"/"1")
+// coop: one cvar the lobby menu can test: "host" / "hostwait" (a joiner still
+// downloads our skins), or for a joiner "dl" (fetching the host's skins) or the
+// ready flag ("0"/"1"). Refreshed every frame while the lobby menu has focus.
 static void UI_CoopLobbyState( void )
 {
 	if ( com_sv_running && com_sv_running->integer )
 	{
-		Cvar_Set( "ui_coopLobbyState", "host" );
+		Cvar_Set( "ui_coopLobbyState", Cvar_VariableIntegerValue( "sv_coopTransferPending" ) > 0 ? "hostwait" : "host" );
 	}
 	else
 	{
-		Cvar_Set( "ui_coopLobbyState", Cvar_VariableIntegerValue( "coop_ready" ) ? "1" : "0" );
+		const char *dl = Cvar_VariableString( "cl_coopTransferState" );
+		if ( !Q_stricmp( dl, "list" ) || !Q_stricmp( dl, "downloading" ) )
+		{
+			Cvar_Set( "ui_coopLobbyState", "dl" );
+		}
+		else
+		{
+			Cvar_Set( "ui_coopLobbyState", Cvar_VariableIntegerValue( "coop_ready" ) ? "1" : "0" );
+		}
 	}
 }
 
@@ -625,6 +635,14 @@ void _UI_Refresh( int realtime )
 
 	UI_UpdateCvars();
 
+	{	// coop: the lobby's buttons follow the pk3 transfer state (Cvar_Set is a no-op when unchanged)
+		menuDef_t *focused = Menu_GetFocused();
+		if ( focused && focused->window.name && !Q_stricmp( focused->window.name, "coopLobby" ) )
+		{
+			UI_CoopLobbyState();
+		}
+	}
+
 	if (Menu_Count() > 0)
 	{
 		// paint all the menus
@@ -906,11 +924,15 @@ static void UI_CoopSetListCursor( const char *itemName, int pos )
 	}
 }
 
-// onOpen: scan once, then select what the player wears now
+// onOpen: scan once (again when the engine added or unloaded pk3s: cl_coopPaksGen),
+// then select what the player wears now
 static void UI_CoopModelsInit( void )
 {
-	if ( coopModelCount < 0 )
+	static int coopModelsGen = -1;
+	const int gen = Cvar_VariableIntegerValue( "cl_coopPaksGen" );
+	if ( coopModelCount < 0 || gen != coopModelsGen )
 	{
+		coopModelsGen = gen;
 		UI_CoopScanModels();
 	}
 	const char *curModel = Cvar_VariableString( "g_char_model" );
@@ -1994,6 +2016,11 @@ static qboolean UI_RunMenuScript ( const char **args )
 		}
 		else if ( Q_stricmp( name, "coopNewGame" ) == 0 )
 		{
+			if ( Cvar_VariableIntegerValue( "sv_coopTransferPending" ) > 0 )
+			{	// coop: a joiner is still fetching our skins (the button is hidden, this catches a race)
+				Cvar_Set( "ui_coopLobbyMsg", "Un joueur telecharge encore tes skins : attends que tout le monde soit pret." );
+				return qtrue;
+			}
 			// Lobby host: difficulty + character screens, then the campaign (see startgame).
 			Cvar_Set( "ui_coopJoin", "" );
 			Cvar_Set( "ui_coopMode", "hostnew" );
@@ -2010,6 +2037,11 @@ static qboolean UI_RunMenuScript ( const char **args )
 		}
 		else if ( Q_stricmp( name, "coopContinue" ) == 0 )
 		{
+			if ( Cvar_VariableIntegerValue( "sv_coopTransferPending" ) > 0 )
+			{	// coop: a joiner is still fetching our skins
+				Cvar_Set( "ui_coopLobbyMsg", "Un joueur telecharge encore tes skins : attends que tout le monde soit pret." );
+				return qtrue;
+			}
 			// Lobby host: pick a savegame (joiners get their characters back from its sidecar).
 			Cvar_Set( "g_coopLobby", "0" );
 			Menus_CloseAll();
@@ -2017,11 +2049,18 @@ static qboolean UI_RunMenuScript ( const char **args )
 		}
 		else if ( Q_stricmp( name, "coopReadyToggle" ) == 0 )
 		{
+			const char *dl = Cvar_VariableString( "cl_coopTransferState" );
+			if ( !Q_stricmp( dl, "list" ) || !Q_stricmp( dl, "downloading" ) )
+			{	// coop: we are fetching the host's skins, the engine flags us ready when they are in
+				Cvar_Set( "ui_coopLobbyMsg", "Attends la fin du telechargement des skins de l'hote." );
+				return qtrue;
+			}
 			Cvar_Set( "coop_ready", Cvar_VariableIntegerValue( "coop_ready" ) ? "0" : "1" );
 			UI_CoopLobbyState();
 		}
 		else if ( Q_stricmp( name, "coopLobbyOpen" ) == 0 )
 		{
+			Cvar_Set( "ui_coopLobbyMsg", "" );
 			UI_CoopLobbyState();
 		}
 		else if ( Q_stricmp( name, "coopTeleport" ) == 0 )

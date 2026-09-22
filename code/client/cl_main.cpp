@@ -271,6 +271,8 @@ void CL_Disconnect( void ) {
 		CL_WritePacket();
 	}
 
+	CL_CoopTransferAbort();	// coop: drop a partial download, unload the host's packs (clc is wiped below)
+
 	CL_ClearState ();
 
 	CL_FreeReliableCommands();
@@ -758,10 +760,60 @@ const char *CL_GetCoopServerText( int index ) {
 	return line;
 }
 
-// coop lobby feeder: the host publishes "L|name\tready\tmodel|..." in
-// CS_COOP_LOBBY (L = lobby, G = playing); one row per connected player.
+// coop: the lobby menu is fullscreen, so the cgame does not run under it and
+// the queued "cs" server commands are not applied: the players' list would
+// freeze at what it was when the menu opened. Apply the newest CS_COOP_LOBBY
+// update ourselves (CL_SetConfigstring is idempotent, the cgame re-applies it
+// when it resumes). Only that configstring is touched.
+static void CL_CoopLobbyPump( void ) {
+	static int	lastSeq;
+	const char	*newest = NULL;
+	int			seq, from;
+
+	if ( cls.state < CA_ACTIVE ) {
+		lastSeq = 0;
+		return;
+	}
+	if ( lastSeq > clc.serverCommandSequence ) {
+		lastSeq = 0;	// new gamestate
+	}
+	from = clc.serverCommandSequence - ( MAX_RELIABLE_COMMANDS - 1 );
+	if ( from <= lastSeq ) {
+		from = lastSeq + 1;
+	}
+	for ( seq = from; seq <= clc.serverCommandSequence; seq++ ) {
+		const char *s = clc.serverCommands[seq & ( MAX_RELIABLE_COMMANDS - 1 )];
+		if ( !s ) {
+			continue;
+		}
+		while ( *s && *(const unsigned char *)s <= ' ' ) {
+			s++;	// SV_SendServerCommand's opcode byte
+		}
+		if ( !Q_strncmp( s, "cs ", 3 ) && atoi( s + 3 ) == CS_COOP_LOBBY ) {
+			newest = s;
+		}
+	}
+	lastSeq = clc.serverCommandSequence;
+	if ( newest ) {
+		// cs <index> "<value>"
+		char value[MAX_STRING_CHARS];
+		const char *q = strchr( newest, '"' );
+		if ( q ) {
+			const char *end;
+			q++;
+			end = strrchr( q, '"' );
+			Q_strncpyz( value, q, end ? Q_min( (int)( end - q ) + 1, (int)sizeof( value ) ) : (int)sizeof( value ) );
+			CL_SetConfigstring( CS_COOP_LOBBY, value );
+		}
+	}
+}
+
+// coop lobby feeder: the host publishes "L|name\tready\tmodel\tdl|..." in
+// CS_COOP_LOBBY (L = lobby, G = playing); one row per connected player. dl is
+// the pk3 transfer state ("" | list | 0..99 | ok | err, see sv_coop_transfer.cpp).
 static int CL_CoopLobbyRows( char rows[MAX_CLIENTS][96] ) {
 	int n = 0;
+	CL_CoopLobbyPump();
 	if ( cls.state < CA_LOADING || !cl.gameState.stringOffsets[CS_COOP_LOBBY] ) {
 		return 0;
 	}
@@ -774,11 +826,29 @@ static int CL_CoopLobbyRows( char rows[MAX_CLIENTS][96] ) {
 		Q_strncpyz( row, p, end ? Q_min( (int)( end - p ) + 1, (int)sizeof( row ) ) : (int)sizeof( row ) );
 		char *tab = strchr( row, '\t' );
 		int ready = 0;
+		const char *dl = "";
 		if ( tab ) {
 			*tab = '\0';
 			ready = atoi( tab + 1 );
+			char *tab2 = strchr( tab + 1, '\t' );		// model
+			char *tab3 = tab2 ? strchr( tab2 + 1, '\t' ) : NULL;	// dl
+			if ( tab3 ) {
+				dl = tab3 + 1;
+			}
 		}
-		Com_sprintf( rows[n++], 96, "%s%s", row, ready == 2 ? "   (hote)" : ready == 1 ? "   -  pret" : "   -  pas pret" );
+		const char *state;
+		if ( ready == 2 ) {
+			state = "   (hote)";
+		} else if ( !Q_stricmp( dl, "list" ) ) {
+			state = "   -  verification des skins...";
+		} else if ( dl[0] >= '0' && dl[0] <= '9' ) {
+			state = va( "   -  telechargement %i%%", atoi( dl ) );
+		} else if ( !Q_stricmp( dl, "err" ) ) {
+			state = ready == 1 ? "   -  pret (echec du telechargement)" : "   -  echec du telechargement";
+		} else {
+			state = ready == 1 ? "   -  pret" : "   -  pas pret";
+		}
+		Com_sprintf( rows[n++], 96, "%s%s", row, state );
 		p = end;
 	}
 	return n;
@@ -1100,6 +1170,9 @@ void CL_Frame ( int msec,float fractionMsec ) {
 	// if we haven't gotten a packet in a long time,
 	// drop the connection
 	CL_CheckTimeout();
+
+	// coop: pk3 transfer timeouts and status line
+	CL_CoopTransferFrame();
 
 	// send intentions now
 	CL_SendCmd();
@@ -1611,6 +1684,7 @@ void CL_Init( void ) {
 		}
 	}
 	Cvar_Get( "coop_ready", "0", CVAR_USERINFO );
+	CL_CoopTransferInit();	// coop: host -> joiner pk3 transfer cvars
 
 	//
 	// register our commands

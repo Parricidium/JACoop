@@ -165,6 +165,36 @@ Will always return a valid shader, but it might be the
 default shader if the real one can't be found.
 ==================
 */
+/*
+====================
+R_CoopForgetDefaultShaders
+
+coop: unlink from the name hash the shaders that fell back to the default
+because their image was missing under models/ (a skin pack arrived at runtime:
+the next R_FindShader loads the real image). See RE_CoopForgetMissing.
+====================
+*/
+void R_CoopForgetDefaultShaders( void ) {
+	int i, n = 0;
+
+	for ( i = 0; i < FILE_HASH_SIZE; i++ ) {
+		shader_t **link = &sh_hashTable[i];
+		while ( *link ) {
+			shader_t *sh = *link;
+			if ( sh->defaultShader && sh != tr.defaultShader && !Q_stricmpn( sh->name, "models/", 7 ) ) {
+				*link = sh->next;
+				sh->next = NULL;
+				n++;
+				continue;
+			}
+			link = &sh->next;
+		}
+	}
+	if ( n ) {
+		ri.Printf( PRINT_ALL, "coop: renderer forgets %i default shader(s) under models/\n", n );
+	}
+}
+
 shader_t *R_FindShaderByName( const char *name ) {
 	char		strippedName[MAX_QPATH];
 	int			hash;

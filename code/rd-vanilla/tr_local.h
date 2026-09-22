@@ -1819,6 +1819,8 @@ void RE_Scissor ( float x, float y, float w, float h);
 // coop: aspect-correct 2D (tr_cmds.cpp)
 extern cvar_t *r_aspect2D;
 void RE_SetAspect2D( int mode );
+void RE_CoopForgetMissing( void );	// coop: tr_model.cpp
+void R_CoopForgetDefaultShaders( void );	// coop: tr_shader.cpp
 void R_Aspect2D( float *x, float *w );
 void R_Aspect2DCenter( float *x, float *w );
 void R_Aspect2DBegin( float x, float w );

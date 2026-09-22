@@ -554,6 +554,7 @@ typedef struct
 extern	cg_t			cg;
 extern	qboolean		cg_remoteClient;	// coop: serverless remote client (dual-loaded cgame)
 extern	vmCvar_t		cg_remoteClientCvar;
+extern	vmCvar_t		cg_coopPaksGen;		// coop: engine cl_coopPaksGen, bumped when a pk3 is added / unloaded at runtime
 // coop: the local player's playerState for HUD/view reads: the gentity's on the host,
 // the received snapshot's on a remote client (whose gentity client stays zeroed).
 static inline const playerState_t *CG_LocalPS( const centity_t *cent ) {

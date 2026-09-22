@@ -464,6 +464,9 @@ void CL_ParseGamestate( msg_t *msg ) {
 
 	// make sure the game starts
 	Cvar_Set( "cl_paused", "0" );
+
+	// coop: a joiner asks the host for the player-model pk3s it lacks (once per connection)
+	CL_CoopTransferHello();
 }
 
 
@@ -509,6 +512,20 @@ void CL_ParseCommandString( msg_t *msg ) {
 		Z_Free( clc.serverCommands[ index ] );
 	}
 	clc.serverCommands[ index ] = CopyString( s );
+
+	// coop: the pk3 transfer commands are the engine's, run at receive time
+	// (the cgame may not be up yet, and CL_GetServerCommand hides them from it).
+	// SV_SendServerCommand leaves its opcode byte at the front of the string:
+	// skip it like Cmd_TokenizeString does.
+	{
+		const char *cmd = s;
+		while ( *cmd && *(const unsigned char *)cmd <= ' ' ) {
+			cmd++;
+		}
+		if ( !Q_strncmp( cmd, "coopdl_", 7 ) ) {
+			CL_CoopTransferServerCommand( cmd );
+		}
+	}
 }
 
 
@@ -566,8 +583,13 @@ void CL_ParseServerMessage( msg_t *msg ) {
 		case svc_snapshot:
 			CL_ParseSnapshot( msg );
 			break;
+		case svc_download:	// coop: a block of a pk3 the host sends us
+			CL_ParseDownload( msg );
+			break;
 		}
 	}
+
+	CL_CoopTransferEndOfMessage();	// coop: one ack per message that carried blocks
 }
 
 
