@@ -156,6 +156,7 @@ void laserTrapThink( gentity_t *ent )
 
 	// Adjust this so that the effect has a relatively fresh endpoint
 	VectorCopy( tr.endpos, ent->pos4 );
+	VectorCopy( tr.endpos, ent->s.angles2 );	// coop: networked copy for the remote cgame (CG_General)
 
 	if ( traceEnt->client || tr.startsolid )
 	{

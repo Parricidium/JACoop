@@ -67,7 +67,10 @@ new gamestate_t, potentially several times during an established connection
 // the parseEntities array must be large enough to hold PACKET_BACKUP frames of
 // entities, so that when a delta compressed message arives from the server
 // it can be un-deltad from the original
-#define MAX_PARSE_ENTITIES	512
+// coop: 512 held two busy snapshots; a delta from anything older was refused
+// ("Delta parseEntitiesNum too old"), costing a full snapshot each time.
+// Power of two (indexed with & (MAX_PARSE_ENTITIES-1)).
+#define MAX_PARSE_ENTITIES	8192
 
 extern int g_console_field_width;
 

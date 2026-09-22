@@ -4422,6 +4422,10 @@ static void CG_BoltedEffects( centity_t *cent, const vec3_t origin, vec3_t tempA
 	{
 		Vehicle_t *pVeh = cent->gent->m_pVehicle;
 		gentity_t *parent = cent->gent;
+		if ( !pVeh )
+		{	// coop: a remote client's placeholder never gets a Vehicle_t (the host game creates it)
+			return;
+		}
  		if (pVeh->m_ulFlags&VEH_ARMORLOW
 			&& (pVeh->m_iLastFXTime<=cg.time)
 			&& Q_irand(0,1)==0 )
@@ -7649,7 +7653,7 @@ extern vmCvar_t	cg_thirdPersonAlpha;
 					}
 				}
 				// Set the Vehicle Muzzle Point and Direction.
-				else if ( cent->gent && cent->gent->client && cent->gent->client->NPC_class == CLASS_VEHICLE )
+				else if ( cent->gent && cent->gent->client && cent->gent->client->NPC_class == CLASS_VEHICLE && cent->gent->m_pVehicle )	// coop: no Vehicle_t on a remote client
 				{
 					// Get the Position and Direction of the Tag and use that as our Muzzles Properties.
 					mdxaBone_t	boltMatrix;
@@ -7731,7 +7735,7 @@ extern vmCvar_t	cg_thirdPersonAlpha;
 			}
 
 			// Draw Vehicle Muzzle Flashs.
-			if ( cent->gent && cent->gent->client && cent->gent->client->NPC_class == CLASS_VEHICLE )
+			if ( cent->gent && cent->gent->client && cent->gent->client->NPC_class == CLASS_VEHICLE && cent->gent->m_pVehicle )	// coop: no Vehicle_t on a remote client
 			{
 				for ( int i = 0; i < MAX_VEHICLE_MUZZLES; i++ )
 				{

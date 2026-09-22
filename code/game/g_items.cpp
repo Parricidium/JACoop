@@ -937,6 +937,8 @@ LaunchItem
 Spawns an item and tosses it forward
 ================
 */
+void G_CoopItemSyncFlags( gentity_t *ent );	// below
+
 gentity_t *LaunchItem( gitem_t *item, const vec3_t origin, const vec3_t velocity, char *target ) {
 	gentity_t	*dropped;
 
@@ -1007,6 +1009,7 @@ gentity_t *LaunchItem( gitem_t *item, const vec3_t origin, const vec3_t velocity
 
 	dropped->flags = FL_DROPPED_ITEM;
 
+	G_CoopItemSyncFlags( dropped );
 	gi.linkentity (dropped);
 
 	return dropped;
@@ -1096,6 +1099,20 @@ free fall from their spawn points
 */
 extern int delayedShutDown;
 extern cvar_t	*g_saber;
+/*
+================
+G_CoopItemSyncFlags
+
+coop: the remote cgame orients and glows items from spawnflags (ITMSF_VERTICAL,
+ITMSF_NOGLOW) and 'random' (saber pitch), gentity fields that never travel.
+s.time2 is free on ET_ITEM: low byte spawnflags, next 16 bits (int)random.
+================
+*/
+void G_CoopItemSyncFlags( gentity_t *ent )
+{
+	ent->s.time2 = ( ent->spawnflags & 0xff ) | ( ( ((int)ent->random) & 0xffff ) << 8 );
+}
+
 void FinishSpawningItem( gentity_t *ent ) {
 	trace_t		tr;
 	vec3_t		dest;
@@ -1252,6 +1269,7 @@ void FinishSpawningItem( gentity_t *ent ) {
 		ent->nextthink = level.time + 30000;
 	}
 
+	G_CoopItemSyncFlags( ent );
 	gi.linkentity (ent);
 }
 

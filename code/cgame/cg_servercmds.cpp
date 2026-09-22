@@ -157,6 +157,10 @@ static void CG_ConfigStringModified( void ) {
 			cgs.sound_precache[ num-CS_SOUNDS] = cgi_S_RegisterSound( str );
 		}
 	}
+	else if ( num >= CS_COOP_MODELSPECS && num < CS_COOP_MODELSPECS + MAX_COOP_MODELSPECS )
+	{	// coop: a recycled appearance slot; whoever was built from it rebuilds
+		CG_CoopModelSpecChanged( num - CS_COOP_MODELSPECS );
+	}
 	else if ( num >= CS_EFFECTS && num < CS_EFFECTS + MAX_FX )
 	{
 		theFxScheduler.RegisterEffect( str );
@@ -243,6 +247,7 @@ static serverCommand_t	commands[] = {
 	{ "ct",					CG_CaptionText_f },
 	{ "cts",				CG_CaptionTextStop },
 	{ "fade",				CG_CoopFade_f },			// coop: fade our screen (falling death, respawn)
+	{ "fog",				CG_CoopFog_f },				// coop: fx_rain lightning fog flash (host renderer call otherwise)
 	{ "limb",				CG_CoopLimb_f },			// coop: a dismembered limb (host describes the cut)
 	{ "lt",					CG_LCARSText_f },
 	{ "mf",					CG_CoopMissionFailed_f },	// coop: host raised the mission-failed screen

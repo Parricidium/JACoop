@@ -442,6 +442,40 @@ The following fields are for lightning:
 //----------------------------------------------------------
 extern void G_SoundAtSpot( vec3_t org, int soundIndex, qboolean broadcast );
 
+// coop: the fog flash is a renderer call on the host; remote clients get it as
+// a reliable command (cg_servercmds.cpp "fog")
+static void fx_rain_fog( const vec3_t color )
+{
+	gi.WE_SetTempGlobalFogColor( (float *)color );
+	if ( G_CoopNumPlayers() < 2 )
+	{
+		return;
+	}
+	for ( int i = 1; i < MAX_CLIENTS; i++ )
+	{
+		const gentity_t *cl = &g_entities[i];
+		if ( cl->inuse && cl->client && cl->client->pers.connected == CON_CONNECTED )
+		{
+			gi.SendServerCommand( i, "fog %g %g %g", color[0], color[1], color[2] );
+		}
+	}
+}
+
+// coop: the player the lightning plays around: any connected one standing
+// outside (the host alone: the player, as before)
+static gentity_t *fx_rain_outside_player( void )
+{
+	for ( int i = 0; i < MAX_CLIENTS; i++ )
+	{
+		gentity_t *cl = &g_entities[i];
+		if ( cl->inuse && cl->client && cl->client->pers.connected == CON_CONNECTED && gi.WE_IsOutside( cl->currentOrigin ) )
+		{
+			return cl;
+		}
+	}
+	return NULL;
+}
+
 void fx_rain_think( gentity_t *ent )
 {
 	if (player)
@@ -451,7 +485,7 @@ void fx_rain_think( gentity_t *ent )
 			ent->count--;
 			if (ent->count==0 || (ent->count%2)==0)
 			{
-				gi.WE_SetTempGlobalFogColor(ent->pos2);		// Turn Off
+				fx_rain_fog(ent->pos2);		// Turn Off
 				if (ent->count==0)
 				{
 					ent->nextthink = level.time + Q_irand(1000, 12000);
@@ -467,11 +501,11 @@ void fx_rain_think( gentity_t *ent )
 			}
 			else
 			{
-				gi.WE_SetTempGlobalFogColor(ent->pos3);		// Turn On
+				fx_rain_fog(ent->pos3);		// Turn On
 				ent->nextthink = level.time + 50;
 			}
 		}
-		else if (gi.WE_IsOutside(player->currentOrigin))
+		else if ( gentity_t *outside = fx_rain_outside_player() )	// coop: was the host player only
 		{
 			vec3_t	effectPos;
 			vec3_t	effectDir;
@@ -487,7 +521,7 @@ void fx_rain_think( gentity_t *ent )
 			//----------------
 			if (PlaySound && !PlayEffect)
 			{
-				VectorMA(player->currentOrigin, 250.0f, effectDir, effectPos);
+				VectorMA(outside->currentOrigin, 250.0f, effectDir, effectPos);
 				G_SoundAtSpot(effectPos, G_SoundIndex(va("sound/ambience/thunder%d", Q_irand(1,4))), qtrue);
 			}
 
@@ -495,10 +529,10 @@ void fx_rain_think( gentity_t *ent )
 			//-----------------
  			if (PlayEffect)
 			{
-  			 	VectorMA(player->currentOrigin, 400.0f, effectDir, effectPos);
+  			 	VectorMA(outside->currentOrigin, 400.0f, effectDir, effectPos);
 				if (PlaySound)
 				{
-					G_Sound(player, G_SoundIndex(va("sound/ambience/thunder_close%d", Q_irand(1,2))));
+					G_Sound(outside, G_SoundIndex(va("sound/ambience/thunder_close%d", Q_irand(1,2))));
 				}
 
 				// Raise It Up Into The Sky
@@ -518,7 +552,7 @@ void fx_rain_think( gentity_t *ent )
 			{
 				ent->count = (Q_irand(1,4) * 2);
 				ent->nextthink = level.time + 50;
-				gi.WE_SetTempGlobalFogColor(ent->pos3);
+				fx_rain_fog(ent->pos3);
 			}
 			else
 			{
@@ -879,6 +913,7 @@ void fx_explosion_trail_use( gentity_t *self, gentity_t *other, gentity_t *activ
 			G_AddEvent( self, EV_BMODEL_SOUND, CAS_GetBModelSound( self->soundSet, BMS_START ));
 			missile->s.loopSound = CAS_GetBModelSound( self->soundSet, BMS_MID );
 			missile->soundSet = G_NewString(self->soundSet);//get my own copy so i can free it when i die
+			missile->s.time2 = self->s.time2;	// coop: sound set slot, so the loop handle is translated for remote clients
 
 			if ( missile->s.loopSound < 0 )
 			{
@@ -1074,6 +1109,7 @@ void fx_target_beam_fire( gentity_t *ent )
 	{
 		VectorCopy( trace.plane.normal, ent->pos1 );
 	}
+	VectorCopy( ent->pos1, ent->s.angles2 );	// coop: the impact normal, for the remote cgame (pos1 never travels)
 
 	ent->e_ThinkFunc = thinkF_fx_target_beam_think;
 	ent->nextthink = level.time + FRAMETIME;
@@ -1210,6 +1246,7 @@ void SP_fx_target_beam( gentity_t *ent )
 		G_SpawnString( "fxFile2", "env/targ_beam_impact", &ent->cameraGroup );
 		ent->delay = G_EffectIndex( ent->cameraGroup );
 	}
+	ent->s.modelindex2 = ent->delay;	// coop: impact effect index for the remote cgame (MAX_FX fits 8 bits)
 
 	ent->fxID = G_EffectIndex( ent->fxFile );
 

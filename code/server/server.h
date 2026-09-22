@@ -136,6 +136,8 @@ typedef enum {
 } clientState_t;
 
 
+#define	MAX_SNAPSHOT_ENTITIES	1024	// per client snapshot (sv_snapshot.cpp)
+
 typedef struct client_s {
 	clientState_t	state;
 	char			userinfo[MAX_INFO_STRING];		// name, etc
@@ -143,6 +145,11 @@ typedef struct client_s {
 	char			*reliableCommands[MAX_RELIABLE_COMMANDS];
 	int				reliableSequence;
 	int				reliableAcknowledge;
+	// coop: configstrings changed while the client was still loading (CS_PRIMED);
+	// sent coalesced once it enters the world instead of one reliable command
+	// per change (which overflowed the window during a long level load)
+	byte			csUpdated[MAX_CONFIGSTRINGS];
+	int				csPending;
 
 	int				gamestateMessageNum;	// netchan->outgoingSequence of gamestate
 
@@ -219,6 +226,7 @@ void SV_RemoveOperatorCommands (void);
 // sv_init.c
 //
 void SV_SetConfigstring( int index, const char *val );
+void SV_UpdateConfigstrings( client_t *client );	// coop
 void SV_GetConfigstring( int index, char *buffer, int bufferSize );
 
 void SV_SetUserinfo( int index, const char *val );

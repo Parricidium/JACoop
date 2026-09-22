@@ -49,14 +49,18 @@ to the new value before sending out any replies.
 */
 
 
-#define	MAX_PACKETLEN			(MAX_MSGLEN)	//(1400)		// max size of a network packet
-#define MAX_LOOPDATA            16 * 1024
+// coop: SP sent every message as one datagram of up to MAX_MSGLEN bytes,
+// which only ever crossed the loopback. Real UDP gets the multiplayer packet
+// size, so a big snapshot goes out as FRAGMENT_SIZE pieces (and the loopback
+// ring must hold a whole fragmented message plus what the other side queued).
+#define	MAX_PACKETLEN			1400		// max size of a network packet
+#define MAX_LOOPDATA            (4 * MAX_MSGLEN)
 
 #if (MAX_PACKETLEN > MAX_MSGLEN)
 #error MAX_PACKETLEN must be <= MAX_MSGLEN
 #endif
-#if (MAX_LOOPDATA > MAX_MSGLEN)
-#error MAX_LOOPDATA must be <= MAX_MSGLEN
+#if (MAX_LOOPDATA < MAX_MSGLEN)
+#error MAX_LOOPDATA must be >= MAX_MSGLEN
 #endif
 
 #define	FRAGMENT_SIZE			(MAX_PACKETLEN - 100)

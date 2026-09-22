@@ -228,6 +228,9 @@ void SV_SendClientGameState( client_t *client ) {
 	// clear the reliable message list for this client
 	client->reliableSequence = 0;
 	client->reliableAcknowledge = 0;
+	// coop: the gamestate carries every configstring, nothing is pending
+	memset( client->csUpdated, 0, sizeof( client->csUpdated ) );
+	client->csPending = 0;
 
 	MSG_Init( &msg, msgBuffer, sizeof( msgBuffer ) );
 
@@ -280,6 +283,9 @@ void SV_ClientEnterWorld( client_t *client, usercmd_t *cmd, SavedGameJustLoaded_
 	//
 	client->deltaMessage = -1;
 	client->cmdNum = 0;
+
+	// coop: configstrings that changed while it was loading
+	SV_UpdateConfigstrings( client );
 
 	// call the game begin function
 	ge->ClientBegin( client - svs.clients, cmd, eSavedGameJustLoaded );

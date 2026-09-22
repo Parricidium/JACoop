@@ -1020,16 +1020,18 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 
 			if ( s && s[0] )
 			{
-				if ( cent->gent->delay )
+				// coop: end point, normal and impact effect come from the entityState
+				// (fx_target_beam_fire / SP_fx_target_beam), the same values on the host
+				if ( es->modelindex2 )
 				{
-					s2 = CG_ConfigString( CS_EFFECTS + cent->gent->delay );
+					s2 = CG_ConfigString( CS_EFFECTS + es->modelindex2 );
 				}
 				else
 				{
 					s2 = NULL;
 				}
 
-				CG_DrawTargetBeam( cent->lerpOrigin, cent->gent->s.origin2, cent->gent->pos1, s, s2 );
+				CG_DrawTargetBeam( cent->lerpOrigin, es->origin2, es->angles2, s, s2 );
 			}
 /*			else
 			{

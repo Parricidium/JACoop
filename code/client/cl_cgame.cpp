@@ -233,6 +233,30 @@ static int CL_CG_PointContents( const vec3_t point, int passEntityNum ) {
 	}
 	return contents;
 }
+// coop: the renderer's own collision imports (R_SetViewFogIndex on maps with
+// several fog volumes, ragdoll traces) went straight to SV_PointContents /
+// SV_Trace, which walk the server's world sectors: a remote client has none
+// and crashed in SV_AreaEntities_r as soon as a fogged map (vjun2, t1_rail...)
+// was drawn. Without a local server, answer from the collision model and the
+// snapshot like the cgame imports do.
+extern cvar_t *com_sv_running;
+extern int SV_PointContents( const vec3_t p, int passEntityNum );
+extern void SV_Trace( trace_t *results, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end,
+			  const int passEntityNum, const int contentmask, const EG2_Collision eG2TraceType, const int useLod );
+int CL_RefPointContents( const vec3_t point, int passEntityNum ) {
+	if ( com_sv_running && com_sv_running->integer ) {
+		return SV_PointContents( point, passEntityNum );
+	}
+	return CL_CG_PointContents( point, passEntityNum );
+}
+void CL_RefTrace( trace_t *results, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end,
+		const int passEntityNum, const int contentmask, const EG2_Collision eG2TraceType, const int useLod ) {
+	if ( com_sv_running && com_sv_running->integer ) {
+		SV_Trace( results, start, mins, maxs, end, passEntityNum, contentmask, eG2TraceType, useLod );
+		return;
+	}
+	CL_CG_Trace( results, start, mins, maxs, end, passEntityNum, contentmask, eG2TraceType, useLod );
+}
 static void CL_CG_Stub_SetBrushModel( gentity_t *ent, const char *name ) { CL_CG_STUB_WARN(SetBrushModel); }
 static qboolean CL_CG_Stub_inPVS( const vec3_t p1, const vec3_t p2 ) { CL_CG_STUB_WARN(inPVS); return qtrue; }
 static qboolean CL_CG_Stub_inPVSIgnorePortals( const vec3_t p1, const vec3_t p2 ) { CL_CG_STUB_WARN(inPVSIgnorePortals); return qtrue; }

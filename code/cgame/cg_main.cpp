@@ -704,6 +704,24 @@ static inline void CG_AS_Register(void)
 			cgi_AS_AddPrecacheEntry( ((*pi).first).c_str() );
 		}
 	}
+	if ( cg_remoteClient )
+	{	// coop: the host published the level's set names (G_ParsePrecaches), plus
+		// the current global set (worldspawn / trigger_ambient)
+		const char *name = CG_ConfigString( CS_AMBIENT_SET );
+		if ( name[0] )
+		{
+			cgi_AS_AddPrecacheEntry( name );
+		}
+		for ( int i = 1; i < MAX_COOP_SOUNDSETS; i++ )
+		{
+			name = CG_ConfigString( CS_COOP_SOUNDSETS + i );
+			if ( !name[0] )
+			{
+				break;
+			}
+			cgi_AS_AddPrecacheEntry( name );
+		}
+	}
 
 	cgi_AS_ParseSets();
 }

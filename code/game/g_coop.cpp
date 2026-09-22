@@ -147,9 +147,100 @@ Entity slot is being freed or reused: forget its appearance so a later
 occupant does not inherit it.
 ================
 */
+/*
+================
+G_CoopSoundSetIndex
+
+CS_COOP_SOUNDSETS slot of an ambient sound set name (allocated on first
+use); 0 when the range is full (the remote client then just lacks that set).
+================
+*/
+int G_CoopSoundSetIndex( const char *name )
+{
+	char	s[MAX_STRING_CHARS];
+	int		i;
+
+	if ( !name || !name[0] )
+	{
+		return 0;
+	}
+	for ( i = 1; i < MAX_COOP_SOUNDSETS; i++ )
+	{
+		gi.GetConfigstring( CS_COOP_SOUNDSETS + i, s, sizeof( s ) );
+		if ( !s[0] )
+		{
+			gi.SetConfigstring( CS_COOP_SOUNDSETS + i, name );
+			return i;
+		}
+		if ( !Q_stricmp( s, name ) )
+		{
+			return i;
+		}
+	}
+	gi.Printf( "coop: no CS_COOP_SOUNDSETS slot left for '%s'\n", name );
+	return 0;
+}
+
 void G_CoopClearAppearance( const gentity_t *ent )
 {
 	memset( &coopAppearance[ent->s.number], 0, sizeof( coopAppearance[0] ) );
+}
+
+/*
+================
+G_CoopModelSpecIndex
+
+CS_COOP_MODELSPECS slot for an appearance spec. Like G_FindConfigstringIndex,
+but a full range is not fatal: random tints and saber colours make many
+distinct specs over a level, so a slot no live character references any
+more is recycled (the remote cgame rebuilds whoever pointed at it when the
+configstring changes), and as a last resort the entity keeps its old index.
+================
+*/
+static int G_CoopModelSpecIndex( const gentity_t *ent, const char *spec )
+{
+	char		s[MAX_STRING_CHARS];
+	qboolean	used[MAX_COOP_MODELSPECS];
+	int			i;
+
+	for ( i = 1; i < MAX_COOP_MODELSPECS; i++ )
+	{
+		gi.GetConfigstring( CS_COOP_MODELSPECS + i, s, sizeof( s ) );
+		if ( !s[0] )
+		{
+			gi.SetConfigstring( CS_COOP_MODELSPECS + i, spec );
+			return i;
+		}
+		if ( !Q_stricmp( s, spec ) )
+		{
+			return i;
+		}
+	}
+
+	// full: recycle a slot that no character in use still points at
+	memset( used, 0, sizeof( used ) );
+	for ( i = 0; i < globals.num_entities; i++ )
+	{
+		const gentity_t *e = &g_entities[i];
+		if ( e->inuse && e->client && e != ent && e->s.modelindex3 > 0 && e->s.modelindex3 < MAX_COOP_MODELSPECS )
+		{
+			used[e->s.modelindex3] = qtrue;
+		}
+	}
+	for ( i = 1; i < MAX_COOP_MODELSPECS; i++ )
+	{
+		if ( !used[i] )
+		{
+			if ( g_developer->integer )
+			{
+				gi.Printf( "coop: appearance specs full, ent %i recycles slot %i\n", ent->s.number, i );
+			}
+			gi.SetConfigstring( CS_COOP_MODELSPECS + i, spec );
+			return i;
+		}
+	}
+	gi.Printf( "coop: appearance specs full, ent %i keeps spec %i (remote clients see its previous look)\n", ent->s.number, ent->s.modelindex3 );
+	return ent->s.modelindex3;
 }
 
 static void G_CoopAppendSaber( char *spec, int specSize, const saberInfo_t *saber )
@@ -305,7 +396,7 @@ void G_CoopUpdateAppearance( gentity_t *ent )
 		return;
 	}
 	Q_strncpyz( a->lastSpec, spec, sizeof( a->lastSpec ) );
-	ent->s.modelindex3 = G_FindConfigstringIndex( spec, CS_COOP_MODELSPECS, MAX_COOP_MODELSPECS, qtrue );
+	ent->s.modelindex3 = G_CoopModelSpecIndex( ent, spec );
 }
 
 /*

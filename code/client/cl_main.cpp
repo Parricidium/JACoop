@@ -1545,7 +1545,10 @@ void CL_InitRef( void ) {
 	rit.Printf = CL_RefPrintf;
 	rit.SE_GetString = String_GetStringValue;
 
-	rit.SV_Trace = SV_Trace;
+	extern void CL_RefTrace( trace_t *results, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end,
+		const int passEntityNum, const int contentmask, const EG2_Collision eG2TraceType, const int useLod );
+	extern int CL_RefPointContents( const vec3_t point, int passEntityNum );
+	rit.SV_Trace = CL_RefTrace;				// coop: SV_Trace only with a local server (cl_cgame.cpp)
 
 	rit.gpvCachedMapDiskImage = get_gpvCachedMapDiskImage;
 	rit.gsCachedMapDiskImage = get_gsCachedMapDiskImage;
@@ -1553,7 +1556,7 @@ void CL_InitRef( void ) {
 	rit.gbAlreadyDoingLoad = get_gbAlreadyDoingLoad;
 	rit.com_frameTime = get_com_frameTime;
 
-	rit.SV_PointContents = SV_PointContents;
+	rit.SV_PointContents = CL_RefPointContents;	// coop: same
 
 	rit.saved_game = &ojk::SavedGame::get_instance();
 

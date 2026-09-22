@@ -156,8 +156,11 @@ qboolean	Sys_IsLANAddress (netadr_t adr);
 void		Sys_ShowIP(void);
 
 
-#define	MAX_MSGLEN				(1*17408)		// max length of a message, which may
-//#define	MAX_MSGLEN				(3*16384)		// max length of a message, which may
+// coop: back to the multiplayer size. A remote client whose delta base rolled
+// off gets a full snapshot from null states, and 250 entities did not fit in
+// 17408 bytes (the whole snapshot was then thrown away, freezing its world).
+// net_chan.cpp fragments anything above MAX_PACKETLEN.
+#define	MAX_MSGLEN				(3*16384)		// max length of a message, which may
 											// be fragmented into multiple packets
 
 
