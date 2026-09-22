@@ -2042,6 +2042,11 @@ typedef struct cgMiscEntData_s
 static cgMiscEntData_t	MiscEnts[MAX_MISC_ENTS]; //statically allocated for now.
 static int				NumMiscEnts=0;
 
+void CG_CoopResetMiscEnts( void )
+{
+	NumMiscEnts = 0;
+}
+
 // coop: split out of CG_CreateMiscEntFromGent so a remote client can queue a static
 // model straight from the entity string (a stack gentity_t is not an option: it
 // owns C++ members and cannot be memset)
@@ -2176,8 +2181,11 @@ CG_PreInit
 Called when DLL loads (after subsystem restart, but before gamestate is received)
 =================
 */
+void CG_CoopResetMiscEnts( void );
+
 void CG_PreInit() {
 	CG_Init_CG();
+	CG_CoopResetMiscEnts();	// coop: the module is not reloaded on a remote client: the previous level's static models go
 
 	memset( &cgs, 0, sizeof( cgs ) );
 	iCGResetCount = 0;
