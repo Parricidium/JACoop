@@ -1004,6 +1004,19 @@ static void UI_CoopDrawModelIcon( float x, float y, float w, float h, float scal
 	{
 		icon = ui.R_RegisterShaderNoMip( va( "models/players/%s/icon_default.jpg", folder ) );
 	}
+	if ( !icon )
+	{	// species models (jedi_hm...) only have per-part icons: show the first head
+		char	files[2048];
+		char	*p = files;
+		int		n = ui.FS_GetFileList( va( "models/players/%s", folder ), ".jpg", files, sizeof( files ) );
+		for ( int i = 0; i < n && !icon; i++, p += strlen( p ) + 1 )
+		{
+			if ( !Q_stricmpn( p, "icon_head_", 10 ) )
+			{
+				icon = ui.R_RegisterShaderNoMip( va( "models/players/%s/%s", folder, p ) );
+			}
+		}
+	}
 	if ( icon )
 	{
 		ui.R_DrawStretchPic( x, y, w, w, 0, 0, 1, 1, icon );

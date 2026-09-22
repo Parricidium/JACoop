@@ -1332,7 +1332,7 @@ static CFontInfo *RE_Font_GetVariant(CFontInfo *font, float *scale) {
 	if (variants > 0) {
 		CFontInfo *variant;
 		int requestedSize = font->GetPointSize() * *scale *
-			r_fontSharpness->value * (glConfig.vidHeight / SCREEN_HEIGHT);
+			r_fontSharpness->value * ((float)glConfig.vidHeight / SCREEN_HEIGHT);	// coop: 720p gets the x2 atlas too
 
 		if (requestedSize <= font->GetPointSize())
 			return font;
