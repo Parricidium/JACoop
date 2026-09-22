@@ -207,7 +207,7 @@ PROTOCOL
 // CS_LIGHT_STYLES = CS_PLAYERS + MAX_CLIENTS renumbers every later configstring,
 // so a mismatched (stock 1-client) build must be rejected at connect rather than
 // left to silently desync.
-#define	PROTOCOL_VERSION	1047	// JACoop: distinct from stock and from jk2coop (41); 1047 = two-way pk3 transfer (clc_coopUpload)
+#define	PROTOCOL_VERSION	1048	// JACoop: distinct from stock and from jk2coop (41); 1048 = 32-bit transfer block numbers
 
 #define	PORT_SERVER			27960
 
@@ -569,18 +569,25 @@ qboolean FS_WriteToTemporaryFile( const void *data, size_t dataLength, char **te
 // The joiner asks for pk3s by checksum only; the files it writes are named
 // coopdl_<checksum>_<name>.pk3 under <fs_homepath>/base and are deleted at quit and at startup.
 #define COOP_DL_BLK				1024	// bytes per svc_download block
-#define COOP_DL_WINDOW			32		// blocks in flight per client
-#define COOP_DL_EAGER_MAX		3		// extra (ack driven) messages per server frame and client
+// The window and the eager messages set the ceiling the rate cvar plays under:
+// at most COOP_DL_WINDOW * COOP_DL_BLK bytes travel unacknowledged, so a round
+// trip of t seconds cannot carry more than that / t. 128 KB covers 1 MB/s up to
+// a 128 ms ping; below the cvar's limit nothing of this is used.
+#define COOP_DL_WINDOW			128		// blocks in flight per client
+#define COOP_DL_EAGER_MAX		6		// extra (ack driven) messages per server frame and client
+#define COOP_DL_ACK_PENDING		12		// our acks allowed to wait in the reliable queue (of MAX_RELIABLE_COMMANDS)
 #define COOP_DL_NAME_LEN		48		// sanitized pk3 name (with .pk3)
 #define MAX_COOP_OFFER			64		// pk3s a host can offer
 #define COOP_DL_PREFIX			"coopdl_"
 // coop: the other way round (joiner -> host, sv_coop_transfer.cpp / cl_coop_transfer.cpp).
 // A joiner's own mods travel in its command packets (clc_coopUpload); the host writes
 // them as coopup_<checksum>_<name>.pk3, loads them and offers them to the other joiners.
-// Blocks are smaller than the download ones: a client packet must stay well under
-// MAX_PACKETLEN (1400) so the netchan never has to fragment it.
+// Blocks are smaller than the download ones, and several of them ride in one
+// packet: the netchan fragments it (FRAGMENT_SIZE pieces, the same path a big
+// snapshot takes the other way round), which is what makes a mod of a joiner
+// travel in minutes instead of an hour. cl_coopUploadKB sets how much.
 #define COOP_UP_BLK				768		// bytes per clc_coopUpload block
-#define COOP_UP_WINDOW			32		// blocks in flight
+#define COOP_UP_WINDOW			128		// blocks in flight
 #define COOP_UP_PREFIX			"coopup_"
 
 typedef struct coopPakInfo_s {

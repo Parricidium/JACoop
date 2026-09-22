@@ -43,7 +43,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 //   coopdl_list <i> <n> <sum>:<size>:<name> ...   (chunk i, n entries in all; "coopdl_list 0 0" = nothing to offer)
 //   coopdl_err <text>
 // Binary, in a server message after the snapshot:
-//   [byte svc_download][short block] (block 0: [long size][string "<sum>:<name>"]) [short len][len bytes]
+//   [byte svc_download][long block] (block 0: [long size][string "<sum>:<name>"]) [short len][len bytes]
 //   len == 0 is the EOF block.
 
 #include "../server/exe_headers.h"
@@ -74,7 +74,9 @@ SV_CoopTransferInit
 */
 void SV_CoopTransferInit( void ) {
 	sv_coopTransfer = Cvar_Get( "sv_coopTransfer", "1", CVAR_ARCHIVE );
-	sv_coopTransferRate = Cvar_Get( "sv_coopTransferRate", "512", CVAR_ARCHIVE );
+	// 1 MB/s is 8 Mbit/s of upstream: a fibre or cable host does not feel it, and a
+	// host on a thin upstream lowers it (the lobby waits on the transfer either way)
+	sv_coopTransferRate = Cvar_Get( "sv_coopTransferRate", "1024", CVAR_ARCHIVE );
 	sv_coopTransferRateLan = Cvar_Get( "sv_coopTransferRateLan", "0", CVAR_ARCHIVE );
 	sv_coopTransferMsgKB = Cvar_Get( "sv_coopTransferMsgKB", "0", 0 );
 	sv_coopTransferMaxMB = Cvar_Get( "sv_coopTransferMaxMB", "300", CVAR_ARCHIVE );
@@ -89,6 +91,16 @@ void SV_CoopTransferInit( void ) {
 		if ( sv_coopTransferMaxMB->integer == 100 ) {
 			Cvar_Set( "sv_coopTransferMaxMB", "300" );
 			Com_Printf( "coop: sv_coopTransferMaxMB passe de 100 a 300 Mo (ancienne limite par defaut)\n" );
+		}
+	}
+	// Same story for the rate: 512 KB/s was the first default and it is archived,
+	// so a host that already played would stay at half a megabyte per second.
+	if ( !Cvar_VariableIntegerValue( "sv_coopTransferRate2" ) ) {
+		Cvar_Get( "sv_coopTransferRate2", "1", CVAR_ARCHIVE );
+		Cvar_Set( "sv_coopTransferRate2", "1" );
+		if ( sv_coopTransferRate->integer == 512 ) {
+			Cvar_Set( "sv_coopTransferRate", "1024" );
+			Com_Printf( "coop: sv_coopTransferRate passe de 512 a 1024 Ko/s (ancienne limite par defaut)\n" );
 		}
 	}
 	sv_coopUploadMaxMB = Cvar_Get( "sv_coopUploadMaxMB", "100", CVAR_ARCHIVE );
@@ -344,7 +356,7 @@ void SV_CoopTransferWrite( client_t *cl, msg_t *msg ) {
 	if ( dl->state != CDL_SENDING || !dl->file ) {
 		return;
 	}
-	budget = sv_coopTransferMsgKB->integer > 0 ? sv_coopTransferMsgKB->integer * 1024 : ( lan ? 12 : 8 ) * 1024;
+	budget = sv_coopTransferMsgKB->integer > 0 ? sv_coopTransferMsgKB->integer * 1024 : ( lan ? 16 : 12 ) * 1024;
 	if ( budget > msg->maxsize - msg->cursize - 512 ) {
 		budget = msg->maxsize - msg->cursize - 512;
 	}
@@ -406,7 +418,7 @@ void SV_CoopTransferWrite( client_t *cl, msg_t *msg ) {
 		}
 		idx = dl->xmitBlock % COOP_DL_WINDOW;
 		size = dl->blockSize[idx];
-		need = 1 + 2 + 2 + size;
+		need = 1 + 4 + 2 + size;
 		if ( dl->xmitBlock == 0 ) {
 			header = va( "%08x:%s", dl->fileSum, SV_CoopOfferName( dl->fileSum ) );
 			need += 4 + (int)strlen( header ) + 1;
@@ -421,7 +433,7 @@ void SV_CoopTransferWrite( client_t *cl, msg_t *msg ) {
 			dl->tokens -= size;
 		}
 		MSG_WriteByte( msg, svc_download );
-		MSG_WriteShort( msg, dl->xmitBlock & 0xffff );
+		MSG_WriteLong( msg, dl->xmitBlock );
 		if ( header ) {
 			MSG_WriteLong( msg, dl->fileSize );
 			MSG_WriteString( msg, header );
@@ -702,7 +714,7 @@ same way the download does, only mirrored:
   server -> client, reliable:  coopup_want <n> <sum1> ... <sumn>   ("coopup_want 0" = nothing)
                                coopup_ack <file> <block>           (cumulative)
                                coopup_err <text>
-  client -> server, binary:    [byte clc_coopUpload][short block]
+  client -> server, binary:    [byte clc_coopUpload][long block]
                                (block 0: [long size][string "<sum>:<name>"]) [short len][len bytes]
 
 A client packet has to stay under MAX_PACKETLEN, so the blocks are COOP_UP_BLK
@@ -916,14 +928,14 @@ void SV_CoopUploadRead( client_t *cl, msg_t *msg ) {
 	char header[MAX_STRING_CHARS];
 	int block, size = -1, len;
 
-	block = MSG_ReadShort( msg );
+	block = MSG_ReadLong( msg );
 	header[0] = '\0';
 	if ( block == 0 ) {
 		size = MSG_ReadLong( msg );
 		Q_strncpyz( header, MSG_ReadString( msg ), sizeof( header ) );
 	}
 	len = MSG_ReadShort( msg );
-	if ( len < 0 || len > COOP_UP_BLK ) {
+	if ( block < 0 || len < 0 || len > COOP_UP_BLK ) {
 		SV_DropClient( cl, "bloc coopup invalide" );
 		return;
 	}
@@ -968,7 +980,7 @@ void SV_CoopUploadRead( client_t *cl, msg_t *msg ) {
 	if ( !up->file ) {
 		return;	// blocks of a file whose block 0 we have not seen
 	}
-	if ( ( up->curBlock & 0xffff ) != block ) {
+	if ( up->curBlock != block ) {
 		return;	// duplicate or gap; our ack says where we are
 	}
 	if ( len ) {

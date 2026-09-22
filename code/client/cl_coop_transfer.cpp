@@ -45,6 +45,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 cvar_t	*cl_coopTransfer;			// ask the host for the pk3s we lack
 cvar_t	*cl_coopTransferMaxMB;		// total accepted per session
+cvar_t	*cl_coopUploadKB;			// KB of our own mods per packet to the host
 cvar_t	*cl_coopTransferState;		// ROM: "" | list | downloading | done | error
 cvar_t	*cl_coopTransferStatus;		// ROM: text for the lobby
 cvar_t	*cl_coopTransferPct;		// ROM
@@ -61,6 +62,9 @@ CL_CoopTransferInit
 void CL_CoopTransferInit( void ) {
 	cl_coopTransfer = Cvar_Get( "cl_coopTransfer", "1", CVAR_ARCHIVE );
 	cl_coopTransferMaxMB = Cvar_Get( "cl_coopTransferMaxMB", "300", CVAR_ARCHIVE );
+	// KB of our own mods per packet we send the host (1 = one datagram, no
+	// fragmenting; 32 = the most we allow)
+	cl_coopUploadKB = Cvar_Get( "cl_coopUploadKB", "8", CVAR_ARCHIVE );
 	cl_coopTransferState = Cvar_Get( "cl_coopTransferState", "", CVAR_ROM );
 	cl_coopTransferStatus = Cvar_Get( "cl_coopTransferStatus", "", CVAR_ROM );
 	cl_coopTransferPct = Cvar_Get( "cl_coopTransferPct", "0", CVAR_ROM );
@@ -372,20 +376,28 @@ static void CL_CoopUploadServerCommand( int argc, char **argv, const char *rest 
 ==================
 CL_CoopUploadWritePacket
 
-End of CL_WritePacket: put as many blocks as the packet can still hold, keeping
-the whole thing under MAX_PACKETLEN so the netchan never fragments it.
+End of CL_WritePacket: put as many blocks as cl_coopUploadKB allows into the
+packet. One block per packet (all that fits in a single datagram) is only some
+40 KB/s, so the packet is allowed to grow and be fragmented by the netchan.
 ==================
 */
 void CL_CoopUploadWritePacket( msg_t *msg ) {
 	clientCoopUpload_t *up = &clc.coopup;
-	int budget;
+	int budget, kb;
 
 	if ( up->state != CLUP_SENDING || !up->file || cls.state < CA_CONNECTED ) {
 		return;
 	}
-	// 1400 is MAX_PACKETLEN; 200 leaves room for the netchan header, the qport
-	// and whatever else this packet still carries
-	budget = 1400 - 200 - msg->cursize;
+	kb = cl_coopUploadKB ? cl_coopUploadKB->integer : 8;
+	if ( kb < 1 ) {
+		kb = 1;		// one datagram's worth, no fragmenting
+	} else if ( kb > 32 ) {
+		kb = 32;
+	}
+	budget = kb * 1024;
+	if ( budget > msg->maxsize - msg->cursize - 512 ) {
+		budget = msg->maxsize - msg->cursize - 512;
+	}
 	if ( budget < COOP_UP_BLK + 64 ) {
 		return;
 	}
@@ -430,7 +442,7 @@ void CL_CoopUploadWritePacket( msg_t *msg ) {
 		}
 		idx = up->xmitBlock % COOP_UP_WINDOW;
 		size = up->blockSize[idx];
-		need = 1 + 2 + 2 + size;
+		need = 1 + 4 + 2 + size;
 		if ( up->xmitBlock == 0 ) {
 			header = va( "%08x:%s", up->curSum, up->curName );
 			need += 4 + (int)strlen( header ) + 1;
@@ -439,7 +451,7 @@ void CL_CoopUploadWritePacket( msg_t *msg ) {
 			break;
 		}
 		MSG_WriteByte( msg, clc_coopUpload );
-		MSG_WriteShort( msg, up->xmitBlock & 0xffff );
+		MSG_WriteLong( msg, up->xmitBlock );
 		if ( header ) {
 			MSG_WriteLong( msg, up->curSize );
 			MSG_WriteString( msg, header );
@@ -758,15 +770,15 @@ void CL_ParseDownload( msg_t *msg ) {
 	char header[MAX_STRING_CHARS];
 	int block, size = -1, len;
 
-	block = MSG_ReadShort( msg );
+	block = MSG_ReadLong( msg );
 	header[0] = '\0';
 	if ( block == 0 ) {
 		size = MSG_ReadLong( msg );
 		Q_strncpyz( header, MSG_ReadString( msg ), sizeof( header ) );
 	}
 	len = MSG_ReadShort( msg );
-	if ( len < 0 || len > COOP_DL_BLK ) {
-		Com_Error( ERR_DROP, "CL_ParseDownload: bloc de %i octets", len );
+	if ( block < 0 || len < 0 || len > COOP_DL_BLK ) {
+		Com_Error( ERR_DROP, "CL_ParseDownload: bloc %i de %i octets", block, len );
 	}
 	MSG_ReadData( msg, data, len );
 
@@ -809,7 +821,7 @@ void CL_ParseDownload( msg_t *msg ) {
 	if ( !dl->cur.file ) {
 		return;	// blocks of a file whose block 0 we have not seen (yet)
 	}
-	if ( ( dl->cur.block & 0xffff ) != block ) {
+	if ( dl->cur.block != block ) {
 		return;	// duplicate or gap: the ack at the end of this message says where we are
 	}
 
@@ -862,8 +874,12 @@ void CL_ParseDownload( msg_t *msg ) {
 CL_CoopTransferEndOfMessage
 
 End of CL_ParseServerMessage: one cumulative ack per message that carried
-blocks (the server acks our reliable commands only with its snapshots, so one
-per block would overflow the 64-command window).
+blocks, and only while the server is keeping up with our reliable commands.
+The queue is MAX_RELIABLE_COMMANDS deep and the server empties it at the rate
+it reads our packets; a fast download sends more messages than that, so an ack
+per message would fill the queue and CL_AddReliableCommand would drop the
+session ("Client command overflow"). Acks are cumulative: skipping one costs
+nothing, the next message carries a further block number.
 ==================
 */
 void CL_CoopTransferEndOfMessage( void ) {
@@ -872,10 +888,14 @@ void CL_CoopTransferEndOfMessage( void ) {
 	if ( !dl->ackPending ) {
 		return;
 	}
-	dl->ackPending = qfalse;
 	if ( dl->state != CLDL_RECEIVING ) {
+		dl->ackPending = qfalse;
 		return;
 	}
+	if ( clc.reliableSequence - clc.reliableAcknowledge >= COOP_DL_ACK_PENDING ) {
+		return;		// still ours to send, with a higher block, once the server catches up
+	}
+	dl->ackPending = qfalse;
 	CL_AddReliableCommand( va( "coopdl_ack %i %i", dl->needIndex, dl->cur.block - 1 ) );
 }
 
