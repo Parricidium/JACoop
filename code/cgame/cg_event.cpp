@@ -795,6 +795,24 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 		}
 		break;
 
+	case EV_COOP_SHAKE:		// coop: a camera shake the host applied to its own view (g_coop.cpp G_CoopShake*)
+		DEBUGNAME("EV_COOP_SHAKE");
+		if ( cg_remoteClient && ( es->otherEntityNum == ENTITYNUM_NONE || es->otherEntityNum == cg_localEntNum ) )
+		{
+			float intensity = es->angles2[0];
+			if ( es->angles2[1] > 0.0f )
+			{	// scaled by our own distance, as the AI does with "the player"
+				const float dist = Distance( cg.snap->ps.origin, position );
+				if ( dist >= es->angles2[1] )
+				{
+					break;
+				}
+				intensity *= dist;
+			}
+			CGCam_Shake( intensity, es->time2 );
+		}
+		break;
+
 	case EV_GLOBAL_SOUND:	// play from the player's head so it never diminishes
 		DEBUGNAME("EV_GLOBAL_SOUND");
 		if ( cgs.sound_precache[ es->eventParm ] ) {

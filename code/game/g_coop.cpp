@@ -26,9 +26,11 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 // wire. A serverless remote client has none of that, so the host packs each
 // character's appearance into a "model spec" configstring
 //
-//     model;skin;surfOff;surfOn;saber1;colors1;saber2;colors2;class;r,g,b,a
+//     model;skin;surfOff;surfOn;saber1;colors1;saber2;colors2;class;r,g,b,a;hand
 //
-// (';' because JA's three-part skins already use '|') registered in
+// (';' because JA's three-part skins already use '|'; hand = "L:path" or
+// "R:path", a cutscene prop bolted to that hand, see G_CoopRecordHandModel)
+// registered in
 // CS_COOP_MODELSPECS and referenced from s.modelindex3, which the entity delta
 // already networks. The remote cgame rebuilds the same ghoul2 from that spec
 // on first sight (CG_CoopEnsureCharacter in cg_coop.cpp).
@@ -43,6 +45,7 @@ typedef struct coopAppearance_s {
 	char	customSkin[MAX_QPATH];
 	char	surfOff[MAX_QPATH*4];
 	char	surfOn[MAX_QPATH*4];
+	char	handModel[MAX_QPATH+2];	// "L:path" / "R:path": cutscene prop bolted to a hand
 	char	lastSpec[MAX_STRING_CHARS];
 } coopAppearance_t;
 
@@ -68,6 +71,72 @@ void G_CoopRecordModel( const gentity_t *ent, const char *modelName, const char 
 	Q_strncpyz( a->surfOff, surfOff ? surfOff : "", sizeof( a->surfOff ) );
 	Q_strncpyz( a->surfOn, surfOn ? surfOn : "", sizeof( a->surfOn ) );
 	a->lastSpec[0] = '\0';	// force a re-publish on the next frame
+}
+
+/*
+================
+G_CoopRecordSkinPath
+
+SET_SKIN swaps the skin of a built model by full path
+("models/players/tavion_new/model_possessed.skin"). The spec names skins
+the G_SetG2PlayerModel way, so keep the "possessed" part when the path is
+this model's; a skin from another model directory cannot be described.
+================
+*/
+void G_CoopRecordSkinPath( const gentity_t *ent, const char *skinPath )
+{
+	coopAppearance_t *a = &coopAppearance[ent->s.number];
+	char prefix[MAX_QPATH];
+
+	if ( !a->modelName[0] )
+	{
+		return;
+	}
+	Com_sprintf( prefix, sizeof( prefix ), "models/players/%s/model_", a->modelName );
+	if ( Q_stricmpn( skinPath, prefix, strlen( prefix ) ) )
+	{
+		if ( g_developer->integer )
+		{
+			gi.Printf( "coop: ent %i SET_SKIN '%s' is not a skin of '%s', joiners keep theirs\n", ent->s.number, skinPath, a->modelName );
+		}
+		return;
+	}
+	Q_strncpyz( a->customSkin, skinPath + strlen( prefix ), sizeof( a->customSkin ) );
+	char *dot = strrchr( a->customSkin, '.' );
+	if ( dot )
+	{
+		*dot = '\0';
+	}
+	if ( !Q_stricmp( a->customSkin, "default" ) )
+	{
+		a->customSkin[0] = '\0';
+	}
+	a->lastSpec[0] = '\0';
+}
+
+/*
+================
+G_CoopRecordHandModel
+
+A cutscene prop bolted to a hand (SET_ADDLHANDBOLT_MODEL / RHAND: datapad,
+comlink, scepter) is ghoul2 data the joiners never see; publish it as the
+spec's last field, "L:path" or "R:path" (stock keeps one such model per
+character, ent->cinematicModel). An empty path removes it.
+================
+*/
+void G_CoopRecordHandModel( const gentity_t *ent, char side, const char *modelPath )
+{
+	coopAppearance_t *a = &coopAppearance[ent->s.number];
+
+	if ( modelPath && modelPath[0] )
+	{
+		Com_sprintf( a->handModel, sizeof( a->handModel ), "%c:%s", side, modelPath );
+	}
+	else
+	{
+		a->handModel[0] = '\0';
+	}
+	a->lastSpec[0] = '\0';
 }
 
 /*
@@ -130,7 +199,8 @@ void G_CoopUpdateAppearance( gentity_t *ent )
 	}
 	// the wire has no health; faces, health bars and corpse handling read it
 	ent->s.coopHealth = ent->health;
-	ent->s.coopMaxHealth = ent->max_health;
+	ent->s.coopMaxHealth = ( ent->max_health & COOP_MAXHEALTH_MASK )
+		| ( ( ent->NPC && ( ent->NPC->scriptFlags & SCF_MORELIGHT ) ) ? COOP_MAXHEALTH_MORELIGHT : 0 );
 	// head tracking: interest points are host-only, so only entity targets travel
 	ent->s.coopLookTarget = ( ent->client->renderInfo.lookMode == LM_ENT ) ? ent->client->renderInfo.lookTarget : ENTITYNUM_NONE;
 	if ( !a->modelName[0] && ent->ghoul2.size() && ent->playerModel >= 0 && ent->playerModel < ent->ghoul2.size() )
@@ -203,6 +273,7 @@ void G_CoopUpdateAppearance( gentity_t *ent )
 	Q_strcat( spec, sizeof( spec ), va( ";%i", (int)ent->client->NPC_class ) );
 	const byte *rgba = ent->client->renderInfo.customRGBA;
 	Q_strcat( spec, sizeof( spec ), va( ";%i,%i,%i,%i", rgba[0], rgba[1], rgba[2], rgba[3] ) );
+	Q_strcat( spec, sizeof( spec ), va( ";%s", a->handModel ) );
 
 	if ( !strcmp( spec, a->lastSpec ) )
 	{
@@ -555,6 +626,13 @@ static void G_CoopRespawn( gentity_t *ent )
 	// come back beside a living teammate rather than at the map start
 	G_CoopPlaceBeside( ent, mate );
 	ent->health = ps->stats[STAT_HEALTH] = ps->stats[STAT_MAX_HEALTH];
+
+	// a falling death faded this player's screen to black (g_trigger.cpp, g_target.cpp)
+	{
+		extern void G_CoopFadeClient( const gentity_t *ent, const vec4_t dst, int ms );
+		const vec4_t clear = { 0, 0, 0, 0 };
+		G_CoopFadeClient( ent, clear, 500 );
+	}
 }
 
 // run once per server frame
@@ -585,9 +663,16 @@ Cinematic camera replication
 
 Cutscenes run entirely on the host: ICARUS drives the cgame camera
 (cg_camera.cpp) through shared memory, which a remote client never sees.
-While the host is in a camera, a broadcast entity mirrors the final view the
-host renders (origin, angles, fov, cinematic bars, fade) into every snapshot;
-the remote cgame turns it back into its own client_camera (cg_coop.cpp).
+While the host is in a camera, or a scripted screen fade is up outside one
+(fade to black before end_level, pre-black before a scene), a broadcast
+entity mirrors the host's camera into every snapshot; the remote cgame turns
+it back into its own client_camera (cg_coop.cpp):
+
+  s.frame & 1      camera active (else only the fade is meaningful)
+  pos/apos.trBase  view origin / angles before the shake (coopCameraOrg/Angles)
+  origin2[0]       script FOV, before CG_CalcFOVFromX (coopCameraFovX)
+  origin2[1]       cinematic bar height, time2 = bar alpha x 255
+  angles2, origin2[2]  fade colour rgb and alpha
 ==============================================================================
 */
 
@@ -596,25 +681,65 @@ the remote cgame turns it back into its own client_camera (cg_coop.cpp).
 
 static qboolean coopMissionFailedSent[MAX_CLIENTS];	// per client: told about the mission-failed screen
 static gentity_t *coopCameraEnt = NULL;
+static qboolean coopCameraWasIn = qfalse;
+extern float coopCameraFovX;		// cg_camera.cpp
+extern vec3_t coopCameraOrg, coopCameraAngles;
+
+/*
+================
+G_CoopFadeClient
+
+Screen fades the game code aims at one player (falling deaths: trigger_hurt,
+target_kill) go to that player's screen only: the host's own cgame for slot
+0, a "fade" server command for a joiner. Both fade from the current colour.
+A fade meant for the host alone is not broadcast by G_CoopUpdateCamera,
+until the next script fade (CameraFade), which is for everyone.
+================
+*/
+static qboolean coopFadeLocal = qfalse;
+
+void G_CoopFadeClient( const gentity_t *ent, const vec4_t dst, int ms )
+{
+	if ( !ent || ent->s.number >= MAX_CLIENTS )
+	{
+		return;
+	}
+	if ( ent->s.number == 0 )
+	{
+		vec4_t src, dest;
+		VectorCopy4( client_camera.fade_color, src );
+		VectorCopy4( dst, dest );
+		CGCam_Fade( src, dest, ms );
+		coopFadeLocal = qtrue;
+		return;
+	}
+	gi.SendServerCommand( ent->s.number, "fade %g %g %g %g %i", dst[0], dst[1], dst[2], dst[3], ms );
+}
+
+// a script fade (CQuake3GameInterface::CameraFade) is for everyone
+void G_CoopFadeShared( void )
+{
+	coopFadeLocal = qfalse;
+}
 
 void G_CoopUpdateCamera( void )
 {
-	if ( !in_camera )
+	// a fade running outside a camera is shared too, unless it is the host's own (G_CoopFadeClient)
+	const qboolean fading = (qboolean)( !coopFadeLocal && ( client_camera.fade_color[3] > 0.0f || ( client_camera.info_state & CAMERA_FADING ) != 0 ) );
+
+	if ( !in_camera && !fading )
 	{
 		if ( coopCameraEnt )
 		{
 			G_FreeEntity( coopCameraEnt );
 			coopCameraEnt = NULL;
 		}
+		coopCameraWasIn = qfalse;
 		return;
 	}
 
 	if ( !coopCameraEnt || !coopCameraEnt->inuse || coopCameraEnt->s.eType != ET_COOPCAMERA )
 	{
-		// a cutscene starts: scripts lock doors behind the host and drive the
-		// story from where it stands. A joiner left out of sight (a door that
-		// closed on it, a fall, a detour) would be stranded, so bring it along.
-		G_CoopGatherJoiners( qfalse );
 		coopCameraEnt = G_Spawn();
 		if ( !coopCameraEnt )
 		{
@@ -626,25 +751,146 @@ void G_CoopUpdateCamera( void )
 		coopCameraEnt->contents = 0;
 		coopCameraEnt->clipmask = 0;
 	}
+	if ( in_camera && !coopCameraWasIn )
+	{
+		// a cutscene starts: scripts lock doors behind the host and drive the
+		// story from where it stands. A joiner left out of sight (a door that
+		// closed on it, a fall, a detour) would be stranded, so bring it along.
+		G_CoopGatherJoiners( qfalse );
+	}
+	coopCameraWasIn = (qboolean)in_camera;
 
 	gentity_t *cam = coopCameraEnt;
-	VectorCopy( cg.refdef.vieworg, cam->s.origin );
-	VectorCopy( cg.refdef.vieworg, cam->s.pos.trBase );
-	VectorCopy( cg.refdef.vieworg, cam->currentOrigin );
-	VectorCopy( cg.refdefViewAngles, cam->s.angles );
-	VectorCopy( cg.refdefViewAngles, cam->s.apos.trBase );
+	cam->s.frame = in_camera ? 1 : 0;
+	if ( in_camera )
+	{
+		VectorCopy( coopCameraOrg, cam->s.origin );
+		VectorCopy( coopCameraOrg, cam->s.pos.trBase );
+		VectorCopy( coopCameraOrg, cam->currentOrigin );
+		VectorCopy( coopCameraAngles, cam->s.angles );
+		VectorCopy( coopCameraAngles, cam->s.apos.trBase );
+		cam->s.origin2[0] = coopCameraFovX;
+	}
 	cam->s.pos.trType = cam->s.apos.trType = TR_INTERPOLATE;
-	cam->s.origin2[0] = cg.refdef.fov_x;
-	cam->s.origin2[1] = client_camera.bar_height * client_camera.bar_alpha;
+	cam->s.origin2[1] = client_camera.bar_height;
+	cam->s.time2 = (int)( client_camera.bar_alpha * 255.0f );
 	cam->s.origin2[2] = client_camera.fade_color[3];
 	VectorCopy( client_camera.fade_color, cam->s.angles2 );
 	gi.linkentity( cam );
 }
 
+/*
+================
+G_CoopShake
+
+Camera shakes are host-cgame state (CGCam_Shake). Shake the host as before
+and broadcast the same shake as a temp entity for the joiners
+(EV_COOP_SHAKE): angles2[0] = intensity (per unit of distance when a range
+is given), angles2[1] = range (0 = everyone, else each joiner scales by its
+own distance to the origin, as the AI does with "the player"),
+time2 = duration, otherEntityNum = one client or ENTITYNUM_NONE.
+================
+*/
+static void G_CoopShakeEvent( const vec3_t origin, float intensity, float range, int duration, int clientNum )
+{
+	if ( G_CoopNumPlayers() < 2 )
+	{
+		return;
+	}
+	gentity_t *te = G_TempEntity( origin, EV_COOP_SHAKE );
+	te->svFlags |= SVF_BROADCAST;
+	te->s.angles2[0] = intensity;
+	te->s.angles2[1] = range;
+	te->s.time2 = duration;
+	te->s.otherEntityNum = clientNum;
+}
+
+// every player's screen (scripts: CAMERA SHAKE)
+void G_CoopShakeAll( float intensity, int duration )
+{
+	CGCam_Shake( intensity, duration );
+	G_CoopShakeEvent( g_entities[0].currentOrigin, intensity, 0.0f, duration, ENTITYNUM_NONE );
+}
+
+// one player's screen
+void G_CoopShakeClient( const gentity_t *ent, float intensity, int duration )
+{
+	if ( !ent || ent->s.number >= MAX_CLIENTS )
+	{
+		return;
+	}
+	if ( ent->s.number == 0 )
+	{
+		CGCam_Shake( intensity, duration );
+		return;
+	}
+	G_CoopShakeEvent( ent->currentOrigin, intensity, 0.0f, duration, ent->s.number );
+}
+
+// the AI's "shake the player by its distance": perUnit x distance for every player within range
+void G_CoopShakeNear( const vec3_t origin, float perUnit, float range, int duration )
+{
+	const gentity_t *host = &g_entities[0];
+	if ( host->inuse && host->client )
+	{
+		const float dist = Distance( host->currentOrigin, origin );
+		if ( dist < range )
+		{
+			CGCam_Shake( perUnit * dist, duration );
+		}
+	}
+	G_CoopShakeEvent( origin, perUnit, range, duration, ENTITYNUM_NONE );
+}
+
+/*
+================
+G_CoopMirrorCvars
+
+The cinematic skip (g_active.cpp G_StartCinematicSkip, CGCam_Disable) and
+the script timescale (Q3_SetTimeScale) are host cvars; the joiners learn
+them as "skip N" / "ts V" server commands when they change.
+================
+*/
+static int		coopSentSkip = 0;
+static float	coopSentTimescale = 1.0f;
+
+static void G_CoopSendJoiners( const char *cmd )
+{
+	for ( int i = 1; i < MAX_CLIENTS; i++ )
+	{
+		const gentity_t *cl = &g_entities[i];
+		if ( cl->inuse && cl->client && cl->client->pers.connected == CON_CONNECTED )
+		{
+			gi.SendServerCommand( i, "%s", cmd );
+		}
+	}
+}
+
+void G_CoopMirrorCvars( void )
+{
+	extern cvar_t *g_skippingcin;
+	extern cvar_t *g_timescale;
+
+	if ( g_skippingcin->integer != coopSentSkip )
+	{
+		coopSentSkip = g_skippingcin->integer;
+		G_CoopSendJoiners( va( "skip %i", coopSentSkip ) );
+	}
+	if ( g_timescale->value != coopSentTimescale )
+	{
+		coopSentTimescale = g_timescale->value;
+		G_CoopSendJoiners( va( "ts %g", coopSentTimescale ) );
+	}
+}
+
 // forget the camera entity when the level goes away
 void G_CoopResetCamera( void )
 {
+	coopSentSkip = 0;
+	coopSentTimescale = 1.0f;
 	coopCameraEnt = NULL;
+	coopCameraWasIn = qfalse;
+	coopFadeLocal = qfalse;
 	memset( coopMissionFailedSent, 0, sizeof( coopMissionFailedSent ) );
 	memset( coopRespawnTime, 0, sizeof( coopRespawnTime ) );
 	G_CoopResetDowned();
@@ -695,6 +941,17 @@ void G_CoopClientBegin( const gentity_t *ent )
 	if ( ent->s.number >= 0 && ent->s.number < MAX_CLIENTS )
 	{
 		coopMissionFailedSent[ent->s.number] = qfalse;
+	}
+	if ( ent->s.number > 0 && ent->s.number < MAX_CLIENTS )
+	{	// what G_CoopMirrorCvars already told the others
+		if ( coopSentSkip )
+		{
+			gi.SendServerCommand( ent->s.number, "skip %i", coopSentSkip );
+		}
+		if ( coopSentTimescale != 1.0f )
+		{
+			gi.SendServerCommand( ent->s.number, "ts %g", coopSentTimescale );
+		}
 	}
 }
 
@@ -1384,15 +1641,40 @@ void G_CoopForwardSound( int entNum, int channel, int index, const char *path, i
 	}
 }
 
-// CG_TryPlayCustomSound for the host, forwarded to remote clients
+// CG_TryPlayCustomSound for the host, forwarded to remote clients. A '*'
+// name (pain, anger, taunts...) only means something against the NPC's sound
+// tables, which the host alone registered (CG_RegisterNPCCustomSounds): look
+// it up here and forward the file it resolved to.
+extern sfxHandle_t CG_CustomSoundHandle( int entityNum, const char *soundName, int customSoundSet );
+extern void cgi_S_SoundName( sfxHandle_t handle, char *buf, int buflen );
+extern void cgi_S_StartSound( const vec3_t origin, int entityNum, int entchannel, sfxHandle_t sfx );
 qboolean G_CoopCustomSound( vec3_t origin, int entityNum, soundChannel_t channel, const char *soundName, int customSoundSet )
 {
+	if ( soundName[0] == '*' && G_CoopNumPlayers() >= 2 )
+	{
+		char path[MAX_QPATH];
+		const sfxHandle_t handle = CG_CustomSoundHandle( entityNum, soundName, customSoundSet );
+		path[0] = '\0';
+		if ( handle )
+		{
+			cgi_S_SoundName( handle, path, sizeof( path ) );
+		}
+		if ( path[0] )
+		{
+			G_CoopForwardSound( entityNum, channel, -1, path, -1 );
+		}
+		if ( !handle )
+		{
+			return qfalse;
+		}
+		cgi_S_StartSound( origin, entityNum, channel, handle );
+		return qtrue;
+	}
 	G_CoopForwardSound( entityNum, channel, -1, soundName, customSoundSet );
 	return CG_TryPlayCustomSound( origin, entityNum, channel, soundName, customSoundSet );
 }
 
 // cgi_S_StartSound by path for the host, forwarded to remote clients
-extern void cgi_S_StartSound( const vec3_t origin, int entityNum, int entchannel, sfxHandle_t sfx );
 extern sfxHandle_t cgi_S_RegisterSound( const char *sample );
 void G_CoopSoundPath( const vec3_t origin, int entityNum, int channel, const char *path )
 {

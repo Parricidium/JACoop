@@ -28,6 +28,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "g_functions.h"
 #include "../cgame/cg_local.h"
 #include "b_local.h"
+#include "Q3_Interface.h"	// coop: coop_set
 
 extern	bool		in_camera;
 extern stringID_table_t SaberStyleTable[];
@@ -1481,6 +1482,38 @@ void ClientCommand( int clientNum ) {
 		if ( !CheatsOk( ent ) ) return;
 		if ( gi.argc() < 2 ) { gi.SendServerCommand( ent - g_entities, "print \"usage: coop_use <targetname>\\n\"" ); return; }
 		G_UseTargets2( ent, ent, gi.argv( 1 ) );
+		return;
+	}
+	if (Q_stricmp (cmd, "coop_set") == 0)
+	{	// coop dev: an ICARUS SET on an entity, as a script would (needs cheats):
+		// coop_set <entnum|script_targetname> <SET_NAME> <value...>   e.g. coop_set 0 SET_VIDEO_PLAY ja04
+		if ( !CheatsOk( ent ) ) return;
+		if ( gi.argc() < 4 ) { gi.SendServerCommand( ent - g_entities, "print \"usage: coop_set <entnum|script_targetname> <SET_NAME> <value>\n\"" ); return; }
+		int num = -1;
+		if ( isdigit( gi.argv( 1 )[0] ) )
+		{
+			num = atoi( gi.argv( 1 ) );
+		}
+		else
+		{
+			for ( int i = 0; i < ENTITYNUM_WORLD; i++ )
+			{
+				if ( g_entities[i].inuse && g_entities[i].script_targetname && !Q_stricmp( g_entities[i].script_targetname, gi.argv( 1 ) ) )
+				{
+					num = i;
+					break;
+				}
+			}
+		}
+		if ( num < 0 || num >= ENTITYNUM_WORLD || !g_entities[num].inuse ) { gi.Printf( "coop_set: entity '%s' not found\n", gi.argv( 1 ) ); return; }
+		char value[MAX_STRING_CHARS];
+		value[0] = '\0';
+		for ( int i = 3; i < gi.argc(); i++ )
+		{
+			Q_strcat( value, sizeof( value ), va( "%s%s", i > 3 ? " " : "", gi.argv( i ) ) );
+		}
+		gi.Printf( "coop_set: ent %i %s '%s'\n", num, gi.argv( 2 ), value );
+		Quake3Game()->Set( -1, num, gi.argv( 2 ), value );
 		return;
 	}
 

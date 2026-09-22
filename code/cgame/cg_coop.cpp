@@ -26,7 +26,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 // character from what the network carries:
 //
 //   - s.modelindex3      -> CS_COOP_MODELSPECS spec string, built by g_coop.cpp:
-//                           model;skin;surfOff;surfOn;saber1;colors1;saber2;colors2;class;r,g,b,a
+//                           model;skin;surfOff;surfOn;saber1;colors1;saber2;colors2;class;r,g,b,a;hand
 //   - s.weapon           -> attached weapon / saber hilt models
 //   - s.legsAnim/torsoAnim (+timers) -> ghoul2 bone animations, through the
 //                           same PM_SetAnimFinal the host uses
@@ -56,9 +56,44 @@ typedef struct coopCharState_s {
 	qboolean inFlight;		// s.saberInFlight we last acted on (hand hilt removed / restored)
 	qboolean legacyMd3;		// pre-ghoul2 md3 legs/torso/head model (remote_sp, mouse, seeker): no ghoul2 to build
 	byte	tint[4];		// customRGBA the spec gave (debug: detect it being clobbered)
+	unsigned bodyHash;		// hash of the spec's body fields (everything but the hand prop) the ghoul2 was built from
+	int		handSpec;		// spec index the hand prop was last read from
+	char	hand[MAX_QPATH+2];	// "L:path" / "R:path" attached (gent->cinematicModel), or ""
 } coopCharState_t;
 
+// hash of the spec's body: the first 10 fields (the 11th is the hand prop, which never needs a rebuild)
+static unsigned CG_CoopBodyHash( const char *spec )
+{
+	unsigned h = 2166136261u;
+	int seps = 0;
+	for ( const char *p = spec; *p; p++ )
+	{
+		if ( *p == ';' && ++seps == 10 )
+		{
+			break;
+		}
+		h = ( h ^ (unsigned char)*p ) * 16777619u;
+	}
+	return h;
+}
+
+// the spec's 11th field, "" when absent
+static const char *CG_CoopHandField( const char *spec )
+{
+	int seps = 0;
+	for ( const char *p = spec; *p; p++ )
+	{
+		if ( *p == ';' && ++seps == 10 )
+		{
+			return p + 1;
+		}
+	}
+	return "";
+}
+
 static coopCharState_t	coopChar[MAX_GENTITIES];
+static qboolean			coopHostVideo = qfalse;	// the host is watching an in-game video (CG_CoopVideo_f)
+static void CG_CoopResetCamera( void );
 
 /*
 ================
@@ -82,6 +117,7 @@ static void CG_CoopTearDown( centity_t *cent )
 	}
 	gent->playerModel = -1;
 	gent->weaponModel[0] = gent->weaponModel[1] = -1;
+	gent->cinematicModel = -1;
 	if ( gent->client )
 	{
 		gent->client->clientInfo.infoValid = qfalse;
@@ -175,9 +211,15 @@ static void CG_CoopEnsureCharacter( centity_t *cent )
 	{	// legacy md3 model registered
 		return;
 	}
-	if ( specIndex == st->specIndex && gent->playerModel >= 0
-		&& gent->playerModel < gent->ghoul2.size() && strstr( gent->ghoul2[gent->playerModel].mFileName, "models/players/" ) )
+	const qboolean built = (qboolean)( gent->playerModel >= 0
+		&& gent->playerModel < gent->ghoul2.size() && strstr( gent->ghoul2[gent->playerModel].mFileName, "models/players/" ) != NULL );
+	if ( specIndex == st->specIndex && built )
 	{	// built, and the skeleton slot still holds the body
+		return;
+	}
+	if ( st->specIndex && built && CG_CoopBodyHash( CG_ConfigString( CS_COOP_MODELSPECS + specIndex ) ) == st->bodyHash )
+	{	// only the hand prop changed: CG_CoopSyncHandModel attaches it, the body stays
+		st->specIndex = specIndex;
 		return;
 	}
 	if ( cg_developer.integer && st->specIndex )
@@ -192,6 +234,7 @@ static void CG_CoopEnsureCharacter( centity_t *cent )
 	{
 		return;
 	}
+	const unsigned bodyHash = CG_CoopBodyHash( spec );
 	const char *f[11];
 	CG_CoopSplitSpec( spec, f, 11 );
 	const char *modelName = f[0], *skin = f[1], *surfOff = f[2], *surfOn = f[3];
@@ -213,6 +256,7 @@ static void CG_CoopEnsureCharacter( centity_t *cent )
 		gent->client->renderInfo.lookTarget = ENTITYNUM_NONE;	// 0 would be "stare at the host"
 	}
 	gent->s.number = entNum;
+	gent->s.clientNum = cent->currentState.clientNum;
 	gent->inuse = qtrue;
 	gent->client->ps.clientNum = entNum;
 	gent->client->NPC_class = (class_t)atoi( f[8] );
@@ -230,6 +274,10 @@ static void CG_CoopEnsureCharacter( centity_t *cent )
 	}
 	gent->playerModel = -1;
 	gent->weaponModel[0] = gent->weaponModel[1] = -1;
+	gent->cinematicModel = -1;
+	st->bodyHash = bodyHash;
+	st->handSpec = 0;
+	st->hand[0] = '\0';
 
 	if ( modelName[0] == '@' )
 	{	// "@legs;torso;head": pre-ghoul2 md3 model, drawn by CG_Player's legacy path from clientInfo
@@ -439,6 +487,10 @@ void CG_CoopReset( void )
 	}
 	memset( coopChar, 0, sizeof( coopChar ) );
 	memset( coopG2Key, 0, sizeof( coopG2Key ) );
+	coopHostVideo = qfalse;
+	cgi_Cvar_Set( "skippingCinematic", "0" );
+	cgi_Cvar_Set( "timescale", "1" );
+	CG_CoopResetCamera();
 	Com_Printf( "coop: remote client state reset for the new level\n" );
 }
 
@@ -569,7 +621,8 @@ void CG_CoopEnts_f( void )
 		{
 			vec3_t amb, dir, ldir;
 			cgi_R_GetLighting( cent->lerpOrigin, amb, dir, ldir );
-			name = va( "spec %i hp %i/%i pw 0x%x ef 0x%x light amb %.0f %.0f %.0f dir %.0f %.0f %.0f", es->modelindex3, es->coopHealth, es->coopMaxHealth, es->powerups, es->eFlags, amb[0], amb[1], amb[2], dir[0], dir[1], dir[2] );
+			name = va( "spec %i hp %i/%i%s pw 0x%x ef 0x%x light amb %.0f %.0f %.0f dir %.0f %.0f %.0f", es->modelindex3, es->coopHealth, es->coopMaxHealth & COOP_MAXHEALTH_MASK,
+				( es->coopMaxHealth & COOP_MAXHEALTH_MORELIGHT ) ? " morelight" : "", es->powerups, es->eFlags, amb[0], amb[1], amb[2], dir[0], dir[1], dir[2] );
 		}
 		else
 		{
@@ -649,6 +702,49 @@ static void CG_CoopDriveAnim( centity_t *cent )
 
 /*
 ================
+CG_CoopSyncHandModel
+
+The cutscene prop bolted to a hand (spec field 11, G_CoopRecordHandModel):
+(re)attach it the way Q3_AddLHandModel / Q3_AddRHandModel do on the host,
+in gent->cinematicModel (the scepter beam effect reads it).
+================
+*/
+static void CG_CoopSyncHandModel( gentity_t *gent, coopCharState_t *st )
+{
+	if ( st->handSpec == st->specIndex )
+	{
+		return;
+	}
+	st->handSpec = st->specIndex;
+	const char *hand = CG_CoopHandField( CG_ConfigString( CS_COOP_MODELSPECS + st->specIndex ) );
+	if ( !strcmp( hand, st->hand ) )
+	{
+		return;
+	}
+	if ( gent->cinematicModel > 0 && gent->cinematicModel < gent->ghoul2.size() )
+	{
+		gi.G2API_RemoveGhoul2Model( gent->ghoul2, gent->cinematicModel );
+	}
+	gent->cinematicModel = -1;
+	Q_strncpyz( st->hand, hand, sizeof( st->hand ) );
+	if ( ( hand[0] == 'L' || hand[0] == 'R' ) && hand[1] == ':' && hand[2] && gent->playerModel >= 0 )
+	{
+		const char *model = hand + 2;
+		gent->cinematicModel = gi.G2API_InitGhoul2Model( gent->ghoul2, model, 0, 0, 0, 0, 0 );
+		if ( gent->cinematicModel != -1 )
+		{
+			gi.G2API_AttachG2Model( &gent->ghoul2[gent->cinematicModel], &gent->ghoul2[gent->playerModel],
+						hand[0] == 'L' ? gent->handLBolt : gent->handRBolt, gent->playerModel );
+		}
+	}
+	if ( cg_developer.integer )
+	{
+		Com_Printf( "coop: ent %i hand prop '%s' -> model %i\n", gent->s.number, hand, gent->cinematicModel );
+	}
+}
+
+/*
+================
 CG_CoopSyncCharacter
 
 Per-frame sync of the networked state into the placeholder gentity the
@@ -684,7 +780,7 @@ void CG_CoopSyncCharacter( centity_t *cent )
 	if ( cent->currentState.number != cg_localEntNum )
 	{	// ours comes from the playerState (CG_CoopSyncLocalPlayer)
 		gent->health = s->coopHealth;
-		gent->max_health = s->coopMaxHealth;
+		gent->max_health = s->coopMaxHealth & COOP_MAXHEALTH_MASK;
 	}
 	gent->client->renderInfo.lookMode = LM_ENT;
 	gent->client->renderInfo.lookTarget = ( s->coopLookTarget >= 0 && s->coopLookTarget < ENTITYNUM_WORLD ) ? s->coopLookTarget : ENTITYNUM_NONE;
@@ -703,6 +799,8 @@ void CG_CoopSyncCharacter( centity_t *cent )
 		gent->client->ps.torsoAnimTimer = s->torsoAnimTimer;
 		return;
 	}
+
+	CG_CoopSyncHandModel( gent, st );
 
 	// weapon / saber hilt models follow s.weapon
 	if ( s->weapon != st->weapon )
@@ -789,6 +887,7 @@ void CG_CoopSyncEntity( centity_t *cent )
 	// & co skip a gentity that is not "inuse" (every pickup was invisible)
 	cent->gent->inuse = qtrue;
 	cent->gent->s.number = cent->currentState.number;
+	cent->gent->s.clientNum = cent->currentState.clientNum;	// lip sync / head bob index gi.VoiceVolume[] by it (CG_G2PlayerHeadAnims, CG_AddHeadBob)
 	if ( cent->currentState.eType == ET_MOVER && ( cent->currentState.coopHealth & ( COOP_MOVER_DOOR | COOP_MOVER_STATIC ) ) )
 	{	// the crosshair scan reads classname/spawnflags (Force push/pull hint)
 		cent->gent->classname = ( cent->currentState.coopHealth & COOP_MOVER_DOOR ) ? "func_door" : "func_static";
@@ -907,10 +1006,13 @@ typedef struct coopCamSample_s {
 	vec3_t		origin;
 	vec3_t		angles;
 	float		fov;
-	float		bar;
+	float		bar;		// cinematic bar height
+	float		barAlpha;
 	vec4_t		fade;
+	qboolean	cam;		// the camera is active (else the host only fades its screen)
 	qboolean	cut;		// a jump from the previous sample: never interpolate into it
 } coopCamSample_t;
+static qboolean			coopCamPresent;		// the camera entity was in the last snapshot
 static coopCamSample_t	coopCam[COOP_CAM_SAMPLES];
 static int				coopCamCount;		// samples in the ring
 static int				coopCamHead;		// next slot to write
@@ -933,14 +1035,16 @@ static void CG_CoopCamPush( const entityState_t *s, int time )
 	VectorCopy( s->apos.trBase, c->angles );
 	c->fov = s->origin2[0];
 	c->bar = s->origin2[1];
+	c->barAlpha = s->time2 / 255.0f;
 	VectorCopy( s->angles2, c->fade );
 	c->fade[3] = s->origin2[2];
+	c->cam = (qboolean)( ( s->frame & 1 ) != 0 );
 	c->cut = qfalse;
 	if ( coopCamCount )
 	{
 		const coopCamSample_t *p = CG_CoopCamAt( coopCamCount - 1 );
 		const int dt = time - p->time;
-		if ( dt > 500 || Distance( p->origin, c->origin ) > 400.0f
+		if ( dt > 500 || p->cam != c->cam || Distance( p->origin, c->origin ) > 400.0f
 			|| fabsf( AngleSubtract( p->angles[YAW], c->angles[YAW] ) ) > 60.0f
 			|| fabsf( AngleSubtract( p->angles[PITCH], c->angles[PITCH] ) ) > 60.0f )
 		{
@@ -953,6 +1057,95 @@ static void CG_CoopCamPush( const entityState_t *s, int time )
 		coopCamCount++;
 	}
 	coopCamLastTime = time;
+}
+
+// new level: whatever camera or fade the host had is gone with it
+static void CG_CoopResetCamera( void )
+{
+	coopCameraActive = qfalse;
+	coopCamPresent = qfalse;
+	coopCamCount = coopCamHead = coopCamLastTime = 0;
+	in_camera = false;
+	memset( &client_camera, 0, sizeof( client_camera ) );
+}
+
+// the host left its camera: let the bars fade out as CGCam_Disable does
+static void CG_CoopCameraEnd( void )
+{
+	coopCameraActive = qfalse;
+	in_camera = false;
+	client_camera.info_state = CAMERA_BAR_FADING;
+	client_camera.bar_time = cg.time;
+	client_camera.bar_alpha_source = client_camera.bar_alpha;
+	client_camera.bar_alpha_dest = 0.0f;
+	client_camera.bar_height_source = client_camera.bar_height;
+	client_camera.bar_height_dest = 0.0f;
+	client_camera.shake_duration = 0;
+}
+
+/*
+================
+CG_CoopFade_f
+
+"fade r g b a ms" from the host: fade our screen from its current colour
+(a falling death, or the respawn clearing it). See G_CoopFadeClient.
+================
+*/
+void CG_CoopFade_f( void )
+{
+	if ( !cg_remoteClient )
+	{
+		return;
+	}
+	vec4_t src, dst;
+	VectorCopy4( client_camera.fade_color, src );
+	for ( int i = 0; i < 4; i++ )
+	{
+		dst[i] = atof( CG_Argv( 1 + i ) );
+	}
+	CGCam_Fade( src, dst, atoi( CG_Argv( 5 ) ) );
+}
+
+/*
+================
+CG_CoopSkip_f / CG_CoopTimescale_f
+
+"skip N": the host toggled the cinematic skip. Our own skippingCinematic
+makes the client freeze the screen on "SKIPPING", stop the sounds and drop
+the captions (cl_main.cpp, cg_text.cpp), exactly as on the host.
+"ts V": the script timescale; ours follows it below 1 (slow motion: our
+clock then slows with the host's), never the 100 of a skip (the screen is
+frozen anyway and a fast clock trips the net timeouts).
+================
+*/
+// "credits": the campaign is over, roll the closing credits like the host
+void CG_CoopCredits_f( void )
+{
+	if ( cg_remoteClient )
+	{
+		cgi_Cvar_Set( "cg_endcredits", "1" );
+	}
+}
+
+void CG_CoopSkip_f( void )
+{
+	if ( cg_remoteClient )
+	{
+		cgi_Cvar_Set( "skippingCinematic", atoi( CG_Argv( 1 ) ) ? "1" : "0" );
+	}
+}
+
+void CG_CoopTimescale_f( void )
+{
+	if ( cg_remoteClient )
+	{
+		float ts = atof( CG_Argv( 1 ) );
+		if ( ts <= 0.0f || ts > 1.0f )
+		{
+			ts = 1.0f;
+		}
+		cgi_Cvar_Set( "timescale", va( "%g", ts ) );
+	}
 }
 
 void CG_CoopSyncCamera( void )
@@ -977,16 +1170,18 @@ void CG_CoopSyncCamera( void )
 	{
 		if ( coopCameraActive )
 		{
-			coopCameraActive = qfalse;
-			in_camera = false;
-			client_camera.info_state = 0;
-			client_camera.bar_alpha = 0.0f;
-			client_camera.bar_height = 0.0f;
+			CG_CoopCameraEnd();
+		}
+		if ( coopCamPresent )
+		{	// the host's fade is over
+			coopCamPresent = qfalse;
+			client_camera.info_state &= ~CAMERA_FADING;
 			client_camera.fade_color[3] = 0.0f;
 		}
 		coopCamCount = coopCamHead = coopCamLastTime = 0;
 		return;
 	}
+	coopCamPresent = qtrue;
 
 	// new samples: this snapshot's, and the next one's when we already have it
 	CG_CoopCamPush( &cam->currentState, cg.snap->serverTime );
@@ -1017,6 +1212,22 @@ void CG_CoopSyncCamera( void )
 		f = Com_Clamp( 0.0f, 1.0f, ( t - a->time ) / (float)( b->time - a->time ) );
 	}
 
+	// the host only fades its screen (no camera): drive the fade, keep our own view
+	const qboolean camOn = ( t >= b->time ) ? b->cam : a->cam;
+	if ( !camOn )
+	{
+		if ( coopCameraActive )
+		{
+			CG_CoopCameraEnd();
+		}
+		client_camera.info_state &= ~CAMERA_FADING;	// ours would fight it (CGCam_UpdateFade)
+		for ( int i = 0; i < 4; i++ )
+		{
+			client_camera.fade_color[i] = a->fade[i] + f * ( b->fade[i] - a->fade[i] );
+		}
+		return;
+	}
+
 	if ( !coopCameraActive )
 	{
 		coopCameraActive = qtrue;
@@ -1031,11 +1242,11 @@ void CG_CoopSyncCamera( void )
 		client_camera.angles[i] = LerpAngle( a->angles[i], b->angles[i], f );
 		client_camera.fade_color[i] = a->fade[i] + f * ( b->fade[i] - a->fade[i] );
 	}
+	// the script FOV: CGCam_Update runs CG_CalcFOVFromX on it once, with our own aspect setting
 	client_camera.FOV = a->fov + f * ( b->fov - a->fov );
 	client_camera.FOV2 = client_camera.FOV;
-	const float bar = a->bar + f * ( b->bar - a->bar );
-	client_camera.bar_alpha = bar > 0.0f ? 1.0f : 0.0f;
-	client_camera.bar_height = bar;
+	client_camera.bar_alpha = a->barAlpha + f * ( b->barAlpha - a->barAlpha );
+	client_camera.bar_height = a->bar + f * ( b->bar - a->bar );
 	// CGCam_UpdateBarFade snaps to the *_dest values once bar_time is stale; keep them equal
 	client_camera.bar_alpha_dest = client_camera.bar_alpha_source = client_camera.bar_alpha;
 	client_camera.bar_height_dest = client_camera.bar_height_source = client_camera.bar_height;
@@ -1350,6 +1561,10 @@ void CG_CoopDrawDowned( void )
 	static const vec4_t white = { 1, 1, 1, 1 };
 	static const vec4_t dim = { 0.85f, 0.82f, 0.72f, 1 };
 
+	if ( cg.snap && cg_remoteClient && coopHostVideo )
+	{	// the world is held while the host watches its video (CG_CoopVideo_f)
+		CG_CoopDrawCentered( 440, "L'hote regarde une video...", dim, cgs.media.qhFontSmall, 1.0f );
+	}
 	if ( !cg.snap || in_camera || cg.missionStatusShow || coopAllDownShown )
 	{
 		return;
@@ -1441,6 +1656,31 @@ void CG_CoopDrawDowned( void )
 	else if ( nearest >= 0 && nearest <= 80 && ps->stats[STAT_HEALTH] > 0 )
 	{	// beside someone on the ground
 		CG_CoopDrawCentered( 300, va( "Maintenir %s pour relever", CG_CoopReviveKeyName() ), white, font, 1.0f );
+	}
+}
+
+/*
+================
+CG_CoopVideo_f
+
+"vid <roq>" from the host: it plays an in-game video (SET_VIDEO_PLAY) and
+holds the world meanwhile (SV_CoopHoldGame); play the same one here. "vid"
+alone: the host's video is over. A joiner that skips its copy early sees the
+held world with a caption until then.
+================
+*/
+void CG_CoopVideo_f( void )
+{
+	const char *name = CG_Argv( 1 );
+
+	if ( !cg_remoteClient )
+	{
+		return;
+	}
+	coopHostVideo = (qboolean)( name[0] != '\0' );
+	if ( name[0] && strcmp( name, "-" ) )	// "-": the host is mid-video, caption only (SV_ClientEnterWorld)
+	{
+		cgi_SendConsoleCommand( va( "inGameCinematic %s\n", name ) );
 	}
 }
 

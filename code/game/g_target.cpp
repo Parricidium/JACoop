@@ -491,9 +491,8 @@ void target_kill_use( gentity_t *self, gentity_t *other, gentity_t *activator ) 
 		G_Damage ( activator, NULL, NULL, NULL, NULL, 100000, DAMAGE_NO_PROTECTION, MOD_FALLING );
 		if ( G_CoopIsPlayer( activator ) && activator->health <= 0 && 1 )
 		{
-			extern void CGCam_Fade( vec4_t source, vec4_t dest, float duration );
-			float	src[4] = {0,0,0,0},dst[4]={0,0,0,1};
-			CGCam_Fade( src, dst, 10000 );
+			const vec4_t dst = {0,0,0,1};
+			G_CoopFadeClient( activator, dst, 10000 );	// coop: the victim's screen, not the host's
 		}
 	}
 	else if ( self->spawnflags & 2 ) // electrical

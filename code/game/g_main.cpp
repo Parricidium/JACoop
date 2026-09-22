@@ -2023,9 +2023,13 @@ void G_RunFrame( int levelTime ) {
 	Pilot_Update();
 
 
-	if (player && gi.WE_IsShaking(player->currentOrigin))
+	for ( int pl = 0; pl < MAX_CLIENTS; pl++ )	// coop: each player where it stands
 	{
- 	  	CGCam_Shake(0.45f, 100);
+		gentity_t *pe = &g_entities[pl];
+		if ( pe->inuse && pe->client && gi.WE_IsShaking( pe->currentOrigin ) )
+		{
+			G_CoopShakeClient( pe, 0.45f, 100 );
+		}
 	}
 
 
@@ -2180,6 +2184,7 @@ void G_RunFrame( int levelTime ) {
 
 	// coop: mirror the host's cinematic camera to remote clients
 	G_CoopUpdateCamera();
+	G_CoopMirrorCvars();
 	G_CoopUpdateObjectives();
 	G_CoopUpdateMissionFailed();
 	G_CoopLobbyFrame();

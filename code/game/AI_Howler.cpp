@@ -343,11 +343,10 @@ static void Howler_Howl( void )
 		}
 	}
 
-	float playerDist = NPC_EntRangeFromBolt( player, NPC->genericBolt1 );
-	if ( playerDist < 256.0f )
-	{
-		CGCam_Shake( 1.0f*playerDist/128.0f, 200 );
-	}
+	// coop: every player within range, by its own distance
+	vec3_t shakeOrg;
+	G_GetBoltPosition( NPC, NPC->genericBolt1, shakeOrg );
+	G_CoopShakeNear( shakeOrg, 1.0f/128.0f, 256.0f, 200 );
 }
 
 //------------------------------

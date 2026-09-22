@@ -427,6 +427,22 @@ qboolean SV_CheckPaused( void ) {
 }
 
 /*
+==================
+SV_CoopHoldGame
+
+coop: stock pauses the whole server (cl_paused) while the host watches an
+in-game video (SET_VIDEO_PLAY). With joiners connected SV_CheckPaused must
+not, so the game logic is held here instead: SV_Frame skips the game frames
+and SV_ClientThink drops the usercmds, while snapshots keep flowing so the
+joiners neither time out nor see the story run on without the host.
+==================
+*/
+extern qboolean CL_IsRunningInGameCinematic( void );
+qboolean SV_CoopHoldGame( void ) {
+	return CL_IsRunningInGameCinematic();
+}
+
+/*
 This wonderful hack is needed to avoid rendering frames until several camera related things
 have wended their way through the network. The problem is basically that the server asks the
 client where the camera is to decide what entities down to the client. However right after
@@ -529,9 +545,25 @@ void SV_Frame( int msec,float fractionMsec ) {
 
 //	SV_BotFrame( sv.time );
 
+	// coop: the host's in-game video holds the world; tell the joiners when it is over
+	static qboolean	wasHeld = qfalse;
+	static int		heldSince = 0;
+	const qboolean	held = SV_CoopHoldGame();
+	if ( held && !wasHeld ) {
+		heldSince = Sys_Milliseconds();
+	}
+	if ( wasHeld && !held ) {
+		Com_DPrintf( "coop: game held %i ms for the host's video (sv.time %i)\n", Sys_Milliseconds() - heldSince, sv.time );
+		SV_SendServerCommand( NULL, "vid" );
+	}
+	wasHeld = held;
+
 	// run the game simulation in chunks
 	while ( sv.timeResidual >= frameMsec ) {
 		sv.timeResidual -= frameMsec;
+		if ( held ) {
+			continue;	// coop: no game frame, but the snapshots below still go out
+		}
 		sv.time += frameMsec;
 		re.G2API_SetTime(sv.time,G2T_SV_TIME);
 

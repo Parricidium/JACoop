@@ -2434,7 +2434,10 @@ void CG_DrawCredits(void)
 		if ( !CG_Credits_Running() )
 		{
 			cgi_Cvar_Set( "cg_endcredits", "0" );
-			CMD_CGCam_Disable();
+			if ( !cg_remoteClient )
+			{	// coop: a remote client has no camera to disable (nor a server to tell)
+				CMD_CGCam_Disable();
+			}
 			cgi_SendConsoleCommand("disconnect\n");
 		}
 	}

@@ -5879,6 +5879,7 @@ static void Q3_RemoveRHandModel( int entID, char *addModel)
 	{
 		gi.G2API_RemoveGhoul2Model(ent->ghoul2,ent->cinematicModel);
 	}
+	G_CoopRecordHandModel( ent, 'R', NULL );	// coop
 }
 
 /*
@@ -5896,6 +5897,7 @@ static void Q3_AddRHandModel( int entID, char *addModel)
 		// attach it to the hand
 		gi.G2API_AttachG2Model(&ent->ghoul2[ent->cinematicModel], &ent->ghoul2[ent->playerModel],
 					ent->handRBolt, ent->playerModel);
+		G_CoopRecordHandModel( ent, 'R', addModel );	// coop
 	}
 }
 
@@ -5914,6 +5916,7 @@ static void Q3_AddLHandModel( int entID, char *addModel)
 		// attach it to the hand
 		gi.G2API_AttachG2Model(&ent->ghoul2[ent->cinematicModel], &ent->ghoul2[ent->playerModel],
 					ent->handLBolt, ent->playerModel);
+		G_CoopRecordHandModel( ent, 'L', addModel );	// coop
 	}
 }
 
@@ -5930,6 +5933,7 @@ static void Q3_RemoveLHandModel( int entID, char *addModel)
 	{
 		gi.G2API_RemoveGhoul2Model(ent->ghoul2, ent->cinematicModel);
 	}
+	G_CoopRecordHandModel( ent, 'L', NULL );	// coop
 }
 
 /*
@@ -9327,6 +9331,8 @@ extern void LockDoors(gentity_t *const ent);
 //		if ( g_timescale->value <= 1.0f )
 		{
 			gi.SendConsoleCommand( va("inGameCinematic %s\n", (char *)data) );
+			// coop: the joiners watch the same video while the host's holds the game (SV_CoopHoldGame)
+			gi.SendServerCommand( -1, "vid %s", (char *)data );
 		}
 		break;
 
@@ -9405,6 +9411,7 @@ extern void LockDoors(gentity_t *const ent);
 
 	case SET_CLOSINGCREDITS:
 		gi.cvar_set("cg_endcredits", "1");
+		gi.SendServerCommand( -1, "credits" );	// coop: the joiners roll them too
 		break;
 
 	case SET_SKILL:
@@ -9611,6 +9618,7 @@ extern cvar_t	*g_char_skin_legs;
 				if ( iSkinID )
 				{
 					gi.G2API_SetSkin( &ent->ghoul2[ent->playerModel], G_SkinIndex( (char *)data ), iSkinID );
+					G_CoopRecordSkinPath( ent, (char *)data );	// coop: the joiners rebuild with it
 				}
 			}
 		}
@@ -9862,6 +9870,7 @@ void	CQuake3GameInterface::CameraFade( float sr, float sg, float sb, float sa, f
 	dst[2] = db;
 	dst[3] = da;
 
+	G_CoopFadeShared();	// coop: a script fade is for every player (broadcast by G_CoopUpdateCamera)
 	CGCam_Fade( src, dst, duration );
 }
 
@@ -9882,7 +9891,7 @@ void	CQuake3GameInterface::CameraDisable( void )
 
 void	CQuake3GameInterface::CameraShake( float intensity, int duration )
 {
-	CGCam_Shake( intensity, duration );
+	G_CoopShakeAll( intensity, duration );	// coop: the joiners' screens too
 }
 
 int		CQuake3GameInterface::GetFloat( int entID, const char *name, float *value )
