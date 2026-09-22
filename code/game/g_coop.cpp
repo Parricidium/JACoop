@@ -539,6 +539,11 @@ static void G_CoopRespawn( gentity_t *ent )
 	ps->stats[STAT_WEAPONS] = dead->stats[STAT_WEAPONS] | ( 1 << WP_NONE );
 	memcpy( ps->ammo, dead->ammo, sizeof( ps->ammo ) );
 	memcpy( ps->inventory, dead->inventory, sizeof( ps->inventory ) );
+	// security keys are a count in inventory[] plus the key names the door
+	// panels compare against (INV_SecurityKeyCheck): bring the names back too,
+	// otherwise the panel answers "wrong key" forever and the level is blocked
+	memcpy( ps->security_key_message, dead->security_key_message, sizeof( ps->security_key_message ) );
+	ps->stats[STAT_ITEMS] = dead->stats[STAT_ITEMS];
 	memcpy( ps->forcePowerLevel, dead->forcePowerLevel, sizeof( ps->forcePowerLevel ) );
 	ps->forcePowersKnown = dead->forcePowersKnown;
 	ps->forcePowerMax = dead->forcePowerMax;

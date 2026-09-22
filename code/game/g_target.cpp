@@ -802,6 +802,20 @@ void target_scriptrunner_use(gentity_t *self, gentity_t *other, gentity_t *activ
 		return;
 	}
 
+	// coop: 'runonactivator' scripts were written for the single SP "player":
+	// their per-entity state (SET_COUNT, SET_PARMn, ...) is written by
+	// AFFECT "player" = slot 0 (t1_danger ship parts...). A joiner tripping
+	// the trigger runs them on the host instead.
+	if ( ( self->spawnflags & 1 ) && G_CoopIsPlayer( activator ) && activator->s.number != 0
+		&& g_entities[0].inuse && g_entities[0].client )
+	{
+		self->lastEnemy = activator;	// who really tripped it
+		if ( g_developer->integer )
+		{
+			gi.Printf( "coop: scriptrunner %s run on the host for %s\n", self->targetname ? self->targetname : "?", activator->client->pers.netname );
+		}
+		activator = &g_entities[0];
+	}
 	self->activator = activator;
 	G_SetEnemy( self, other );
 	if ( self->delay )

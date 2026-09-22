@@ -376,8 +376,10 @@ qboolean CG_DrawScoreboard( void )
 	}
 
 	// Character is either dead, or a script has brought up the screen
-	// coop: a remote client never decides mission failure itself (it respawns; the host says when everyone is dead)
-	if ((!cg_remoteClient && (cg.predicted_player_state.pm_type == PM_DEAD) && (cg.missionStatusDeadTime < level.time))
+	// coop: a remote client never decides mission failure itself (it respawns; the host says when everyone is dead),
+	// and the host dead with a co-op respawn on its way is not a mission failure either
+	extern qboolean G_CoopRespawnPending( const gentity_t *ent );
+	if ((!cg_remoteClient && (cg.predicted_player_state.pm_type == PM_DEAD) && (cg.missionStatusDeadTime < level.time) && !G_CoopRespawnPending( &g_entities[0] ))
 		|| (cg.missionStatusShow))
 	{
 		CG_MissionFailed();
