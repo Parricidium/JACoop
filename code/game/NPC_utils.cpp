@@ -266,7 +266,7 @@ qboolean NPC_UpdateAngles ( qboolean doPitch, qboolean doYaw )
 
 	if ( NPC->s.weapon == WP_SABER && NPC->client->ps.forcePowersActive&(1<<FP_SPEED) )
 	{
-		yawSpeed *= 1.0f/g_timescale->value;
+		yawSpeed *= 1.0f/G_CoopTimeScale( &NPC->client->ps, qtrue );	// coop: his own scale
 	}
 
 	if (!NPC_IsTrooper(NPC)

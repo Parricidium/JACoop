@@ -728,7 +728,7 @@ Ghoul2 Insert End
 #define CS_COOP_MODELSPECS		(CS_WORLD_FX + MAX_WORLD_FX)
 #define CS_COOP_OBJECTIVES		(CS_COOP_MODELSPECS + MAX_COOP_MODELSPECS)	// coop: host mission objectives (one char per objective)
 #define CS_COOP_LOBBY			(CS_COOP_OBJECTIVES + 1)	// coop: "L|name\tready\tmodel|..." (L = lobby, G = in game)
-#define CS_COOP_TIMESCALE		(CS_COOP_LOBBY + 1)	// coop: the host's timescale cvar, mirrored on remote clients (Force Speed/Rage, matrix)
+#define CS_COOP_TIMESCALE		(CS_COOP_LOBBY + 1)	// coop: unused since the clock stopped being shared (Force Speed is personal); kept to hold the wire layout
 // coop: ambient sound set names of the level's entities (target_speaker & co carry
 // their slot in s.time2, so a remote client can play the local set and precache
 // every set the host did); stock maps use at most 19 distinct names

@@ -2184,13 +2184,84 @@ void G_CoopChangeWeapon( gentity_t *ent, int wp )
 
 /*
 ================
+G_CoopPersonalTime / G_CoopTimeScale
+
+Force Speed (and Rage) are bullet time in SP: the power slows the WHOLE server
+clock down (the timescale cvar) and the stock code compensates its user back up
+to real time - his pmove frametime is multiplied by 1/timescale, his animation
+and weapon timers by timescale. The world crawls, he does not.
+
+That model cannot be shared. In co-op the clock is the host's and it is mirrored
+to the joiners, so one player casting Speed slowed everybody's game down (and a
+matrix kill cam did the same): the players who cast nothing just felt lag.
+
+So in co-op the clock stays at 1 for everyone and the power becomes a *personal*
+speed-up: G_CoopTimeScale returns, for one playerState, the scale that player
+would have imposed on the world, and every stock compensation site uses it
+instead of the cvar. Its user then runs 1/scale times faster than a world that
+keeps running at real time, so the ratio between him and everything else is
+exactly the SP one (x1.33 at Speed 1, x2 at Speed 2, x4 at Speed 3) - only nobody
+else's clock is touched. It costs nothing to the others and needs no new netfield:
+every player
+already receives forcePowersActive/forcePowerLevel of the others (msg.cpp, and
+s.coopForce for the NPCs and remote players, cg_coop.cpp).
+
+Alone (solo, or a host with no joiner) it gives back the host clock the stock
+code read, so the single player game is unchanged.
+
+noMatrixCheck: for the stock sites that did not exclude the matrix kill cam.
+================
+*/
+extern qboolean cg_remoteClient;
+extern qboolean MatrixMode;
+extern float forceSpeedValue[];
+extern cvar_t *g_timescale;
+
+qboolean G_CoopPersonalTime( void )
+{
+	return (qboolean)( cg_remoteClient || G_CoopNumPlayers() >= 2 );
+}
+
+float G_CoopTimeScale( const playerState_t *ps, qboolean noMatrixCheck )
+{
+	if ( !ps || !( ps->forcePowersActive & ( ( 1 << FP_SPEED ) | ( 1 << FP_RAGE ) ) ) )
+	{	// nothing to compensate: the world clock is this player's clock
+		return 1.0f;
+	}
+	if ( G_CoopPersonalTime() )
+	{	// co-op: his own scale, the world keeps running at 1 for the others
+		if ( ps->forcePowersActive & ( 1 << FP_SPEED ) )
+		{
+			return forceSpeedValue[ps->forcePowerLevel[FP_SPEED]];
+		}
+		if ( ps->forcePowerLevel[FP_RAGE] >= FORCE_LEVEL_2 )
+		{
+			return forceSpeedValue[ps->forcePowerLevel[FP_RAGE] - 1];
+		}
+		return 1.0f;
+	}
+	// SP: the world clock itself is slowed (g_timescale), exactly the stock guards
+	if ( !g_timescale || g_timescale->value <= 0.0f || g_timescale->value >= 1.0f )
+	{
+		return 1.0f;
+	}
+	if ( MatrixMode && !noMatrixCheck )
+	{
+		return 1.0f;
+	}
+	return g_timescale->value;
+}
+
+/*
+================
 G_CoopUpdateTimescale
 
 Force Speed / Rage are bullet time for the whole party (SP design, shared
 host clock): one arbiter instead of every player's ClientThink rewriting the
 cvar. The slowest active power wins; the cvar goes back to 1 once nobody is
-speeding or raging. Called once per frame after the client thinks; the value
-reaches the joiners through CS_COOP_TIMESCALE (sv_main.cpp).
+speeding or raging. Called once per frame after the client thinks.
+Solo / host alone ONLY: with at least two players the clock is never scaled,
+the power is a personal speed-up instead (G_CoopTimeScale above).
 ================
 */
 extern float forceSpeedValue[];
@@ -2201,6 +2272,20 @@ void G_CoopUpdateTimescale( void )
 {
 	static float	lastTs = 1.0f;
 	float			ts = 1.0f;
+
+	if ( G_CoopPersonalTime() )
+	{	// coop: Force Speed/Rage are a personal speed-up now (G_CoopTimeScale); the world
+		// clock stays at 1 so the players who cast nothing keep a game at normal speed
+		if ( lastTs < 1.0f )
+		{	// we were alone and slowing the clock when the joiner arrived: give it back
+			if ( g_timescale->value != 1.0f && !MatrixMode && !g_skippingcin->integer )
+			{
+				gi.cvar_set( "timescale", "1" );
+			}
+			lastTs = 1.0f;
+		}
+		return;
+	}
 
 	for ( int i = 0; i < MAX_CLIENTS; i++ )
 	{

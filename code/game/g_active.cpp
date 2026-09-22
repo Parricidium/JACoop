@@ -1819,7 +1819,8 @@ void ClientEvents( gentity_t *ent, int oldEventSequence ) {
 	//by the way, if you have your saber in hand and it's on, do the damage trace
 	if ( client->ps.weapon == WP_SABER )
 	{
-		if ( g_timescale->value >= 1.0f || !(client->ps.forcePowersActive&(1<<FP_SPEED)) )
+		// coop: his own scale - when he is sped up the cgame does the finer trace instead (cg_players.cpp)
+		if ( !(client->ps.forcePowersActive&(1<<FP_SPEED)) || G_CoopTimeScale( &client->ps, qtrue ) >= 1.0f )
 		{
 			int wait = FRAMETIME/2;
 			//sanity check

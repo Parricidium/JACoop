@@ -4776,7 +4776,7 @@ void WP_SaberDamageTrace( gentity_t *ent, int saberNum, int bladeNum )
 			else
 			{//saber is transitioning, defending or idle, don't do as much damage
 				//FIXME: strong attacks and returns should do damage and be unblockable
-				if ( g_timescale->value < 1.0 )
+				if ( g_timescale->value < 1.0 || G_CoopTimeScale( &ent->client->ps, qtrue ) < 1.0f )	// coop: or HE is sped up
 				{//in slow mo or force speed, we need to do damage during the transitions
 					if ( g_saberRealisticCombat->integer )
 					{
@@ -4904,9 +4904,9 @@ void WP_SaberDamageTrace( gentity_t *ent, int saberNum, int bladeNum )
 		}
 	}
 	else if ( ((G_CoopIsPlayer( ent )&&ent->client->ps.forcePowersActive&(1<<FP_SPEED))||ent->client->ps.forcePowersActive&(1<<FP_RAGE))
-		&& g_timescale->value < 1.0f )
+		&& G_CoopTimeScale( &ent->client->ps, qtrue ) < 1.0f )	// coop: his own scale
 	{
-		baseDamage *= (1.0f-g_timescale->value);
+		baseDamage *= (1.0f-G_CoopTimeScale( &ent->client->ps, qtrue ));
 	}
 	if ( baseDamage > 0.1f )
 	{
@@ -4967,7 +4967,7 @@ void WP_SaberDamageTrace( gentity_t *ent, int saberNum, int bladeNum )
 			|| PM_SaberInSpecialAttack( ent->client->ps.torsoAnim )
 			|| PM_SpinningSaberAnim( ent->client->ps.torsoAnim )
 			|| PM_InSpecialJump( ent->client->ps.torsoAnim )
-			|| (g_timescale->value<1.0f&&PM_SaberInTransitionAny( ent->client->ps.saberMove )) )
+			|| ((g_timescale->value<1.0f||G_CoopTimeScale( &ent->client->ps, qtrue )<1.0f)&&PM_SaberInTransitionAny( ent->client->ps.saberMove )) )	// coop: or HE is sped up
 		{
 			curDirFrac = DotProduct( md1, md2 );
 		}
@@ -8478,7 +8478,7 @@ void WP_ResistForcePush( gentity_t *self, gentity_t *pusher, qboolean noPenalty 
 			self->client->ps.weaponTime = 1000;
 			if ( self->client->ps.forcePowersActive&(1<<FP_SPEED) )
 			{
-				self->client->ps.weaponTime = floor( self->client->ps.weaponTime * g_timescale->value );
+				self->client->ps.weaponTime = floor( self->client->ps.weaponTime * G_CoopTimeScale( &self->client->ps, qtrue ) );
 			}
 			self->client->ps.pm_time = self->client->ps.weaponTime;
 			self->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
@@ -8490,7 +8490,7 @@ void WP_ResistForcePush( gentity_t *self, gentity_t *pusher, qboolean noPenalty 
 			self->client->ps.weaponTime = 600;
 			if ( self->client->ps.forcePowersActive&(1<<FP_SPEED) )
 			{
-				self->client->ps.weaponTime = floor( self->client->ps.weaponTime * g_timescale->value );
+				self->client->ps.weaponTime = floor( self->client->ps.weaponTime * G_CoopTimeScale( &self->client->ps, qtrue ) );
 			}
 		}
 	}
@@ -9081,7 +9081,7 @@ void ForceThrow( gentity_t *self, qboolean pull, qboolean fake )
 	self->client->ps.saberBlocked = BLOCKED_NONE;
 	if ( self->client->ps.forcePowersActive&(1<<FP_SPEED) )
 	{
-		hold = floor( hold*g_timescale->value );
+		hold = floor( hold*G_CoopTimeScale( &self->client->ps, qtrue ) );
 	}
 	self->client->ps.weaponTime = hold;//was 1000, but want to swing sooner
 	//do effect... FIXME: build-up or delay this until in proper part of anim
@@ -9398,7 +9398,7 @@ void ForceThrow( gentity_t *self, qboolean pull, qboolean fake )
 							self->client->ps.weaponTime = 500;
 							if ( self->client->ps.forcePowersActive&(1<<FP_SPEED) )
 							{
-								self->client->ps.weaponTime = floor( self->client->ps.weaponTime * g_timescale->value );
+								self->client->ps.weaponTime = floor( self->client->ps.weaponTime * G_CoopTimeScale( &self->client->ps, qtrue ) );
 							}
 						}
 					}
@@ -10531,7 +10531,7 @@ void ForceTelepathy( gentity_t *self )
 	self->client->ps.weaponTime = 1000;
 	if ( self->client->ps.forcePowersActive&(1<<FP_SPEED) )
 	{
-		self->client->ps.weaponTime = floor( self->client->ps.weaponTime * g_timescale->value );
+		self->client->ps.weaponTime = floor( self->client->ps.weaponTime * G_CoopTimeScale( &self->client->ps, qtrue ) );
 	}
 }
 
@@ -10566,7 +10566,7 @@ void ForceGrip( gentity_t *self )
 			self->client->ps.weaponTime = 1000;
 			if ( self->client->ps.forcePowersActive&(1<<FP_SPEED) )
 			{
-				self->client->ps.weaponTime = floor( self->client->ps.weaponTime * g_timescale->value );
+				self->client->ps.weaponTime = floor( self->client->ps.weaponTime * G_CoopTimeScale( &self->client->ps, qtrue ) );
 			}
 		}
 		return;
@@ -10599,7 +10599,7 @@ void ForceGrip( gentity_t *self )
 	self->client->ps.weaponTime = 1000;
 	if ( self->client->ps.forcePowersActive&(1<<FP_SPEED) )
 	{
-		self->client->ps.weaponTime = floor( self->client->ps.weaponTime * g_timescale->value );
+		self->client->ps.weaponTime = floor( self->client->ps.weaponTime * G_CoopTimeScale( &self->client->ps, qtrue ) );
 	}
 
 	AngleVectors( self->client->ps.viewangles, forward, NULL, NULL );
@@ -11354,7 +11354,7 @@ void ForceDrainGrabStart( gentity_t *self )
 	self->client->ps.weaponTime = 1000;
 	if ( self->client->ps.forcePowersActive&(1<<FP_SPEED) )
 	{
-		self->client->ps.weaponTime = floor( self->client->ps.weaponTime * g_timescale->value );
+		self->client->ps.weaponTime = floor( self->client->ps.weaponTime * G_CoopTimeScale( &self->client->ps, qtrue ) );
 	}
 	//actually grabbing someone, so turn off the saber!
 	WP_DeactivateSaber( self, qtrue );
@@ -11398,7 +11398,7 @@ qboolean ForceDrain2( gentity_t *self )
 			self->client->ps.weaponTime = 1000;
 			if ( self->client->ps.forcePowersActive&(1<<FP_SPEED) )
 			{
-				self->client->ps.weaponTime = floor( self->client->ps.weaponTime * g_timescale->value );
+				self->client->ps.weaponTime = floor( self->client->ps.weaponTime * G_CoopTimeScale( &self->client->ps, qtrue ) );
 			}
 		}
 		return qtrue;
@@ -12708,7 +12708,7 @@ void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int override
 		break;
 	case FP_SPEED:
 		//duration is always 5 seconds, player time
-		duration = ceil(FORCE_SPEED_DURATION*forceSpeedValue[self->client->ps.forcePowerLevel[FP_SPEED]]);//FIXME: because the timescale scales down (not instant), this doesn't end up being exactly right...
+		duration = ceil(FORCE_SPEED_DURATION*(G_CoopPersonalTime()?1.0f:forceSpeedValue[self->client->ps.forcePowerLevel[FP_SPEED]]));//coop: the world clock is not slowed, so the duration is not stretched by it either
 		self->client->ps.forcePowersActive |= ( 1 << forcePower );
 		self->s.loopSound = G_SoundIndex( "sound/weapons/force/speedloop.wav" );
 		if ( self->client->ps.forcePowerLevel[FP_SPEED] > FORCE_LEVEL_2 )
@@ -12737,7 +12737,7 @@ void WP_ForcePowerStart( gentity_t *self, forcePowers_t forcePower, int override
 	//new Jedi Academy force powers
 	case FP_RAGE:
 		//duration is always 5 seconds, player time
-		duration = ceil(FORCE_RAGE_DURATION*forceSpeedValue[self->client->ps.forcePowerLevel[FP_RAGE]-1]);//FIXME: because the timescale scales down (not instant), this doesn't end up being exactly right...
+		duration = ceil(FORCE_RAGE_DURATION*(G_CoopPersonalTime()?1.0f:forceSpeedValue[self->client->ps.forcePowerLevel[FP_RAGE]-1]));//coop: the world clock is not slowed, so the duration is not stretched by it either
 		self->client->ps.forcePowersActive |= ( 1 << forcePower );
 		G_SoundOnEnt( self, CHAN_ITEM, "sound/weapons/force/rage.mp3" );
 		self->s.loopSound = G_SoundIndex( "sound/weapons/force/rageloop.wav" );
@@ -13894,6 +13894,10 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 			else if (self->client->ps.forcePowerLevel[FP_RAGE] == FORCE_LEVEL_3)
 			{
 				addTime = 500;
+			}
+			if ( G_CoopPersonalTime() )
+			{	// coop: Rage does not stretch the clock any more, so stretch the drain instead
+				addTime = (int)ceil( (float)addTime / G_CoopTimeScale( &self->client->ps, qtrue ) );
 			}
 			self->client->ps.forceRageDrainTime = level.time + addTime;
 		}

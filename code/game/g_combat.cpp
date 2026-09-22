@@ -804,13 +804,28 @@ void G_MakeTeamVulnerable( void )
 }
 
 // coop: viewerNum = the player whose camera orbits (default: the focal entity when it is a
-// player, else everyone as in SP); the slow motion is shared through the host clock anyway
+// player, else everyone as in SP). In co-op it is a CAMERA effect only: the clock of the
+// other players is never touched (cg_ents.cpp CG_MatrixEffect, g_coop.cpp G_CoopTimeScale)
 void G_StartMatrixEffect( gentity_t *ent, int meFlags = 0, int length = 1000, float timeScale = 0.0f, int spinTime = 0, int viewerNum = -1 )
 {
 	//FIXME: allow them to specify a different focal entity or point?
 	if ( g_timescale->value != 1.0 || in_camera )
 	{//already in some slow-mo mode or in_camera
 		return;
+	}
+	if ( G_CoopPersonalTime() )
+	{	// coop: the clock is no longer slowed, so it is no longer what keeps two effects
+		// from overlapping: allow one camera per viewer instead
+		const int viewer = ( viewerNum >= 0 ) ? viewerNum : ( ( ent->s.number < MAX_CLIENTS ) ? ent->s.number : ENTITYNUM_NONE );
+		for ( int i = MAX_CLIENTS; i < globals.num_entities; i++ )
+		{
+			if ( PInUse( i )
+				&& g_entities[i].e_clThinkFunc == clThinkF_CG_MatrixEffect
+				&& g_entities[i].s.otherEntityNum2 == viewer )
+			{
+				return;
+			}
+		}
 	}
 
 	gentity_t	*matrix = G_Spawn();

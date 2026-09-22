@@ -873,7 +873,7 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 	}
 
 	// play the normal pickup sound
-	if ( G_CoopIsPlayer( other ) && g_timescale->value < 1.0f  )
+	if ( G_CoopIsPlayer( other ) && ( g_timescale->value < 1.0f || G_CoopTimeScale( &other->client->ps, qtrue ) < 1.0f ) )	// coop: or HE is sped up
 	{//SIGH... with timescale on, you lose events left and right
 extern void CG_ItemPickup( int itemNum, qboolean bHadItem );
 		// but we're SP so we'll cheat
