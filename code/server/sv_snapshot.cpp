@@ -211,16 +211,36 @@ static void SV_WriteSnapshotToClient( client_t *client, msg_t *msg ) {
 SV_UpdateServerCommandsToClient
 
 (re)send all server commands the client hasn't acknowledged yet
+
+coop: up to a budget. Every snapshot repeats the whole unacknowledged list, and
+a level start can leave dozens of long configstrings in it (SV_UpdateConfigstrings),
+so writing them all can push the message past MAX_MSGLEN. The caller then clears
+the overflowed message entirely, the client receives nothing, acknowledges
+nothing, and the same oversized message is rebuilt every frame until the client
+times out. Stopping early is free: the commands stay in the list and go out in
+the next snapshot, in order, once the client has acknowledged these.
 ==================
 */
+#define SV_COMMAND_BUDGET	( MAX_MSGLEN / 2 )	// leave the rest of the datagram for the snapshot itself
+
 void SV_UpdateServerCommandsToClient( client_t *client, msg_t *msg ) {	// coop: also used by SV_CoopTransferSendEager
 	int		i;
+	const int	start = msg->cursize;
 
 	// write any unacknowledged serverCommands
 	for ( i = client->reliableAcknowledge + 1 ; i <= client->reliableSequence ; i++ ) {
+		const char *cmd = client->reliableCommands[ i & (MAX_RELIABLE_COMMANDS-1) ];
+		if ( !cmd ) {
+			cmd = "";	// never happens; a hole in the sequence would confuse the client
+		}
+		if ( msg->cursize - start + (int)strlen( cmd ) + 6 > SV_COMMAND_BUDGET ) {
+			Com_DPrintf( "coop: %s: %i command(s) held back, %i bytes already written\n",
+				client->name, client->reliableSequence - i + 1, msg->cursize - start );
+			break;
+		}
 		MSG_WriteByte( msg, svc_serverCommand );
 		MSG_WriteLong( msg, i );
-		MSG_WriteString( msg, client->reliableCommands[ i & (MAX_RELIABLE_COMMANDS-1) ] );
+		MSG_WriteString( msg, cmd );
 	}
 }
 
@@ -808,7 +828,11 @@ void SV_SendClientSnapshot( client_t *client ) {
 
 	// check for overflow
 	if ( msg.overflowed ) {
-		Com_Printf ("WARNING: msg overflowed for %s\n", client->name);
+		// coop: say what filled it. A cleared message reaches the client as nothing
+		// at all, so an overflow that repeats every frame is a silent timeout.
+		Com_Printf ("WARNING: msg overflowed for %s (%i command(s) / %i bytes pending, %i configstrings left)\n",
+			client->name, client->reliableSequence - client->reliableAcknowledge,
+			SV_ReliableBytesPending( client ), client->csPending );
 		MSG_Clear (&msg);
 	}
 

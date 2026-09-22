@@ -67,6 +67,40 @@ void CL_CoopTransferInit( void ) {
 	Cvar_Set( "cl_coopTransferPct", "0" );
 }
 
+/*
+==================
+CL_CoopCheckPaksGen
+
+The filesystem bumps cl_coopPaksGen every time a coop pack enters or leaves the
+search path: a finished download, a leftover coopdl_*.pk3 loaded again by
+FS_CoopHavePak (a reconnection, where nothing is downloaded at all), an unload
+at disconnect. In every one of those cases the renderer is still holding the
+failed lookups it made while the pack was missing - the model cached as MOD_BAD,
+the skin as a zero-surface entry RE_RegisterSkin answers 0 for ever after, the
+shaders as default ones - so drop them here rather than only on the download
+path. Called from CL_CoopTransferFrame, i.e. in CL_Frame before anything is
+drawn, so the cgame's own generation check (which registers cgs.skins again and
+rebuilds the characters) always runs after this.
+==================
+*/
+void CL_CoopCheckPaksGen( void ) {
+	static int	paksGenSeen = -1;
+	const int	gen = cl_coopPaksGen ? cl_coopPaksGen->integer : 0;
+
+	if ( paksGenSeen == gen ) {
+		return;
+	}
+	if ( paksGenSeen == -1 ) {
+		paksGenSeen = gen;	// first look: nothing has been registered yet
+		return;
+	}
+	if ( !cls.rendererStarted || !re.CoopForgetMissing ) {
+		return;				// try again once the renderer is up
+	}
+	paksGenSeen = gen;
+	re.CoopForgetMissing();
+}
+
 static void CL_CoopSetState( clientCoopDownloadState_t state, const char *cvarState ) {
 	clc.coopdl.state = state;
 	Cvar_Set( "cl_coopTransferState", cvarState );
@@ -418,11 +452,10 @@ void CL_ParseDownload( msg_t *msg ) {
 		dl->downloadedFiles++;
 		dl->needIndex++;
 		Com_Printf( "coop: %s termine et charge\n", dl->cur.name );
-		// the renderer cached the failed lookups of the host's model (stormtrooper fallback):
-		// forget them now, before the cgame rebuilds the players (FS_CoopAddPak bumped cl_coopPaksGen)
-		if ( cls.rendererStarted && re.CoopForgetMissing ) {
-			re.CoopForgetMissing();
-		}
+		// the renderer cached the failed lookups of the host's model (stormtrooper
+		// fallback): forget them now, before the cgame rebuilds the players
+		// (FS_CoopAddPak bumped cl_coopPaksGen)
+		CL_CoopCheckPaksGen();
 		dl->cur.block = 0;	// the next file starts at block 0 (acks carry the file index)
 		if ( dl->needIndex >= dl->needCount ) {
 			CL_CoopTransferComplete();
@@ -462,6 +495,7 @@ Timeouts and the lobby's live status line.
 void CL_CoopTransferFrame( void ) {
 	clientCoopDownload_t *dl = &clc.coopdl;
 
+	CL_CoopCheckPaksGen();	// a pack was added or removed: the renderer forgets what it missed
 	if ( cls.state < CA_CONNECTED ) {
 		return;
 	}

@@ -94,21 +94,54 @@ SV_UpdateConfigstrings
 coop: send the configstrings that changed while the client was loading, as
 many as the reliable window can take now (SV_SendClientSnapshot calls again
 for the rest once the client acknowledges).
+
+Two limits, both needed. The count keeps room in the 64-command window for the
+game's own commands, or SV_AddServerCommand drops the connection with "Server
+command overflow". The byte budget matters just as much: every snapshot repeats
+ALL the unacknowledged commands (SV_UpdateServerCommandsToClient), so a level
+whose opening changes dozens of long configstrings can make each message larger
+than MAX_MSGLEN -- it overflows, SV_SendClientSnapshot clears it, the client
+receives nothing at all, never acknowledges, and the same oversized message is
+rebuilt for ever until it times out. On the loopback (the host's own client)
+this never shows because the acknowledge comes back the same frame; a joiner one
+round trip away is the one that sees it.
 ===============
 */
+#define SV_RELIABLE_BYTE_BUDGET		( MAX_MSGLEN / 2 )	// unacknowledged commands repeated in every snapshot
+
+int SV_ReliableBytesPending( const client_t *client ) {
+	int	i, bytes = 0;
+
+	for ( i = client->reliableAcknowledge + 1; i <= client->reliableSequence; i++ ) {
+		const char *cmd = client->reliableCommands[ i & ( MAX_RELIABLE_COMMANDS - 1 ) ];
+		if ( cmd ) {
+			bytes += (int)strlen( cmd ) + 6;	// svc_serverCommand + sequence + terminator
+		}
+	}
+	return bytes;
+}
+
 void SV_UpdateConfigstrings( client_t *client ) {
 	int	index;
+	int	bytes = SV_ReliableBytesPending( client );
 
 	if ( !client->csPending ) {
 		return;
 	}
 	for ( index = 0; index < MAX_CONFIGSTRINGS && client->csPending; index++ ) {
+		int	len;
+
 		if ( !client->csUpdated[index] ) {
 			continue;
 		}
 		if ( client->reliableSequence - client->reliableAcknowledge >= MAX_RELIABLE_COMMANDS - 8 ) {
 			return;		// keep some room for the game's own commands
 		}
+		len = (int)strlen( sv.configstrings[index] ) + 20;
+		if ( bytes && bytes + len > SV_RELIABLE_BYTE_BUDGET ) {
+			return;		// the next snapshot takes the rest, once this much is acknowledged
+		}
+		bytes += len;
 		client->csUpdated[index] = qfalse;
 		client->csPending--;
 		SV_SendServerCommand( client, "cs %i \"%s\"\n", index, sv.configstrings[index] );

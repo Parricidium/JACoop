@@ -186,6 +186,14 @@ void SV_DropClient( client_t *drop, const char *reason ) {
 	if ( drop->state == CS_ZOMBIE ) {
 		return;		// already dropped
 	}
+	// coop: a joiner that disappears mid-game is the hardest thing to diagnose
+	// afterwards, and the "print" below only reaches the host's console when its
+	// own client is active. Put the reason in the host's log unconditionally,
+	// with the state and the level it happened on.
+	Com_Printf( "coop: dropping client %i (%s) on %s: %s [state %i, %i reliable pending, %i configstrings pending]\n",
+		(int)( drop - svs.clients ), drop->name, sv_mapname ? sv_mapname->string : "?", reason,
+		drop->state, drop->reliableSequence - drop->reliableAcknowledge, drop->csPending );
+
 	drop->state = CS_ZOMBIE;		// become free in a few seconds
 
 	SV_CoopTransferClose( drop );	// coop: pk3 transfer in flight, if any
@@ -214,6 +222,7 @@ the wrong gamestate.
 */
 void SV_SendClientGameState( client_t *client ) {
 	int			start;
+	int			chars, count = 0, dropped = 0;
 	msg_t		msg;
 	byte		msgBuffer[MAX_MSGLEN];
 
@@ -239,15 +248,38 @@ void SV_SendClientGameState( client_t *client ) {
 	MSG_WriteLong( &msg, client->reliableSequence );
 
 	// write the configstrings
+	// coop: the client stores them in a gameState_t of MAX_GAMESTATE_CHARS, and
+	// exceeding it is a Com_Error(ERR_DROP) there (CL_ParseGamestate), i.e. the
+	// joiner is thrown out at a level transition with no useful reason logged.
+	// Count what we write so an approaching limit is visible in the log before
+	// it bites, and so a map that really is over it drops a few configstrings
+	// instead of the player.
+	chars = 1;	// CL_ParseGamestate leaves a 0 at the beginning
 	for ( start = 0 ; start < MAX_CONFIGSTRINGS ; start++ ) {
-		if (sv.configstrings[start][0]) {
-			MSG_WriteByte( &msg, svc_configstring );
-			MSG_WriteShort( &msg, start );
-			MSG_WriteString( &msg, sv.configstrings[start] );
+		int len;
+		if ( !sv.configstrings[start][0] ) {
+			continue;
 		}
+		len = (int)strlen( sv.configstrings[start] ) + 1;
+		if ( chars + len > MAX_GAMESTATE_CHARS ) {
+			if ( !dropped ) {
+				Com_Printf( S_COLOR_YELLOW "WARNING: gamestate over MAX_GAMESTATE_CHARS (%i) for %s: configstring %i and up are not sent\n",
+					MAX_GAMESTATE_CHARS, client->name, start );
+			}
+			dropped++;
+			continue;
+		}
+		chars += len;
+		count++;
+		MSG_WriteByte( &msg, svc_configstring );
+		MSG_WriteShort( &msg, start );
+		MSG_WriteString( &msg, sv.configstrings[start] );
 	}
 
 	MSG_WriteByte( &msg, 0 );
+
+	Com_DPrintf( "coop: gamestate for %s: %i configstrings, %i/%i chars, %i bytes on the wire\n",
+		client->name, count, chars, MAX_GAMESTATE_CHARS, msg.cursize );
 
 	// check for overflow
 	if ( msg.overflowed ) {
@@ -285,6 +317,15 @@ void SV_ClientEnterWorld( client_t *client, usercmd_t *cmd, SavedGameJustLoaded_
 	client->cmdNum = 0;
 
 	// coop: configstrings that changed while it was loading
+	if ( client->csPending ) {
+		int i, bytes = 0;
+		for ( i = 0; i < MAX_CONFIGSTRINGS; i++ ) {
+			if ( client->csUpdated[i] ) {
+				bytes += (int)strlen( sv.configstrings[i] ) + 20;
+			}
+		}
+		Com_DPrintf( "coop: %s enters with %i configstring(s) pending, %i bytes\n", client->name, client->csPending, bytes );
+	}
 	SV_UpdateConfigstrings( client );
 
 	// call the game begin function
