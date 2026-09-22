@@ -330,6 +330,12 @@ void UI_Init( int apiVersion, uiimport_t *uiimport, qboolean inGameLoad )
 	ui.Cvar_Create( "g_coopRequireReady",	"1",		CVAR_ARCHIVE );
 	ui.Cvar_Create( "cg_coopCameraLag",		"100",		CVAR_ARCHIVE );
 	ui.Cvar_Create( "ui_coopMaxPlayers",	"4",		CVAR_ARCHIVE );
+	// coop: the player's own menu images (dropped in <JACoop>/base/gfx/jacoop/, see UI_CoopSkinShader)
+	ui.Cvar_Create( "ui_coopCustomSkin",	"1",		CVAR_ARCHIVE );
+	ui.Cvar_Create( "ui_coopLogo",		"gfx/jacoop/logo",			CVAR_ARCHIVE );
+	ui.Cvar_Create( "ui_coopMainBg",		"gfx/jacoop/fond_principal",	CVAR_ARCHIVE );
+	ui.Cvar_Create( "ui_coopMenuBg",		"gfx/jacoop/fond_menus",		CVAR_ARCHIVE );
+	ui.Cvar_Create( "ui_coopPanelBg",	"gfx/jacoop/fond_coop",		CVAR_ARCHIVE );
 	ui.Cvar_Create( "g_char_skin_torso",	"torso_a1",	CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
 	ui.Cvar_Create( "g_char_skin_legs",		"lower_a1",	CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
 	ui.Cvar_Create( "g_char_color_red",		"255",		CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );

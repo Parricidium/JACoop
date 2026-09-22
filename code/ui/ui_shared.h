@@ -506,6 +506,8 @@ void		String_Init(void);
 qboolean	String_Parse(const char **p, const char **out);
 void		String_Report(void);
 void		UI_Cursor_Show(qboolean flag);
+// coop: swaps a decor shader for the player's own image (ui_coopLogo, ui_coopMainBg, ui_coopMenuBg, ui_coopPanelBg)
+const char	*UI_CoopSkinShader( const char *name );
 itemDef_t *Menu_GetMatchingItemByNumber(menuDef_t *menu, int index, const char *name);
 
 extern displayContextDef_t *DC;

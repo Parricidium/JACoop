@@ -206,12 +206,12 @@ struct PNGFileReader
 
 		png_get_IHDR (png_ptr, info_ptr, &width_, &height_, &depth, &colortype, NULL, NULL, NULL);
 
-		// While modern OpenGL can handle non-PoT textures, it's faster to handle only PoT
-		// so that the graphics driver doesn't have to fiddle about with the texture when uploading.
+		// coop: a picture the player supplied himself (menu background, logo, a skin)
+		// is any size his paint program saved; the caller (R_FindImageFile) brings it
+		// to the power of two sizes the renderer uploads, so do not refuse it here.
 		if ( !IsPowerOfTwo (width_) || !IsPowerOfTwo (height_) )
 		{
-			ri.Printf (PRINT_ERROR, "Width or height is not a power-of-two.\n");
-			return 0;
+			ri.Printf (PRINT_DEVELOPER, "LoadPNG: %ux%u is not a power of two, it will be resampled.\n", width_, height_);
 		}
 
 		// This function is equivalent to using what used to be LoadPNG32. LoadPNG8 also existed,

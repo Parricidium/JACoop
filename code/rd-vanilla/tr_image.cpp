@@ -548,6 +548,86 @@ byte	mipBlendColors[16][4] = {
 };
 
 
+#define MAX_RESAMPLE_SIZE	2048	// coop: fixed row tables in R_ResampleTexture
+
+/*
+================
+R_ResampleTexture
+
+coop: box filter from any size to any size (from rd-rend2). Only used to bring a
+picture the player supplied himself to the power of two sizes this renderer can
+upload; the result is never smaller than half the source, so one pass is enough.
+================
+*/
+static void R_ResampleTexture( const byte *in, int inwidth, int inheight, byte *out, int outwidth, int outheight )
+{
+	int			i, j;
+	const byte	*inrow, *inrow2;
+	int			frac, fracstep;
+	int			p1[MAX_RESAMPLE_SIZE], p2[MAX_RESAMPLE_SIZE];
+	const byte	*pix1, *pix2, *pix3, *pix4;
+
+	fracstep = inwidth * 0x10000 / outwidth;
+
+	frac = fracstep >> 2;
+	for ( i = 0; i < outwidth; i++ )
+	{
+		p1[i] = 4 * ( frac >> 16 );
+		frac += fracstep;
+	}
+	frac = 3 * ( fracstep >> 2 );
+	for ( i = 0; i < outwidth; i++ )
+	{
+		p2[i] = 4 * ( frac >> 16 );
+		frac += fracstep;
+	}
+
+	for ( i = 0; i < outheight; i++ )
+	{
+		inrow = in + 4 * inwidth * (int)( ( i + 0.25 ) * inheight / outheight );
+		inrow2 = in + 4 * inwidth * (int)( ( i + 0.75 ) * inheight / outheight );
+		for ( j = 0; j < outwidth; j++ )
+		{
+			pix1 = inrow + p1[j];
+			pix2 = inrow + p2[j];
+			pix3 = inrow2 + p1[j];
+			pix4 = inrow2 + p2[j];
+			*out++ = ( pix1[0] + pix2[0] + pix3[0] + pix4[0] ) >> 2;
+			*out++ = ( pix1[1] + pix2[1] + pix3[1] + pix4[1] ) >> 2;
+			*out++ = ( pix1[2] + pix2[2] + pix3[2] + pix4[2] ) >> 2;
+			*out++ = ( pix1[3] + pix2[3] + pix3[3] + pix4[3] ) >> 2;
+		}
+	}
+}
+
+/*
+================
+R_NearestPowerOfTwo
+
+coop: closest power of two, never below half the source (so one resample pass
+keeps the picture sharp), capped at MAX_RESAMPLE_SIZE.
+================
+*/
+static int R_NearestPowerOfTwo( int v )
+{
+	int	up = 1, down;
+
+	if ( v < 1 )
+	{
+		return 1;
+	}
+	while ( up < v && up < MAX_RESAMPLE_SIZE )
+	{
+		up <<= 1;
+	}
+	down = up >> 1;
+	if ( down < 1 || up >= MAX_RESAMPLE_SIZE )
+	{
+		return up;
+	}
+	return ( ( v - down ) < ( up - v ) ) ? down : up;
+}
+
 /*
 ===============
 Upload32
@@ -1090,6 +1170,26 @@ image_t	*R_FindImageFile( const char *name, qboolean mipmap, qboolean allowPicmi
 	R_LoadImage( name, &pic, &width, &height );
 	if ( !pic ) {
         return NULL;
+	}
+
+	// coop: this renderer can only upload power of two textures (R_CreateImage kills
+	// the game on anything else). Every picture of the game is one already, but a
+	// picture the player dropped in his own base folder (menu background, logo, a
+	// skin) is whatever his paint program saved, so bring it to the nearest power of
+	// two instead of dying.
+	if ( ( width & ( width - 1 ) ) || ( height & ( height - 1 ) ) )
+	{
+		int		scaledWidth = R_NearestPowerOfTwo( width );
+		int		scaledHeight = R_NearestPowerOfTwo( height );
+		byte	*resampled = (byte *)R_Malloc( scaledWidth * scaledHeight * 4, TAG_TEMP_WORKSPACE, qfalse );
+
+		ri.Printf( PRINT_DEVELOPER, "R_FindImageFile: %s is %ix%i, resampled to %ix%i\n",
+			name, width, height, scaledWidth, scaledHeight );
+		R_ResampleTexture( pic, width, height, resampled, scaledWidth, scaledHeight );
+		R_Free( pic );
+		pic = resampled;
+		width = scaledWidth;
+		height = scaledHeight;
 	}
 
 	image = R_CreateImage( ( char * ) name, pic, width, height, GL_RGBA, mipmap, allowPicmip, allowTC, glWrapClampMode );
