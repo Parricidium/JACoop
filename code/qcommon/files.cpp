@@ -2877,7 +2877,7 @@ folders (or .txt files), no executables, no .cfg outside models/, no path tricks
 ================
 */
 static qboolean FS_CoopPakContentAllowed( pack_t *pak, char *why, int whySize ) {
-	qboolean hasPlayerModel = qfalse;
+	qboolean hasPlayerModel = qfalse;	// a player model, or a saber hilt: both are part of a player's look
 	int i, j;
 
 	for ( i = 0; i < pak->numfiles; i++ ) {
@@ -2905,7 +2905,9 @@ static qboolean FS_CoopPakContentAllowed( pack_t *pak, char *why, int whySize ) 
 			Com_sprintf( why, whySize, ".cfg hors de models/ '%s'", name );
 			return qfalse;
 		}
-		if ( !Q_stricmpn( name, "models/players/", 15 ) ) {
+		if ( !Q_stricmpn( name, "models/players/", 15 )
+			|| !Q_stricmpn( name, "ext_data/sabers/", 16 )		// custom hilts: the appearance spec names them
+			|| !Q_stricmpn( name, "models/weapons2/saber", 20 ) ) {
 			hasPlayerModel = qtrue;
 		}
 		for ( j = 0; fs_coopPathPrefixes[j]; j++ ) {
@@ -2919,7 +2921,7 @@ static qboolean FS_CoopPakContentAllowed( pack_t *pak, char *why, int whySize ) 
 		}
 	}
 	if ( !hasPlayerModel ) {
-		Com_sprintf( why, whySize, "aucun models/players/" );
+		Com_sprintf( why, whySize, "ni models/players/ ni sabre" );
 		return qfalse;
 	}
 	return qtrue;
