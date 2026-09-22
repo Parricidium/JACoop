@@ -47,6 +47,9 @@ cvar_t *r_allowSoftwareGL;
 cvar_t	*r_fullscreen = 0;
 cvar_t	*r_noborder;
 cvar_t	*r_centerWindow;
+cvar_t	*r_windowX;			// coop: window position (automated tests run off-screen)
+cvar_t	*r_windowY;
+cvar_t	*r_windowNoFocus;	// coop: do not raise / focus the window when it appears
 cvar_t	*r_customwidth;
 cvar_t	*r_customheight;
 cvar_t	*r_swapInterval;
@@ -332,6 +335,14 @@ static rserr_t GLimp_SetMode(glconfig_t *glConfig, const windowDesc_t *windowDes
 	int i = 0;
 	SDL_Surface *icon = NULL;
 	Uint32 flags = SDL_WINDOW_SHOWN;
+	// coop: r_windowNoFocus (automated tests): the window appears without taking the
+	// keyboard focus away from whatever the user is doing
+	if ( Cvar_VariableIntegerValue( "r_windowNoFocus" ) )
+	{
+		SDL_SetHint( "SDL_VIDEO_FOREIGN_WINDOW_OPENGL", "0" );
+		SDL_SetHint( SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0" );
+		flags |= SDL_WINDOW_SKIP_TASKBAR;
+	}
 	SDL_DisplayMode desktopMode;
 	int display = 0;
 	int x = SDL_WINDOWPOS_UNDEFINED, y = SDL_WINDOWPOS_UNDEFINED;
@@ -411,6 +422,14 @@ static rserr_t GLimp_SetMode(glconfig_t *glConfig, const windowDesc_t *windowDes
 	{
 		x = ( desktopMode.w / 2 ) - ( glConfig->vidWidth / 2 );
 		y = ( desktopMode.h / 2 ) - ( glConfig->vidHeight / 2 );
+	}
+
+	// coop: an explicit position (the automated tests park their windows off-screen so
+	// they never pop over what the user is doing; the engine keeps rendering there)
+	if( !fullscreen && ( r_windowX->integer || r_windowY->integer ) )
+	{
+		x = r_windowX->integer;
+		y = r_windowY->integer;
 	}
 
 	// Destroy existing state if it exists
@@ -749,6 +768,9 @@ window_t WIN_Init( const windowDesc_t *windowDesc, glconfig_t *glConfig )
 	r_fullscreen		= Cvar_Get( "r_fullscreen",			"1",		CVAR_ARCHIVE|CVAR_LATCH );	// coop: desktop resolution, borderless
 	r_noborder			= Cvar_Get( "r_noborder",			"0",		CVAR_ARCHIVE|CVAR_LATCH );
 	r_centerWindow		= Cvar_Get( "r_centerWindow",		"0",		CVAR_ARCHIVE|CVAR_LATCH );
+	r_windowX			= Cvar_Get( "r_windowX",			"0",		CVAR_LATCH );	// coop: 0,0 = let SDL place it
+	r_windowY			= Cvar_Get( "r_windowY",			"0",		CVAR_LATCH );
+	r_windowNoFocus		= Cvar_Get( "r_windowNoFocus",		"0",		CVAR_LATCH );	// coop: never steal the focus
 	r_customwidth		= Cvar_Get( "r_customwidth",		"1600",		CVAR_ARCHIVE|CVAR_LATCH );
 	r_customheight		= Cvar_Get( "r_customheight",		"1024",		CVAR_ARCHIVE|CVAR_LATCH );
 	r_swapInterval		= Cvar_Get( "r_swapInterval",		"0",		CVAR_ARCHIVE_ND );
