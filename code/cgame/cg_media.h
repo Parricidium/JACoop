@@ -174,6 +174,9 @@ typedef struct {
 	qhandle_t	blueSaberCoreShader;
 	qhandle_t	purpleSaberGlowShader;
 	qhandle_t	purpleSaberCoreShader;
+	// coop: neutral (white) blade art, tinted per blade for exact RGB colours
+	qhandle_t	rgbSaberGlowShader;
+	qhandle_t	rgbSaberCoreShader;
 
 	qhandle_t	explosionModel;
 	qhandle_t	surfaceExplosionShader;

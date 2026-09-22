@@ -195,6 +195,10 @@ static void CG_CoopSetupSaber( gentity_t *gent, int saberNum, const char *saberN
 		return;
 	}
 	WP_SaberParseParms( saberName, saber );
+	if ( cg_developer.integer )
+	{
+		Com_Printf( "coop: ent %i saber%i '%s' colours '%s'\n", gent->s.number, saberNum + 1, saberName, colors );
+	}
 	// blade colours, comma separated, in blade order
 	int blade = 0;
 	const char *p = colors;

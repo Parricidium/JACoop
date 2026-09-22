@@ -51,6 +51,9 @@ static qhandle_t blueSaberGlowShader;
 static qhandle_t blueSaberCoreShader;
 static qhandle_t purpleSaberGlowShader;
 static qhandle_t purpleSaberCoreShader;
+// coop: white blade art tinted per blade, for an exact RGB colour
+static qhandle_t rgbSaberGlowShader;
+static qhandle_t rgbSaberCoreShader;
 void UI_CacheSaberGlowGraphics( void )
 {//FIXME: these get fucked by vid_restarts
 	redSaberGlowShader		= re.RegisterShader( "gfx/effects/sabers/red_glow" );
@@ -65,6 +68,8 @@ void UI_CacheSaberGlowGraphics( void )
 	blueSaberCoreShader		= re.RegisterShader( "gfx/effects/sabers/blue_line" );
 	purpleSaberGlowShader		= re.RegisterShader( "gfx/effects/sabers/purple_glow" );
 	purpleSaberCoreShader		= re.RegisterShader( "gfx/effects/sabers/purple_line" );
+	rgbSaberGlowShader		= re.RegisterShader( "gfx/jacoop/rgb_glow" );		// coop
+	rgbSaberCoreShader		= re.RegisterShader( "gfx/jacoop/rgb_line" );		// coop
 }
 
 qboolean UI_ParseLiteral( const char **data, const char *string )
@@ -354,6 +359,22 @@ void UI_DoSaber( vec3_t origin, vec3_t dir, float length, float lengthMax, float
 	// Find the midpoint of the saber for lighting purposes
 	VectorMA( origin, length * 0.5f, dir, mid );
 
+	// coop: an exact RGB colour uses the mod's white blade art, tinted below
+	byte	tint[3] = { 255, 255, 255 };
+	const qboolean rgbBlade = (qboolean)SABER_COLOR_IS_RGB( color );
+	if ( rgbBlade )
+	{
+		tint[0] = (byte)SABER_COLOR_R( color );
+		tint[1] = (byte)SABER_COLOR_G( color );
+		tint[2] = (byte)SABER_COLOR_B( color );
+	}
+	if ( rgbBlade )
+	{
+		glow = rgbSaberGlowShader;
+		blade = rgbSaberCoreShader;
+		VectorSet( rgb, tint[0] / 255.0f, tint[1] / 255.0f, tint[2] / 255.0f );
+	}
+	else
 	switch( color )
 	{
 		case SABER_RED:
@@ -424,7 +445,10 @@ void UI_DoSaber( vec3_t origin, vec3_t dir, float length, float lengthMax, float
 	VectorCopy( dir, saber.axis[0] );
 	saber.reType = RT_SABER_GLOW;
 	saber.customShader = glow;
-	saber.shaderRGBA[0] = saber.shaderRGBA[1] = saber.shaderRGBA[2] = saber.shaderRGBA[3] = 0xff;
+	saber.shaderRGBA[0] = tint[0];	// coop: 255,255,255 unless an exact RGB colour was picked
+	saber.shaderRGBA[1] = tint[1];
+	saber.shaderRGBA[2] = tint[2];
+	saber.shaderRGBA[3] = 0xff;
 	//saber.renderfx = rfx;
 
 	DC->addRefEntityToScene( &saber );
@@ -439,10 +463,22 @@ void UI_DoSaber( vec3_t origin, vec3_t dir, float length, float lengthMax, float
 //	saber.radius = (1.0 + Q_flrand(-1.0f, 1.0f) * 0.2f)*radiusmult;
 
 	DC->addRefEntityToScene( &saber );
+
+	if ( rgbBlade )
+	{	// coop: the white-hot middle, over the tinted core (see CG_DoSaber)
+		saber.shaderRGBA[0] = saber.shaderRGBA[1] = saber.shaderRGBA[2] = 0xff;
+		saber.radius *= 0.45f;
+		DC->addRefEntityToScene( &saber );
+	}
 }
 
 saber_colors_t TranslateSaberColor( const char *name )
 {
+	saber_colors_t	rgb;
+	if ( SaberColorParseRGB( name, &rgb ) )
+	{	// coop: an exact colour, "#rrggbb" or "rgb <r> <g> <b>"
+		return rgb;
+	}
 	if ( !Q_stricmp( name, "red" ) )
 	{
 		return SABER_RED;
@@ -914,4 +950,234 @@ void UI_SaberAttachToChar( itemDef_t *item )
 			}
 		}
 	}
+}
+
+/*
+==============================================================================
+coop: the list of installed hilts (the saber screen's hilt browser)
+
+UI_SaberLoadParms already concatenates every ext_data/sabers/*.sab the file
+system can see - the game's own and any mod pk3 dropped in base/ - into
+SaberParms, which is what UI_SaberModelForSaber & co read. Walking that same
+buffer once is therefore the whole job: a mod's hilts show up in the menu for
+free, with the proper name its .sab gives them.
+
+The walk is a plain key/value loop with brace counting, so nested blocks,
+comments (COM_Compress already dropped them), unknown keys and CRLF are all
+survivable, and a duplicated entry name keeps its first definition - exactly
+what UI_SaberParseParm would find.
+==============================================================================
+*/
+#define UI_MAX_HILTS		1024
+#define UI_HILT_STOCK_RANK	0
+#define UI_HILT_MOD_RANK	1000
+
+typedef struct uiHilt_s
+{
+	char		key[64];		// the .sab entry name: what ui_saber is set to
+	char		name[96];		// the "name" field (localised), or the key
+	saberType_t	type;
+	int			rank;			// sort: the menu's stock hilts first, then everything else by name
+} uiHilt_t;
+
+static uiHilt_t	uiHilts[UI_MAX_HILTS];
+static int		uiHiltCount = -1;	// -1 = not scanned yet
+
+// the hilts the stock saber screen offered, in its order
+static const char *uiStockHilts[] =
+{
+	"single_1", "single_2", "single_3", "single_4", "single_5",
+	"single_6", "single_7", "single_8", "single_9",
+	"dual_1", "dual_2", "dual_3", "dual_4", "dual_5"
+};
+
+static int UI_HiltCompare( const void *a, const void *b )
+{
+	const uiHilt_t	*x = (const uiHilt_t *)a;
+	const uiHilt_t	*y = (const uiHilt_t *)b;
+
+	if ( x->rank != y->rank )
+	{
+		return x->rank - y->rank;
+	}
+	int c = Q_stricmp( x->name, y->name );
+	return c ? c : Q_stricmp( x->key, y->key );
+}
+
+void UI_SaberScanHilts( void )
+{
+	const char	*p;
+	const char	*token;
+
+	uiHiltCount = 0;
+	if ( !ui_saber_parms_parsed )
+	{
+		UI_SaberLoadParms();
+	}
+
+	p = SaberParms;
+	COM_BeginParseSession();
+	while ( p && uiHiltCount < UI_MAX_HILTS )
+	{
+		char	key[64], name[96], typeStr[64], model[MAX_QPATH];
+		int		depth;
+
+		token = COM_ParseExt( &p, qtrue );
+		if ( !token[0] )
+		{
+			break;						// end of the buffer
+		}
+		if ( !strcmp( token, "{" ) || !strcmp( token, "}" ) )
+		{
+			continue;					// stray brace between entries: ignore it
+		}
+		Q_strncpyz( key, token, sizeof( key ) );
+
+		token = COM_ParseExt( &p, qtrue );
+		if ( strcmp( token, "{" ) )
+		{
+			continue;					// not an entry after all
+		}
+		name[0] = typeStr[0] = model[0] = '\0';
+		depth = 1;
+		while ( depth > 0 )
+		{
+			char parm[64];
+
+			token = COM_ParseExt( &p, qtrue );
+			if ( !token[0] )
+			{
+				break;					// unexpected EOF
+			}
+			if ( !strcmp( token, "}" ) )
+			{
+				depth--;
+				continue;
+			}
+			if ( !strcmp( token, "{" ) )
+			{
+				depth++;
+				continue;
+			}
+			Q_strncpyz( parm, token, sizeof( parm ) );
+
+			token = COM_ParseExt( &p, qtrue );	// its value
+			if ( !token[0] )
+			{
+				depth = 0;
+				break;
+			}
+			if ( !strcmp( token, "{" ) )
+			{
+				depth++;				// the key opened a sub-block instead
+				continue;
+			}
+			if ( !strcmp( token, "}" ) )
+			{
+				depth--;
+				continue;
+			}
+			if ( depth != 1 )
+			{
+				continue;				// something nested: not ours
+			}
+			if ( !Q_stricmp( parm, "name" ) )
+			{
+				Q_strncpyz( name, token, sizeof( name ) );
+			}
+			else if ( !Q_stricmp( parm, "saberType" ) )
+			{
+				Q_strncpyz( typeStr, token, sizeof( typeStr ) );
+			}
+			else if ( !Q_stricmp( parm, "saberModel" ) )
+			{
+				Q_strncpyz( model, token, sizeof( model ) );
+			}
+		}
+
+		if ( !model[0] )
+		{
+			continue;					// no hilt model: not something to wear (empty.sab)
+		}
+		int i;
+		for ( i = 0; i < uiHiltCount; i++ )
+		{
+			if ( !Q_stricmp( uiHilts[i].key, key ) )
+			{
+				break;					// already have it (the mod ships the same entry twice)
+			}
+		}
+		if ( i < uiHiltCount )
+		{
+			continue;
+		}
+
+		uiHilt_t *h = &uiHilts[uiHiltCount++];
+		Q_strncpyz( h->key, key, sizeof( h->key ) );
+		h->type = typeStr[0] ? TranslateSaberType( typeStr ) : SABER_SINGLE;
+		h->rank = UI_HILT_MOD_RANK;
+		for ( int s = 0; s < (int)ARRAY_LEN( uiStockHilts ); s++ )
+		{
+			if ( !Q_stricmp( key, uiStockHilts[s] ) )
+			{
+				h->rank = UI_HILT_STOCK_RANK + s;
+				break;
+			}
+		}
+		if ( name[0] == '@' )
+		{	// a string package reference ("@MENUS_SINGLE_HILT1")
+			const char *localised = SE_GetString( name + 1 );
+			Q_strncpyz( h->name, ( localised && localised[0] ) ? localised : key, sizeof( h->name ) );
+		}
+		else
+		{
+			Q_strncpyz( h->name, name[0] ? name : key, sizeof( h->name ) );
+		}
+	}
+	COM_EndParseSession();
+
+	qsort( uiHilts, uiHiltCount, sizeof( uiHilts[0] ), UI_HiltCompare );
+	Com_Printf( "coop: %i saber hilts in ext_data/sabers\n", uiHiltCount );
+}
+
+int UI_SaberHiltCount( void )
+{
+	if ( uiHiltCount < 0 )
+	{
+		UI_SaberScanHilts();
+	}
+	return uiHiltCount;
+}
+
+const char *UI_SaberHiltKey( int i )
+{
+	return ( i >= 0 && i < uiHiltCount ) ? uiHilts[i].key : "";
+}
+
+const char *UI_SaberHiltName( int i )
+{
+	return ( i >= 0 && i < uiHiltCount ) ? uiHilts[i].name : "";
+}
+
+saberType_t UI_SaberHiltTypeAt( int i )
+{
+	return ( i >= 0 && i < uiHiltCount ) ? uiHilts[i].type : SABER_SINGLE;
+}
+
+// The proper name of a hilt as the saber screen shows it (falls back to the
+// raw .sab entry name, which is what the cvar holds).
+const char *UI_SaberHiltNameForKey( const char *key )
+{
+	if ( !key || !key[0] )
+	{
+		return "";
+	}
+	for ( int i = 0; i < UI_SaberHiltCount(); i++ )
+	{
+		if ( !Q_stricmp( uiHilts[i].key, key ) )
+		{
+			return uiHilts[i].name;
+		}
+	}
+	return key;
 }

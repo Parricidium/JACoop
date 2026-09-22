@@ -56,6 +56,14 @@ extern qboolean ItemParse_model_g2anim_go( itemDef_t *item, const char *animName
 extern qboolean ItemParse_asset_model_go( itemDef_t *item, const char *name );
 extern qboolean ItemParse_model_g2skin_go( itemDef_t *item, const char *skinName );
 extern qboolean UI_SaberModelForSaber( const char *saberName, char *saberModel );
+// coop: the installed hilts, read out of SaberParms by ui_saber.cpp
+extern void		UI_SaberScanHilts( void );
+extern int		UI_SaberHiltCount( void );
+extern const char *UI_SaberHiltKey( int i );
+extern const char *UI_SaberHiltName( int i );
+extern saberType_t UI_SaberHiltTypeAt( int i );
+extern const char *UI_SaberHiltNameForKey( const char *key );
+extern saber_colors_t TranslateSaberColor( const char *name );
 extern qboolean UI_SaberSkinForSaber( const char *saberName, char *saberSkin );
 extern void UI_SaberAttachToChar( itemDef_t *item );
 
@@ -309,6 +317,9 @@ static void		UI_UpdateCharacterSkin( void );
 static void		UI_UpdateCharacter( qboolean changedModel );
 static void		UI_UpdateSaberType( void );
 static void		UI_UpdateSaberHilt( qboolean secondSaber );
+// coop: the same preview refresh, driven from a menu we name (the hilt browser)
+static void		UI_SaberHiltPreview( menuDef_t *menu, qboolean secondSaber );
+static void		UI_CoopSaberColorSync( void );
 //static void		UI_UpdateSaberColor( qboolean secondSaber );
 static void		UI_InitWeaponSelect( void );
 static void		UI_WeaponHelpActive( void );
@@ -1086,6 +1097,264 @@ static void UI_CoopDrawModelIcon( float x, float y, float w, float h, float scal
 }
 
 /*
+==============================================================================
+coop: the saber screen's hilt browser (ui/coopsaber.menu) and RGB blade colour
+
+The stock saber screen cycles through nine hardcoded hilt names, so a hilt
+mod's .sab entries were unreachable. The browser lists every hilt the file
+system knows about (UI_SaberScanHilts), filtered by the saber type the screen
+is on, and writes the choice straight into ui_saber / ui_saber2 - which is
+what the stock screen, UI_UpdateSaberCvars and G_SetSabersFromCVars already
+read, so both entry points (character creation and the lobby's PERSONNAGE,
+which both go through characterMenu -> saberMenu) get it with no extra work.
+
+Writing the cvar live, and restoring it on RETOUR, is what keeps the 3D
+preview (the "saber" / "saber2" item, whose blades are drawn from those same
+cvars) correct while scrolling.
+==============================================================================
+*/
+static int		coopHiltList[1024];		// indices into the scanned list, filtered by type
+static int		coopHiltCount;
+static int		coopHiltSel;
+static qboolean	coopHiltSecond;			// editing ui_saber2 rather than ui_saber
+static char		coopHiltSaved[MAX_QPATH];
+
+static const char *UI_CoopHiltCvar( void )
+{
+	return coopHiltSecond ? "ui_saber2" : "ui_saber";
+}
+
+static void UI_CoopHiltPreview( void )
+{
+	menuDef_t *menu = Menu_GetFocused();
+
+	if ( menu )
+	{	// the browser shows the hilt in its own item, named like the stock screen's
+		UI_SaberHiltPreview( menu, coopHiltSecond );
+	}
+}
+
+// Remember the hilt's proper name for the button that opens the browser.
+static void UI_CoopHiltLabels( void )
+{
+	Cvar_Set( "ui_saber_name", UI_SaberHiltNameForKey( Cvar_VariableString( "ui_saber" ) ) );
+	Cvar_Set( "ui_saber2_name", UI_SaberHiltNameForKey( Cvar_VariableString( "ui_saber2" ) ) );
+}
+
+// onOpen: rescan when pk3s came or went (cl_coopPaksGen, same as the model browser)
+static void UI_CoopHiltsInit( void )
+{
+	static int coopHiltsGen = -1;
+	const int gen = Cvar_VariableIntegerValue( "cl_coopPaksGen" );
+
+	if ( UI_SaberHiltCount() <= 0 || gen != coopHiltsGen )
+	{
+		coopHiltsGen = gen;
+		UI_SaberScanHilts();
+	}
+
+	coopHiltSecond = (qboolean)( Cvar_VariableIntegerValue( "ui_coopHiltWhich" ) == 2 );
+	const char *cur = Cvar_VariableString( UI_CoopHiltCvar() );
+	Q_strncpyz( coopHiltSaved, cur, sizeof( coopHiltSaved ) );
+
+	// the screen's saber type decides the list: a staff takes staff hilts, a
+	// single or a pair of sabers takes everything else
+	const qboolean wantStaff = (qboolean)( !Q_stricmp( "staff", Cvar_VariableString( "ui_saber_type" ) ) && !coopHiltSecond );
+	coopHiltCount = 0;
+	coopHiltSel = 0;
+	for ( int i = 0; i < UI_SaberHiltCount() && coopHiltCount < (int)ARRAY_LEN( coopHiltList ); i++ )
+	{
+		const qboolean isStaff = (qboolean)( UI_SaberHiltTypeAt( i ) == SABER_STAFF );
+		if ( isStaff != wantStaff )
+		{
+			continue;
+		}
+		if ( !Q_stricmp( UI_SaberHiltKey( i ), cur ) )
+		{
+			coopHiltSel = coopHiltCount;
+		}
+		coopHiltList[coopHiltCount++] = i;
+	}
+	Cvar_Set( "ui_coopHiltTitle", coopHiltSecond ? "SABRE GAUCHE" : ( wantStaff ? "BATON DE SABRE" : "SABRE" ) );
+	Cvar_Set( "ui_coopHiltCount", va( "%i modeles installes", coopHiltCount ) );
+	UI_CoopSetListCursor( "hiltList", coopHiltSel );
+	UI_CoopHiltPreview();
+}
+
+static void UI_CoopHiltSelect( int index )
+{
+	if ( index < 0 || index >= coopHiltCount )
+	{
+		return;
+	}
+	coopHiltSel = index;
+	Cvar_Set( UI_CoopHiltCvar(), UI_SaberHiltKey( coopHiltList[index] ) );
+	UI_CoopHiltLabels();
+	UI_CoopHiltPreview();
+}
+
+// RETOUR: the hilt the screen had when the browser opened
+static void UI_CoopHiltCancel( void )
+{
+	Cvar_Set( UI_CoopHiltCvar(), coopHiltSaved );
+	UI_CoopHiltLabels();
+}
+
+// VALIDER / RETOUR both come back to the saber screen, whose own preview items
+// must now show the hilt the browser left in the cvars.
+static void UI_CoopHiltDone( void )
+{
+	menuDef_t *menu = Menus_FindByName( "saberMenu" );
+
+	UI_CoopHiltLabels();
+	if ( menu )
+	{
+		UI_SaberHiltPreview( menu, qfalse );
+		if ( Menu_FindItemByName( menu, "saber2" ) )
+		{
+			UI_SaberHiltPreview( menu, qtrue );
+		}
+	}
+}
+
+/*
+------------------------------------------------------------------------------
+The exact blade colour
+
+g_saber_color / g_saber2_color keep taking the six names; the picker writes
+"#rrggbb" instead, which TranslateSaberColor (game and UI both) now reads. No
+space in the value, so it survives the joiner's userinfo untouched, and the
+blade colour reaches the other players through the appearance spec exactly as
+before - G_CoopAppendSaber already sends (int)blade[n].color.
+------------------------------------------------------------------------------
+*/
+static char		coopColorSaved[MAX_QPATH];
+static qboolean	coopColorSecond;
+// what the sliders read last time the colour cvar was written: while they have
+// not moved, a preset chosen by name stays that name instead of being turned
+// into its hex - the six stock colours must keep rendering the stock way.
+static int		coopColorLast[3];
+
+static const char *UI_CoopColorCvar( void )
+{
+	return coopColorSecond ? "ui_saber2_color" : "ui_saber_color";
+}
+
+// put the three sliders on the colour this string names, without touching the cvar
+static void UI_CoopColorSliders( const char *cur )
+{
+	saber_colors_t	color;
+	int				r, g, b;
+	if ( SaberColorParseRGB( cur, &color ) )
+	{
+		r = SABER_COLOR_R( color );
+		g = SABER_COLOR_G( color );
+		b = SABER_COLOR_B( color );
+	}
+	else
+	{	// one of the six presets: start the sliders on its rendered colour
+		vec3_t rgb = { 0.2f, 0.4f, 1.0f };
+		switch ( TranslateSaberColor( cur ) )
+		{
+			case SABER_RED:		VectorSet( rgb, 1.0f, 0.2f, 0.2f );	break;
+			case SABER_ORANGE:	VectorSet( rgb, 1.0f, 0.5f, 0.1f );	break;
+			case SABER_YELLOW:	VectorSet( rgb, 1.0f, 1.0f, 0.2f );	break;
+			case SABER_GREEN:	VectorSet( rgb, 0.2f, 1.0f, 0.2f );	break;
+			case SABER_PURPLE:	VectorSet( rgb, 0.9f, 0.2f, 1.0f );	break;
+			default:			VectorSet( rgb, 0.2f, 0.4f, 1.0f );	break;
+		}
+		r = (int)( rgb[0] * 255.0f );
+		g = (int)( rgb[1] * 255.0f );
+		b = (int)( rgb[2] * 255.0f );
+	}
+	Cvar_Set( "ui_saber_rgb_r", va( "%i", r ) );
+	Cvar_Set( "ui_saber_rgb_g", va( "%i", g ) );
+	Cvar_Set( "ui_saber_rgb_b", va( "%i", b ) );
+	coopColorLast[0] = r;
+	coopColorLast[1] = g;
+	coopColorLast[2] = b;
+	Cvar_Set( "ui_coopColorText", va( "%s   (R %i  V %i  B %i)", cur, r, g, b ) );
+}
+
+static void UI_CoopColorInit( void )
+{
+	coopColorSecond = (qboolean)( Cvar_VariableIntegerValue( "ui_coopHiltWhich" ) == 2 );
+	Q_strncpyz( coopColorSaved, Cvar_VariableString( UI_CoopColorCvar() ), sizeof( coopColorSaved ) );
+	Cvar_Set( "ui_coopHiltTitle", coopColorSecond ? "COULEUR DU SABRE GAUCHE" : "COULEUR DE LA LAME" );
+	UI_CoopColorSliders( coopColorSaved );
+}
+
+// The three sliders write their cvars straight (ITEM_TYPE_SLIDER runs no
+// script on a drag), so the colour cvar is recomposed from them every frame
+// the picker's swatch is drawn - that is what makes the 3D blade live.
+static void UI_CoopSaberColorSync( void )
+{
+	int r = Cvar_VariableIntegerValue( "ui_saber_rgb_r" );
+	int g = Cvar_VariableIntegerValue( "ui_saber_rgb_g" );
+	int b = Cvar_VariableIntegerValue( "ui_saber_rgb_b" );
+
+	r = Com_Clampi( 0, 255, r );
+	g = Com_Clampi( 0, 255, g );
+	b = Com_Clampi( 0, 255, b );
+	if ( r == coopColorLast[0] && g == coopColorLast[1] && b == coopColorLast[2] )
+	{	// nobody moved a slider: leave "yellow" as "yellow"
+		return;
+	}
+	coopColorLast[0] = r;
+	coopColorLast[1] = g;
+	coopColorLast[2] = b;
+	Cvar_Set( UI_CoopColorCvar(), va( "#%02x%02x%02x", r, g, b ) );
+	Cvar_Set( "ui_coopColorText", va( "#%02x%02x%02x   (R %i  V %i  B %i)", r, g, b, r, g, b ) );
+}
+
+// one of the six presets, from the picker's quick buttons
+static void UI_CoopColorPreset( const char *name )
+{
+	if ( !name || !name[0] )
+	{
+		return;
+	}
+	Cvar_Set( UI_CoopColorCvar(), name );
+	UI_CoopColorSliders( name );	// the sliders show it, and stop the sync rewriting it
+}
+
+static void UI_CoopColorCancel( void )
+{
+	Cvar_Set( UI_CoopColorCvar(), coopColorSaved );
+}
+
+// the swatch (ownerdraw UI_COOP_SABER_SWATCH): the colour as it will be worn
+static void UI_CoopDrawSaberSwatch( float x, float y, float w, float h, float scale, const vec4_t color, int iFontIndex )
+{
+	UI_CoopSaberColorSync();
+
+	saber_colors_t	c = TranslateSaberColor( Cvar_VariableString( UI_CoopColorCvar() ) );
+	vec4_t			swatch = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+	if ( SABER_COLOR_IS_RGB( c ) )
+	{
+		swatch[0] = SABER_COLOR_R( c ) / 255.0f;
+		swatch[1] = SABER_COLOR_G( c ) / 255.0f;
+		swatch[2] = SABER_COLOR_B( c ) / 255.0f;
+	}
+	else
+	{
+		switch ( c )
+		{
+			case SABER_RED:		VectorSet( swatch, 1.0f, 0.2f, 0.2f );	break;
+			case SABER_ORANGE:	VectorSet( swatch, 1.0f, 0.5f, 0.1f );	break;
+			case SABER_YELLOW:	VectorSet( swatch, 1.0f, 1.0f, 0.2f );	break;
+			case SABER_GREEN:	VectorSet( swatch, 0.2f, 1.0f, 0.2f );	break;
+			case SABER_PURPLE:	VectorSet( swatch, 0.9f, 0.2f, 1.0f );	break;
+			default:			VectorSet( swatch, 0.2f, 0.4f, 1.0f );	break;
+		}
+	}
+	ui.R_SetColor( swatch );
+	ui.R_DrawStretchPic( x, y, w, h, 0, 0, 1, 1, uiInfo.uiDC.whiteShader );
+	ui.R_SetColor( NULL );
+}
+
+/*
 ================
 Text_PaintWithCursor
 ================
@@ -1132,6 +1401,10 @@ const char *UI_FeederItemText(float feederID, int index, int column, qhandle_t *
 	else if (feederID == FEEDER_COOP_SKINS)
 	{
 		return UI_CoopSkinName( coopModelSel, index );
+	}
+	else if (feederID == FEEDER_COOP_HILTS)
+	{
+		return ( index >= 0 && index < coopHiltCount ) ? UI_SaberHiltName( coopHiltList[index] ) : "";
 	}
 	else if (feederID == FEEDER_COOP_MISSIONS)
 	{
@@ -2244,6 +2517,36 @@ static qboolean UI_RunMenuScript ( const char **args )
 		{
 			UI_CoopApplyModel();
 		}
+		else if ( Q_stricmp( name, "coopHiltsInit" ) == 0 )
+		{
+			UI_CoopHiltsInit();
+		}
+		else if ( Q_stricmp( name, "coopHiltCancel" ) == 0 )
+		{
+			UI_CoopHiltCancel();
+		}
+		else if ( Q_stricmp( name, "coopHiltDone" ) == 0 )
+		{
+			UI_CoopHiltDone();
+		}
+		else if ( Q_stricmp( name, "coopHiltLabels" ) == 0 )
+		{
+			UI_CoopHiltLabels();
+		}
+		else if ( Q_stricmp( name, "coopColorInit" ) == 0 )
+		{
+			UI_CoopColorInit();
+		}
+		else if ( Q_stricmp( name, "coopColorCancel" ) == 0 )
+		{
+			UI_CoopColorCancel();
+		}
+		else if ( Q_stricmp( name, "coopColorPreset" ) == 0 )
+		{
+			const char *preset = NULL;
+			String_Parse( args, &preset );
+			UI_CoopColorPreset( preset );
+		}
 		else if ( Q_stricmp( name, "coopEndNext" ) == 0 )
 		{
 			// Debrief read: tell the host, it moves everybody on when all did.
@@ -2535,6 +2838,10 @@ static int UI_FeederCount(float feederID)
 	{
 		return ( coopModelSel >= 0 && coopModelSel < coopModelCount ) ? coopModels[coopModelSel].numSkins : 0;
 	}
+	else if (feederID == FEEDER_COOP_HILTS)
+	{
+		return coopHiltCount;
+	}
 	else if (feederID == FEEDER_COOP_MISSIONS)
 	{
 		return CL_GetCoopEndCount();
@@ -2624,6 +2931,10 @@ static void UI_FeederSelection(float feederID, int index, itemDef_t *item)
 	{
 		coopSkinSel = index;
 		UI_CoopUpdatePreview();
+	}
+	else if (feederID == FEEDER_COOP_HILTS)
+	{
+		UI_CoopHiltSelect( index );
 	}
 	else if (feederID == FEEDER_COOP_MISSIONS)
 	{
@@ -4609,6 +4920,10 @@ static void UI_OwnerDraw(float x, float y, float w, float h, float text_x, float
 
 		case UI_COOP_MODEL_ICON:	// coop: portrait of the model browser's selection
 			UI_CoopDrawModelIcon( x, y, w, h, scale, color, iFontIndex );
+			break;
+
+		case UI_COOP_SABER_SWATCH:	// coop: the exact blade colour being picked
+			UI_CoopDrawSaberSwatch( x, y, w, h, scale, color, iFontIndex );
 			break;
 
 		case UI_ALLMAPS_SELECTION://saved game thumbnail
@@ -6986,6 +7301,7 @@ static void UI_GetSaberCvars ( void )
 	Cvar_Set ( "ui_saber2", Cvar_VariableString ( "g_saber2" ) );
 	Cvar_Set ( "ui_saber_color", Cvar_VariableString ( "g_saber_color" ) );
 	Cvar_Set ( "ui_saber2_color", Cvar_VariableString ( "g_saber2_color" ) );
+	UI_CoopHiltLabels();		// coop: the proper names shown on the hilt buttons
 
 	Cvar_Set ( "ui_newfightingstyle", "0");
 
@@ -7083,12 +7399,18 @@ void UI_UpdateSaberType( void )
 
 static void UI_UpdateSaberHilt( qboolean secondSaber )
 {
-	menuDef_t *menu;
+	UI_SaberHiltPreview( Menu_GetFocused(), secondSaber );	// coop: was this function's body
+}
+
+// coop: refresh the hilt model of the "saber" / "saber2" item of a given menu.
+// Missing items are no longer fatal: the hilt browser has only the one the
+// blade it edits needs.
+static void UI_SaberHiltPreview( menuDef_t *menu, qboolean secondSaber )
+{
 	itemDef_t *item;
 	char model[MAX_QPATH];
 	char modelPath[MAX_QPATH];
 	char skinPath[MAX_QPATH];
-	menu = Menu_GetFocused();	// Get current menu (either video or ingame video, I would assume)
 
 	if (!menu)
 	{
@@ -7112,7 +7434,7 @@ static void UI_UpdateSaberHilt( qboolean secondSaber )
 
 	if(!item)
 	{
-		Com_Error( ERR_FATAL, "UI_UpdateSaberHilt: Could not find item (%s) in menu (%s)", itemName, menu->window.name);
+		return;		// coop: not fatal, this menu simply does not preview that blade
 	}
 	DC->getCVarString( saberCvarName, model, sizeof(model) );
 	//read this from the sabers.cfg

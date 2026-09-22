@@ -269,7 +269,8 @@ static void Svcmd_SaberColor_f()
 	{
 		gi.Printf( "Usage:  saberColor <saberNum> <blade1 color> <blade2 color> ... <blade8 color>\n" );
 		gi.Printf( "valid saberNums:  1 or 2\n" );
-		gi.Printf( "valid colors:  red, orange, yellow, green, blue, and purple\n" );
+		gi.Printf( "valid colors:  red, orange, yellow, green, blue, purple\n" );
+		gi.Printf( "               or an exact colour: #ff8000, or \"rgb 255 128 0\"\n" );	// coop
 
 		return;
 	}

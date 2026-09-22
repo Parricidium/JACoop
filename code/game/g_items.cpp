@@ -280,7 +280,16 @@ gentity_t *G_DropSaberItem( const char *saberType, saber_colors_t saberColor, ve
 			newItem->spawnflags |= 64;/*ITMSF_NOGLOW*/
 			newItem->NPC_type = G_NewString( saberType );//saberType
 			//FIXME: transfer per-blade color somehow?
-			newItem->NPC_targetname = (char *)saberColorStringForColor[saberColor];
+			// coop: an exact RGB colour is not one of the six presets, so it travels as the
+			// "#rrggbb" string TranslateSaberColor reads back when the saber is picked up
+			if ( SABER_COLOR_IS_RGB( saberColor ) )
+			{
+				newItem->NPC_targetname = G_NewString( va( "#%02x%02x%02x", SABER_COLOR_R( saberColor ), SABER_COLOR_G( saberColor ), SABER_COLOR_B( saberColor ) ) );
+			}
+			else
+			{
+				newItem->NPC_targetname = (char *)saberColorStringForColor[saberColor];
+			}
 			newItem->count = 1;
 			newItem->flags = FL_DROPPED_ITEM;
 			G_SpawnItem( newItem, FindItemForWeapon( WP_SABER ) );

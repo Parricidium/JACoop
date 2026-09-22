@@ -102,6 +102,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define FEEDER_COOP_MODELS					0x1a			// coop: models/players/* player models (coopskins.menu)
 #define FEEDER_COOP_SKINS					0x1b			// coop: model_*.skin of the selected model
 #define FEEDER_COOP_MISSIONS				0x1c			// coop: missions to vote for between two missions (CS_COOP_ENDLEVEL)
+#define FEEDER_COOP_HILTS					0x1d			// coop: the hilts of every installed .sab (saber screen)
 
 
 #define UI_VERSION				200
@@ -163,3 +164,4 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define UI_STARTMAPCINEMATIC	255
 #define UI_MAPS_SELECTION		256
 #define UI_COOP_MODEL_ICON		257		// coop: portrait of the model browser's selection
+#define UI_COOP_SABER_SWATCH	258		// coop: the exact blade colour being picked

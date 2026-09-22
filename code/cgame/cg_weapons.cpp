@@ -361,6 +361,9 @@ void CG_RegisterWeapon( int weaponNum ) {
 		cgs.media.blueSaberCoreShader		= cgi_R_RegisterShader( "gfx/effects/sabers/blue_line" );
 		cgs.media.purpleSaberGlowShader		= cgi_R_RegisterShader( "gfx/effects/sabers/purple_glow" );
 		cgs.media.purpleSaberCoreShader		= cgi_R_RegisterShader( "gfx/effects/sabers/purple_line" );
+		// coop: white blade art (the mod's pk3), tinted through shaderRGBA for an exact RGB colour
+		cgs.media.rgbSaberGlowShader		= cgi_R_RegisterShader( "gfx/jacoop/rgb_glow" );
+		cgs.media.rgbSaberCoreShader		= cgi_R_RegisterShader( "gfx/jacoop/rgb_line" );
 
 		cgs.media.forceCoronaShader			= cgi_R_RegisterShaderNoMip( "gfx/hud/force_swirl" );
 

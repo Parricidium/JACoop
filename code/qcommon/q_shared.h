@@ -323,9 +323,102 @@ typedef enum
 	SABER_YELLOW,
 	SABER_GREEN,
 	SABER_BLUE,
-	SABER_PURPLE
+	SABER_PURPLE,
+	// coop: an exact RGB blade colour lives in the same field as the six
+	// presets - bit 24 set, then 0xRRGGBB. bladeInfo_t is a loadsave affecting
+	// struct and its colour is written as an int32, so encoding the RGB in the
+	// value (instead of adding a field) leaves the save format untouched, and
+	// the co-op appearance spec - which already sends (int)blade[n].color -
+	// carries it as it stands. The two enumerators below widen the enum's
+	// range so those values are legal members of the type.
+	SABER_RGB_BIT = 0x01000000,
+	SABER_RGB_MAX = 0x01FFFFFF
 
 } saber_colors_t;
+
+#define SABER_COLOR_IS_RGB(c)	( ( (int)(c) & SABER_RGB_BIT ) != 0 )
+#define SABER_COLOR_R(c)		( ( (int)(c) >> 16 ) & 0xFF )
+#define SABER_COLOR_G(c)		( ( (int)(c) >> 8 ) & 0xFF )
+#define SABER_COLOR_B(c)		( (int)(c) & 0xFF )
+#define SABER_COLOR_RGB(r,g,b)	( (saber_colors_t)( SABER_RGB_BIT | ( ( (r) & 0xFF ) << 16 ) | ( ( (g) & 0xFF ) << 8 ) | ( (b) & 0xFF ) ) )
+
+// coop: read an exact colour out of a "#rrggbb" or "rgb <r> <g> <b>" string
+// (the form the g_saber_color / g_saber2_color cvars may now take, alongside
+// the six names). Self-contained on purpose: q_shared.h declares this before
+// the string helpers exist.
+QINLINE qboolean SaberColorParseRGB( const char *name, saber_colors_t *out )
+{
+	int		v[3] = { 0, 0, 0 };
+	int		i;
+	const char *p = name;
+
+	if ( !p || !p[0] )
+	{
+		return qfalse;
+	}
+	if ( p[0] == '#' )
+	{
+		int digits = 0;
+		int hex = 0;
+		p++;
+		while ( *p && digits < 6 )
+		{
+			int d;
+			if ( *p >= '0' && *p <= '9' )		d = *p - '0';
+			else if ( *p >= 'a' && *p <= 'f' )	d = *p - 'a' + 10;
+			else if ( *p >= 'A' && *p <= 'F' )	d = *p - 'A' + 10;
+			else								return qfalse;
+			hex = ( hex << 4 ) | d;
+			digits++;
+			p++;
+		}
+		if ( digits != 6 || *p )
+		{
+			return qfalse;
+		}
+		if ( out )
+		{
+			*out = SABER_COLOR_RGB( ( hex >> 16 ) & 0xFF, ( hex >> 8 ) & 0xFF, hex & 0xFF );
+		}
+		return qtrue;
+	}
+	if ( ( p[0] != 'r' && p[0] != 'R' ) || ( p[1] != 'g' && p[1] != 'G' ) || ( p[2] != 'b' && p[2] != 'B' ) )
+	{
+		return qfalse;
+	}
+	p += 3;
+	for ( i = 0; i < 3; i++ )
+	{
+		int digits = 0;
+		while ( *p == ' ' || *p == '\t' || *p == ',' )
+		{
+			p++;
+		}
+		while ( *p >= '0' && *p <= '9' && digits < 4 )
+		{
+			v[i] = v[i] * 10 + ( *p - '0' );
+			digits++;
+			p++;
+		}
+		if ( !digits || v[i] > 255 )
+		{
+			return qfalse;
+		}
+	}
+	while ( *p == ' ' || *p == '\t' )
+	{
+		p++;
+	}
+	if ( *p )
+	{
+		return qfalse;
+	}
+	if ( out )
+	{
+		*out = SABER_COLOR_RGB( v[0], v[1], v[2] );
+	}
+	return qtrue;
+}
 
 #define MAX_BATTERIES	2500
 

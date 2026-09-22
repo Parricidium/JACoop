@@ -269,6 +269,11 @@ static rank_t TranslateRankName( const char *name )
 
 saber_colors_t TranslateSaberColor( const char *name )
 {
+	saber_colors_t	rgb;
+	if ( SaberColorParseRGB( name, &rgb ) )
+	{	// coop: an exact colour, "#rrggbb" or "rgb <r> <g> <b>"
+		return rgb;
+	}
 	if ( !Q_stricmp( name, "red" ) )
 	{
 		return SABER_RED;

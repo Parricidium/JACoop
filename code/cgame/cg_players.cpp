@@ -5627,6 +5627,11 @@ void CG_SaberDoWeaponHitMarks( gclient_t *client, gentity_t *saberEnt, gentity_t
 
 static void CG_RGBForSaberColor( saber_colors_t color, vec3_t rgb )
 {
+	if ( SABER_COLOR_IS_RGB( color ) )
+	{	// coop: an exact colour picked by the player
+		VectorSet( rgb, SABER_COLOR_R( color ) / 255.0f, SABER_COLOR_G( color ) / 255.0f, SABER_COLOR_B( color ) / 255.0f );
+		return;
+	}
 	switch( color )
 	{
 		case SABER_RED:
@@ -5780,6 +5785,21 @@ static void CG_DoSaber( vec3_t origin, vec3_t dir, float length, float lengthMax
 	// Find the midpoint of the saber for lighting purposes
 	VectorMA( origin, length * 0.5f, dir, mid );
 
+	// coop: an exact RGB colour uses the mod's white blade art, tinted below
+	byte	tint[3] = { 255, 255, 255 };
+	const qboolean rgbBlade = (qboolean)SABER_COLOR_IS_RGB( color );
+	if ( rgbBlade )
+	{
+		tint[0] = (byte)SABER_COLOR_R( color );
+		tint[1] = (byte)SABER_COLOR_G( color );
+		tint[2] = (byte)SABER_COLOR_B( color );
+	}
+	if ( rgbBlade )
+	{
+		glow = cgs.media.rgbSaberGlowShader;
+		blade = cgs.media.rgbSaberCoreShader;
+	}
+	else
 	switch( color )
 	{
 		case SABER_RED:
@@ -5844,7 +5864,10 @@ static void CG_DoSaber( vec3_t origin, vec3_t dir, float length, float lengthMax
 	VectorCopy( dir, saber.axis[0] );
 	saber.reType = RT_SABER_GLOW;
 	saber.customShader = glow;
-	saber.shaderRGBA[0] = saber.shaderRGBA[1] = saber.shaderRGBA[2] = saber.shaderRGBA[3] = 0xff;
+	saber.shaderRGBA[0] = tint[0];	// coop: 255,255,255 unless an exact RGB colour was picked
+	saber.shaderRGBA[1] = tint[1];
+	saber.shaderRGBA[2] = tint[2];
+	saber.shaderRGBA[3] = 0xff;
 	saber.renderfx = rfx;
 
 	cgi_R_AddRefEntityToScene( &saber );
@@ -5859,6 +5882,15 @@ static void CG_DoSaber( vec3_t origin, vec3_t dir, float length, float lengthMax
 //	saber.radius = (1.0 + Q_flrand(-1.0f, 1.0f) * 0.2f)*radiusmult;
 
 	cgi_R_AddRefEntityToScene( &saber );
+
+	if ( rgbBlade )
+	{	// coop: the stock core art is white in the middle and coloured at its edges -
+		// one tinted pass cannot be both, so the white-hot middle is a second,
+		// narrower pass drawn white over the tinted one
+		saber.shaderRGBA[0] = saber.shaderRGBA[1] = saber.shaderRGBA[2] = 0xff;
+		saber.radius *= 0.45f;
+		cgi_R_AddRefEntityToScene( &saber );
+	}
 }
 
 #define	MAX_MARK_FRAGMENTS	128
@@ -6617,6 +6649,13 @@ Ghoul2 Insert End
 					&& ( !WP_SaberBladeUseSecondBladeStyle( &client->ps.saber[saberNum], bladeNum ) || client->ps.saber[saberNum].trailStyle2 != 1 )
 				   )
 				{
+					if ( SABER_COLOR_IS_RGB( client->ps.saber[saberNum].blade[bladeNum].color ) )
+					{	// coop: the trail takes the exact colour too
+						VectorSet( rgb1, (float)SABER_COLOR_R( client->ps.saber[saberNum].blade[bladeNum].color ),
+							(float)SABER_COLOR_G( client->ps.saber[saberNum].blade[bladeNum].color ),
+							(float)SABER_COLOR_B( client->ps.saber[saberNum].blade[bladeNum].color ) );
+					}
+					else
 					switch( client->ps.saber[saberNum].blade[bladeNum].color )
 					{
 						case SABER_RED:
