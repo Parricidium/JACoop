@@ -72,12 +72,17 @@ typedef struct coopSidecar_s {
 	coopSavedPlayer_t	players[MAX_COOP_SAVED];
 } coopSidecar_t;
 
+static void G_CoopStartFrame( void );
+
 static coopSavedPlayer_t	coopSaved[MAX_COOP_SAVED];
 static int					coopNumSaved = 0;
 static int					coopLastPoints[MAX_CLIENTS];	// force points we last told each joiner about
 
 static qboolean	coopLobby = qfalse;
 static int		coopLobbyMenuTime = 0;
+static qboolean	coopStarting = qfalse;			// host pressed NOUVELLE PARTIE: joiners are creating their characters
+static qboolean	coopStartSent = qfalse;			// the map command went out
+static qboolean	coopCharDone[MAX_CLIENTS];		// joiner validated its character since coop_start
 
 /*
 ==============================================================================
@@ -237,9 +242,10 @@ void G_CoopOnJoinerBegin( gentity_t *ent )
 	}
 	G_CoopInitFromHost( ent );
 	coopLastPoints[ent->s.number] = -1;
+	coopCharDone[ent->s.number] = qfalse;
 	if ( coopLobby )
-	{
-		gi.SendServerCommand( ent->s.number, "coopmenu coopLobby" );
+	{	// the lobby, or straight to the character screens when the host already pressed NOUVELLE PARTIE
+		gi.SendServerCommand( ent->s.number, coopStarting ? "coopmenu coopCharacter" : "coopmenu coopLobby" );
 	}
 }
 
@@ -402,6 +408,8 @@ void G_CoopLobbyInit( void )
 {
 	coopLobby = (qboolean)( gi.Cvar_VariableIntegerValue( "g_coopLobby" ) != 0 );
 	coopLobbyMenuTime = 0;
+	coopStarting = coopStartSent = qfalse;
+	memset( coopCharDone, 0, sizeof( coopCharDone ) );
 	memset( coopLastPoints, -1, sizeof( coopLastPoints ) );
 
 	// "map" (a new campaign, or the lobby itself) starts everyone over; level
@@ -446,7 +454,8 @@ static void G_CoopUpdateLobbyList( void )
 	static char	last[MAX_STRING_CHARS];
 	char		now[MAX_STRING_CHARS];
 
-	Q_strncpyz( now, coopLobby ? "L" : "G", sizeof( now ) );
+	// phase: L lobby, S starting (joiners create their characters), G playing
+	Q_strncpyz( now, coopLobby ? ( coopStarting ? "S" : "L" ) : "G", sizeof( now ) );
 	for ( int i = 0; i < MAX_CLIENTS; i++ )
 	{
 		const gentity_t *ent = G_CoopPlayerSlot( i );
@@ -460,6 +469,10 @@ static void G_CoopUpdateLobbyList( void )
 			char userinfo[MAX_INFO_STRING];
 			gi.GetUserinfo( i, userinfo, sizeof( userinfo ) );
 			ready = atoi( Info_ValueForKey( userinfo, "coop_ready" ) ) ? 1 : 0;
+			if ( coopStarting )
+			{
+				ready = coopCharDone[i] ? 4 : 3;	// character validated / being created
+			}
 		}
 		Q_strcat( now, sizeof( now ), va( "|%s\t%i\t%s", ent->client->pers.netname, ready, G_CoopPlayerVar( ent, "g_char_model", g_char_model ) ) );
 	}
@@ -483,6 +496,7 @@ void G_CoopLobbyFrame( void )
 		return;
 	}
 	G_CoopUpdateLobbyList();
+	G_CoopStartFrame();
 	for ( int i = 1; i < MAX_CLIENTS; i++ )
 	{
 		gentity_t *ent = G_CoopPlayerSlot( i );
@@ -490,6 +504,99 @@ void G_CoopLobbyFrame( void )
 		{
 			G_CoopSyncForce( ent );
 		}
+	}
+}
+
+/*
+==============================================================================
+Starting a new campaign from the lobby
+
+NOUVELLE PARTIE: the host picks the difficulty and its character (its own
+screens), then "coop_start" puts the lobby in phase S: every joiner gets the
+character screens (server command coopmenu coopCharacter, no difficulty:
+that is the host's) and answers "coop_chardone". The campaign starts when
+all of them did (or right away with g_coopRequireReady 0, or when the host
+forces it with "coop_go"); "coop_cancel" goes back to phase L.
+==============================================================================
+*/
+static void G_CoopStartCampaign( void )
+{
+	if ( coopStartSent )
+	{
+		return;
+	}
+	coopStartSent = qtrue;
+	gi.Printf( "coop: starting the campaign\n" );
+	gi.SendServerCommand( -1, "print \"^2La partie commence !\n\"" );
+	gi.SendConsoleCommand( "set g_coopLobby 0 ; map yavin1\n" );
+}
+
+static qboolean G_CoopAllCharsDone( void )
+{
+	for ( int i = 1; i < MAX_CLIENTS; i++ )
+	{
+		if ( G_CoopPlayerSlot( i ) && !coopCharDone[i] )
+		{
+			return qfalse;
+		}
+	}
+	return qtrue;
+}
+
+// client commands coop_start / coop_go / coop_cancel (host) and coop_chardone (joiner)
+void G_CoopStartCommand( gentity_t *ent, const char *cmd )
+{
+	if ( !ent || !ent->client || ent->s.number >= MAX_CLIENTS || !coopLobby )
+	{
+		return;
+	}
+	const int slot = ent->s.number;
+	if ( slot == 0 && !Q_stricmp( cmd, "coop_start" ) )
+	{
+		coopStarting = qtrue;
+		memset( coopCharDone, 0, sizeof( coopCharDone ) );
+		for ( int i = 1; i < MAX_CLIENTS; i++ )
+		{
+			if ( G_CoopPlayerSlot( i ) )
+			{
+				gi.SendServerCommand( i, "coopmenu coopCharacter" );
+			}
+		}
+		gi.Printf( "coop: NOUVELLE PARTIE, waiting for the joiners' characters\n" );
+	}
+	else if ( slot == 0 && !Q_stricmp( cmd, "coop_go" ) )
+	{
+		coopStarting = qtrue;
+		G_CoopStartCampaign();
+	}
+	else if ( slot == 0 && !Q_stricmp( cmd, "coop_cancel" ) )
+	{
+		coopStarting = qfalse;
+		for ( int i = 1; i < MAX_CLIENTS; i++ )
+		{
+			if ( G_CoopPlayerSlot( i ) )
+			{
+				gi.SendServerCommand( i, "coopmenu coopLobby" );
+			}
+		}
+	}
+	else if ( slot > 0 && !Q_stricmp( cmd, "coop_chardone" ) )
+	{
+		coopCharDone[slot] = qtrue;
+		gi.Printf( "coop: %s validated its character\n", ent->client->pers.netname );
+	}
+}
+
+// once per frame in phase S: start when everybody is ready
+static void G_CoopStartFrame( void )
+{
+	if ( !coopStarting || coopStartSent )
+	{
+		return;
+	}
+	if ( !gi.Cvar_VariableIntegerValue( "g_coopRequireReady" ) || G_CoopAllCharsDone() )
+	{
+		G_CoopStartCampaign();
 	}
 }
 

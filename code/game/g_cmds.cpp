@@ -1417,6 +1417,11 @@ void ClientCommand( int clientNum ) {
 		}
 		return;
 	}
+	if (Q_stricmp (cmd, "coop_start") == 0 || Q_stricmp (cmd, "coop_go") == 0 || Q_stricmp (cmd, "coop_cancel") == 0 || Q_stricmp (cmd, "coop_chardone") == 0)
+	{	// coop: lobby start flow (g_coop_lobby.cpp)
+		G_CoopStartCommand( ent, cmd );
+		return;
+	}
 	if (Q_stricmp (cmd, "coop_down") == 0)
 	{	// coop dev: "coop_down [slot]" knocks that player (default: me) down as a killing blow would (cheats)
 		if ( !CheatsOk( ent ) ) return;

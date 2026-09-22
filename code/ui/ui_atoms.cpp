@@ -81,7 +81,17 @@ void UI_SetActiveMenu( const char* menuname,const char *menuID )
 		UI_Cursor_Show(qtrue);
 		Menu_Cache();
 		Menus_CloseAll();
-		Menus_ActivateByName(menuname);
+		if ( Q_stricmp( menuname, "coopCharacter" ) == 0 )
+		{	// the host pressed NOUVELLE PARTIE: a joiner creates its character now (no difficulty screen)
+			Cvar_Set( "ui_coopJoin", "" );
+			Cvar_Set( "ui_coopMode", "charstart" );
+			Cvar_Set( "ui_coopCharDone", "0" );
+			Menus_ActivateByName( "characterMenu" );
+		}
+		else
+		{
+			Menus_ActivateByName(menuname);
+		}
 		ui.Key_SetCatcher( KEYCATCH_UI );
 		return;
 	}
@@ -301,6 +311,15 @@ void UI_Init( int apiVersion, uiimport_t *uiimport, qboolean inGameLoad )
 	ui.Cvar_Create( "g_char_model",			"jedi_tf",	CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
 	ui.Cvar_Create( "g_char_skin_head",		"head_a1",	CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
 	ui.Cvar_Create( "g_char_skin",			"",			CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );	// coop: whole-model skin (model_<x>.skin), empty = species parts
+	// coop: options the OPTIONS COOPERATION page edits before the game/cgame modules registered them
+	ui.Cvar_Create( "g_coopDowned",			"1",		CVAR_ARCHIVE );
+	ui.Cvar_Create( "g_coopBleedOut",		"60",		CVAR_ARCHIVE );
+	ui.Cvar_Create( "g_coopReviveTime",		"3",		CVAR_ARCHIVE );
+	ui.Cvar_Create( "g_coopRespawnDelay",	"10",		CVAR_ARCHIVE );
+	ui.Cvar_Create( "g_coopAllDownAuto",	"20",		CVAR_ARCHIVE );
+	ui.Cvar_Create( "g_coopRequireReady",	"1",		CVAR_ARCHIVE );
+	ui.Cvar_Create( "cg_coopCameraLag",		"100",		CVAR_ARCHIVE );
+	ui.Cvar_Create( "ui_coopMaxPlayers",	"4",		CVAR_ARCHIVE );
 	ui.Cvar_Create( "g_char_skin_torso",	"torso_a1",	CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
 	ui.Cvar_Create( "g_char_skin_legs",		"lower_a1",	CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
 	ui.Cvar_Create( "g_char_color_red",		"255",		CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );

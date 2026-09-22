@@ -778,10 +778,25 @@ static int CL_CoopLobbyRows( char rows[MAX_CLIENTS][96] ) {
 			*tab = '\0';
 			ready = atoi( tab + 1 );
 		}
-		Com_sprintf( rows[n++], 96, "%s%s", row, ready == 2 ? "   (hote)" : ready == 1 ? "   -  pret" : "   -  pas pret" );
+		const char *state = "   -  pas pret";
+		switch ( ready ) {
+		case 2: state = "   (hote)"; break;
+		case 1: state = "   -  pret"; break;
+		case 3: state = "   -  cree son personnage..."; break;
+		case 4: state = "   -  personnage valide"; break;
+		}
+		Com_sprintf( rows[n++], 96, "%s%s", row, state );
 		p = end;
 	}
 	return n;
+}
+
+// lobby phase from CS_COOP_LOBBY: 'L' lobby, 'S' starting (characters), 'G' playing, 0 = none
+char CL_GetCoopLobbyPhase( void ) {
+	if ( cls.state < CA_LOADING || !cl.gameState.stringOffsets[CS_COOP_LOBBY] ) {
+		return 0;
+	}
+	return cl.gameState.stringData[cl.gameState.stringOffsets[CS_COOP_LOBBY]];
 }
 
 int CL_GetCoopLobbyCount( void ) {

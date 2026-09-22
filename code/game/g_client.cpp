@@ -577,6 +577,10 @@ void ClientUserinfoChanged( int clientNum ) {
 	// set max health
 	maxHealth = 100;
 	health = Com_Clampi( 1, 100, atoi( Info_ValueForKey( userinfo, "handicap" ) ) );
+	if ( ent->s.number > 0 && ent->s.number < MAX_CLIENTS && g_entities[0].client && g_entities[0].client->pers.maxHealth > 0 )
+	{	// coop: the difficulty (and its handicap) is the host's
+		health = g_entities[0].client->pers.maxHealth;
+	}
 	client->pers.maxHealth = health;
 	if ( client->pers.maxHealth < 1 || client->pers.maxHealth > maxHealth )
 		client->pers.maxHealth = 100;

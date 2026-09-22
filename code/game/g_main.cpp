@@ -719,6 +719,7 @@ void G_InitCvars( void ) {
 	g_saber2_color = gi.cvar( "g_saber2_color", "yellow", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART|CVAR_USERINFO );	// coop: travels in the joiner's userinfo
 	gi.cvar( "g_fighting_style", "0", CVAR_ARCHIVE|CVAR_USERINFO );	// coop: chosen saber style travels in the joiner's userinfo
 	G_CoopInitDownedCvars();	// coop: downed players / revives
+	gi.cvar( "g_coopRequireReady", "1", CVAR_ARCHIVE );	// coop: NOUVELLE PARTIE waits for every joiner's character
 	g_saberDarkSideSaberColor = gi.cvar( "g_saberDarkSideSaberColor", "0", CVAR_ARCHIVE );	//when you turn evil, it turns your saber red!
 
 	g_broadsword = gi.cvar( "broadsword", "1", 0);

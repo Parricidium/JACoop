@@ -107,6 +107,7 @@ extern const char *CL_GetCoopServerText( int index );
 extern qboolean    CL_GetCoopServerAddress( int index, char *out, int outSize );
 extern int         CL_GetCoopLobbyCount( void );
 extern const char *CL_GetCoopLobbyText( int index );
+extern char        CL_GetCoopLobbyPhase( void );
 
 // coop: the player whose state the menus read and edit (force allocation,
 // saber styles, datapad). The host's is the local server's client 0; a remote
@@ -150,16 +151,48 @@ static void UI_CoopSendForce( const playerState_t *ps )
 	ui.Cmd_ExecuteText( EXEC_APPEND, cmd );
 }
 
-// coop: one cvar the lobby menu can test: "host", or the ready flag ("0"/"1")
+// coop: one cvar the lobby menu can test. Host: "host" (waiting in the lobby)
+// or "hoststart" (NOUVELLE PARTIE pressed, joiners create their characters);
+// joiner: the ready flag "0"/"1", or during the start "char" (character to
+// create) / "chardone" (validated, waiting for the others).
 static void UI_CoopLobbyState( void )
 {
+	const qboolean starting = (qboolean)( CL_GetCoopLobbyPhase() == 'S' );
 	if ( com_sv_running && com_sv_running->integer )
 	{
-		Cvar_Set( "ui_coopLobbyState", "host" );
+		Cvar_Set( "ui_coopLobbyState", starting ? "hoststart" : "host" );
+	}
+	else if ( starting )
+	{
+		Cvar_Set( "ui_coopLobbyState", Cvar_VariableIntegerValue( "ui_coopCharDone" ) ? "chardone" : "char" );
 	}
 	else
 	{
 		Cvar_Set( "ui_coopLobbyState", Cvar_VariableIntegerValue( "coop_ready" ) ? "1" : "0" );
+	}
+}
+
+// coop: back from the difficulty / character / saber screens (uiScript coopCharBack <stockMenu>):
+// to where the co-op flow came from, or to the stock menu outside co-op
+static void UI_CoopCharBack( const char *stockMenu )
+{
+	char mode[32];
+	Cvar_VariableStringBuffer( "ui_coopMode", mode, sizeof( mode ) );
+	Menus_CloseAll();
+	if ( !Q_stricmp( mode, "join" ) )
+	{
+		Cvar_Set( "ui_coopJoin", "" );
+		Cvar_Set( "ui_coopMode", "" );
+		Menus_ActivateByName( "coopJoinMenu" );
+	}
+	else if ( !Q_stricmp( mode, "char" ) || !Q_stricmp( mode, "charstart" ) || !Q_stricmp( mode, "hostnew" ) )
+	{
+		Cvar_Set( "ui_coopMode", "" );
+		Menus_ActivateByName( "coopLobby" );
+	}
+	else if ( stockMenu && stockMenu[0] )
+	{
+		Menus_ActivateByName( stockMenu );
 	}
 }
 
@@ -177,7 +210,7 @@ static void UI_CoopStartJoin( const char *addr )
 	}
 	Cvar_Set( "ui_coopJoin", addr );
 	Cvar_Set( "ui_coopMode", "join" );
-	Menus_ActivateByName( "newgamefirstMenu" );
+	Menus_ActivateByName( "characterMenu" );	// no difficulty screen: that is the host's
 }
 
 // Launcher path: "Rejoindre.cmd ADRESSE" starts the game with ui_coopJoin set;
@@ -1426,14 +1459,18 @@ static qboolean UI_RunMenuScript ( const char **args )
 			char coopMode[32];
 			Cvar_VariableStringBuffer( "ui_coopMode", coopMode, sizeof( coopMode ) );
 			if ( !Q_stricmp( coopMode, "hostnew" ) )
-			{	// lobby host, NOUVELLE PARTIE: character done, start the campaign for everyone
+			{	// lobby host, NOUVELLE PARTIE: difficulty and character done; now the joiners
+				// create theirs (g_coop_lobby.cpp starts the campaign when they are done)
 				Cvar_Set( "ui_coopMode", "" );
-				ui.Cmd_ExecuteText( EXEC_APPEND, "set g_coopLobby 0 ; map yavin1\n" );
+				ui.Cmd_ExecuteText( EXEC_APPEND, "cmd coop_start\n" );
+				Menus_ActivateByName( "coopLobby" );
 				return qtrue;
 			}
-			if ( !Q_stricmp( coopMode, "char" ) )
-			{	// lobby guest changing its character: back to the lobby (the host rebuilds it from the userinfo)
+			if ( !Q_stricmp( coopMode, "char" ) || !Q_stricmp( coopMode, "charstart" ) )
+			{	// lobby guest: character validated, back to the lobby (the host rebuilds it from the userinfo)
 				Cvar_Set( "ui_coopMode", "" );
+				Cvar_Set( "ui_coopCharDone", "1" );
+				ui.Cmd_ExecuteText( EXEC_APPEND, "cmd coop_chardone\n" );
 				Menus_ActivateByName( "coopLobby" );
 				return qtrue;
 			}
@@ -1989,8 +2026,10 @@ static qboolean UI_RunMenuScript ( const char **args )
 			// character screens come with NOUVELLE PARTIE (a save brings its own).
 			Cvar_Set( "ui_coopJoin", "" );
 			Cvar_Set( "ui_coopMode", "" );
+			Cvar_Set( "coop_ready", "0" );
 			Menus_CloseAll();
-			ui.Cmd_ExecuteText( EXEC_APPEND, "coop_lobby\n" );
+			const int mp = (int)trap_Cvar_VariableValue( "ui_coopMaxPlayers" );
+			ui.Cmd_ExecuteText( EXEC_APPEND, va( "coop_lobby %i\n", mp >= 2 && mp <= 4 ? mp : 4 ) );
 		}
 		else if ( Q_stricmp( name, "coopNewGame" ) == 0 )
 		{
@@ -2006,7 +2045,40 @@ static qboolean UI_RunMenuScript ( const char **args )
 			Cvar_Set( "ui_coopJoin", "" );
 			Cvar_Set( "ui_coopMode", "char" );
 			Menus_CloseAll();
-			Menus_ActivateByName( "newgamefirstMenu" );
+			Menus_ActivateByName( "characterMenu" );
+		}
+		else if ( Q_stricmp( name, "coopCharBack" ) == 0 )
+		{
+			// Difficulty / character / saber screens: back to where the co-op flow came from
+			// (argument: the stock menu to open outside co-op).
+			const char *stock = NULL;
+			String_Parse( args, &stock );
+			UI_CoopCharBack( stock );
+		}
+		else if ( Q_stricmp( name, "coopGo" ) == 0 )
+		{
+			// Host: start without waiting for the remaining characters.
+			ui.Cmd_ExecuteText( EXEC_APPEND, "cmd coop_go\n" );
+		}
+		else if ( Q_stricmp( name, "coopCancelStart" ) == 0 )
+		{
+			// Host: back to the waiting lobby.
+			ui.Cmd_ExecuteText( EXEC_APPEND, "cmd coop_cancel\n" );
+		}
+		else if ( Q_stricmp( name, "coopOptionsBack" ) == 0 )
+		{
+			// OPTIONS COOPERATION: back to the page that opened it (ui_coopOptionsFrom: main, lobby, game).
+			char from[32];
+			Cvar_VariableStringBuffer( "ui_coopOptionsFrom", from, sizeof( from ) );
+			Menus_CloseAll();
+			if ( !Q_stricmp( from, "lobby" ) )
+			{
+				Menus_ActivateByName( "coopLobby" );
+			}
+			else
+			{
+				Menus_ActivateByName( "coopMenu" );	// the co-op page of the main menu, or the F6 page in game
+			}
 		}
 		else if ( Q_stricmp( name, "coopContinue" ) == 0 )
 		{
@@ -2023,6 +2095,9 @@ static qboolean UI_RunMenuScript ( const char **args )
 		else if ( Q_stricmp( name, "coopLobbyOpen" ) == 0 )
 		{
 			UI_CoopLobbyState();
+			Cvar_Set( "ui_coopLobbyMsg", "" );
+			// F6 page: a solo game not yet opened to friends can be (OUVRIR AUX AMIS)
+			Cvar_Set( "ui_coopCanHost", ( com_sv_running && com_sv_running->integer && !Cvar_VariableIntegerValue( "net_enabled" ) ) ? "1" : "0" );
 		}
 		else if ( Q_stricmp( name, "coopTeleport" ) == 0 )
 		{
@@ -2077,6 +2152,7 @@ static qboolean UI_RunMenuScript ( const char **args )
 		}
 		else if ( Q_stricmp( name, "coopLeave" ) == 0 )
 		{
+			Cvar_Set( "coop_ready", "0" );
 			Menus_CloseAll();
 			ui.Cmd_ExecuteText( EXEC_APPEND, "disconnect\n" );
 		}
@@ -2316,6 +2392,7 @@ static int UI_FeederCount(float feederID)
 	}
 	else if (feederID == FEEDER_COOP_PLAYERS)
 	{
+		UI_CoopLobbyState();	// the phase (lobby / starting) can change under the open menu
 		return CL_GetCoopLobbyCount();
 	}
 	else if (feederID == FEEDER_COOP_MODELS)

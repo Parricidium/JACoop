@@ -574,7 +574,9 @@ map's scripts, triggers and cinematic cast, and opens the lobby menu).
 ==================
 */
 static void SV_CoopLobby_f( void ) {
-	Cvar_Set( "sv_maxclients", "4" );
+	int mp = Cmd_Argc() > 1 ? atoi( Cmd_Argv( 1 ) ) : 4;
+	if ( mp < 2 || mp > 4 ) mp = 4;
+	Cvar_Set( "sv_maxclients", va( "%i", mp ) );
 	Cvar_Set( "net_enabled", "1" );
 	NET_Restart();
 	Cvar_Set( "g_coopLobby", "1" );

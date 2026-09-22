@@ -449,6 +449,7 @@ void G_CoopStoreState( gentity_t *ent );
 void G_CoopStoreAll( void );
 void G_CoopOnJoinerBegin( gentity_t *ent );
 void G_CoopForceCommand( gentity_t *ent );
+void G_CoopStartCommand( gentity_t *ent, const char *cmd );
 int G_CoopForcePointsAvailable( const gentity_t *ent );
 int G_CoopSaveState( void *buf, int bufSize );
 void G_CoopLoadState( const void *buf, int len );
