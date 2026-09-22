@@ -868,6 +868,106 @@ qboolean MenuParse_outlinecolor( itemDef_t *item)
 
 /*
 =================
+UI_CoopSkinExists
+
+coop: true when an image of that name can be loaded (jpg / png / tga, the three
+loaders of R_ImageLoader_Init). Used to fall back to the stock decor when the
+player has not dropped a file of his own.
+=================
+*/
+static qboolean UI_CoopSkinExists( const char *image )
+{
+	static const char	*exts[] = { "png", "jpg", "tga" };
+	fileHandle_t		f;
+	int					len, i;
+
+	if ( strchr( image, '.' ) )	// the cvar may already name a file with its extension
+	{
+		f = 0;
+		len = ui.FS_FOpenFile( image, &f, FS_READ );
+		if ( f )
+		{
+			ui.FS_FCloseFile( f );
+		}
+		return (qboolean)( len > 0 );
+	}
+
+	for ( i = 0; i < (int)ARRAY_LEN( exts ); i++ )
+	{
+		f = 0;
+		len = ui.FS_FOpenFile( va( "%s.%s", image, exts[i] ), &f, FS_READ );
+		if ( f )
+		{
+			ui.FS_FCloseFile( f );
+		}
+		if ( len > 0 )
+		{
+			return qtrue;
+		}
+	}
+	return qfalse;
+}
+
+/*
+=================
+UI_CoopSkinShader
+
+coop: lets the player replace the menu logo and the menu backgrounds without
+repacking zz_jacoop.pk3. Each slot points at an image name the mod does NOT
+ship (a file inside a pk3 wins over a loose file of the same name, see
+FS_AddGameDirectory), so the lookup only ever finds the player's own file:
+drop <JACoop>/base/gfx/jacoop/logo.png and the menus use it, delete it and the
+stock decor comes back. Every menu background goes through this function when
+it is parsed, so "ui_load" is enough to pick up a new file.
+=================
+*/
+typedef struct coopSkin_s
+{
+	const char	*cvarName;		// archived cvar holding the image name (no extension)
+	const char	*targets[8];	// decor shaders of the .menu files this slot replaces
+} coopSkin_t;
+
+static const coopSkin_t coopSkins[] =
+{
+	{ "ui_coopLogo",		{ "gfx/menus/jediacademy", NULL } },
+	{ "ui_coopMainBg",	{ "gfx/jacoop/menu_bg", NULL } },
+	{ "ui_coopPanelBg",	{ "gfx/jacoop/panel_bg", NULL } },
+	{ "ui_coopMenuBg",	{ "gfx/menus/main_background", "gfx/menus/charmenu", "gfx/menus/datapad",
+						  "gfx/menus/datapad2", "gfx/menus/sabermenu_back", "gfx/menus/forcemenu_back",
+						  "gfx/menus/weaponmenu_back", NULL } },
+};
+
+const char *UI_CoopSkinShader( const char *name )
+{
+	static char	image[MAX_QPATH];	// the caller registers the shader right away
+	int			i, j;
+
+	if ( !name || !name[0] || ui.Cvar_VariableValue( "ui_coopCustomSkin" ) == 0.0f )
+	{
+		return name;
+	}
+
+	for ( i = 0; i < (int)ARRAY_LEN( coopSkins ); i++ )
+	{
+		for ( j = 0; coopSkins[i].targets[j]; j++ )
+		{
+			if ( Q_stricmp( name, coopSkins[i].targets[j] ) )
+			{
+				continue;
+			}
+			ui.Cvar_VariableStringBuffer( coopSkins[i].cvarName, image, sizeof( image ) );
+			if ( image[0] && UI_CoopSkinExists( image ) )
+			{
+				return image;
+			}
+			return name;		// no file of his own: stock decor
+		}
+	}
+	return name;
+}
+
+/*
+=================
 MenuParse_background
 =================
 */
@@ -881,7 +981,7 @@ qboolean MenuParse_background( itemDef_t *item)
 		return qfalse;
 	}
 
-	menu->window.background = ui.R_RegisterShaderNoMip(buff);
+	menu->window.background = ui.R_RegisterShaderNoMip( UI_CoopSkinShader( buff ) );	// coop: user logo / backgrounds
 	return qtrue;
 }
 
@@ -4166,7 +4266,7 @@ qboolean ItemParse_background( itemDef_t *item)
 	{
 		return qfalse;
 	}
-	item->window.background = ui.R_RegisterShaderNoMip(temp);
+	item->window.background = ui.R_RegisterShaderNoMip( UI_CoopSkinShader( temp ) );	// coop: user logo / backgrounds
 	return qtrue;
 }
 
