@@ -420,6 +420,7 @@ void CL_ParseDownload( msg_t *msg );
 void CL_CoopTransferEndOfMessage( void );
 void CL_CoopTransferFrame( void );
 void CL_CoopTransferAbort( void );
+void CL_CoopCheckPaksGen( void );
 
 //====================================================================
 

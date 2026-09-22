@@ -227,6 +227,7 @@ void SV_RemoveOperatorCommands (void);
 //
 void SV_SetConfigstring( int index, const char *val );
 void SV_UpdateConfigstrings( client_t *client );	// coop
+int SV_ReliableBytesPending( const client_t *client );	// coop: unacknowledged commands, repeated in every snapshot
 void SV_GetConfigstring( int index, char *buffer, int bufferSize );
 
 void SV_SetUserinfo( int index, const char *val );

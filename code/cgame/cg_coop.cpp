@@ -97,6 +97,10 @@ static const char *CG_CoopHandField( const char *spec )
 
 static coopCharState_t	coopChar[MAX_GENTITIES];
 static qboolean			coopHostVideo = qfalse;	// the host is watching an in-game video (CG_CoopVideo_f)
+// cl_coopPaksGen the skin / model tables and the characters were built at, latched
+// again at every level start (CG_CoopReset) so that a pack loaded after this module
+// registered its graphics is always noticed (CG_CoopCheckPaksGen)
+static int				coopPaksGenSeen = -1;
 static void CG_CoopResetCamera( void );
 
 /*
@@ -534,6 +538,12 @@ static qboolean		coopAllDownShown;	// the everyone-down screen is up: no overlay
 
 void CG_CoopReset( void )
 {
+	// CG_PreInit: whatever the pack list is right now is what CG_RegisterGraphics
+	// is about to register the skins and models against. A pack that arrives after
+	// this (the joiner reconnects and FS_CoopHavePak loads a leftover coopdl_*.pk3
+	// once the host's offer comes in, well after this module has registered its
+	// graphics) then always shows up as a generation change.
+	coopPaksGenSeen = cg_coopPaksGen.integer;
 	coopAllDownShown = qfalse;
 	coopDownMax = 0;
 	memset( coopLimb, 0, sizeof( coopLimb ) );
@@ -1428,12 +1438,57 @@ The engine bumps cl_coopPaksGen when a pk3 from the host is added to the search
 path (or unloaded). Every character we built is torn down; CG_CoopEnsureCharacter
 rebuilds it from its spec at the next snapshot, this time with the real model
 instead of the stormtrooper fallback (the renderer forgot its failed lookups).
+
+The skin and model tables have to be registered again first. cgs.skins[] and
+cgs.model_draw[] were filled when the level loaded (CG_RegisterGraphics) or as
+each configstring arrived, i.e. while the host's pack was still missing, so
+every entry naming it is 0. They are not just a cache: CG_AddPacketEntities
+hands them to G2API_SetGhoul2ModelIndexes every frame, which sets each ghoul2's
+render skin to cgs.skins[mCustomSkin] - so a character rebuilt with a perfectly
+good skin is still drawn with no skin at all (the untextured grey character a
+joiner sees after a download or a reconnect) until this table holds the handle.
 ================
 */
+static void CG_CoopRegisterTablesAgain( void )
+{
+	int i, skins = 0, models = 0;
+
+	for ( i = 1; i < MAX_CHARSKINS; i++ )
+	{
+		const char *name = CG_ConfigString( CS_CHARSKINS + i );
+		if ( !name[0] )
+		{
+			continue;
+		}
+		const qhandle_t h = cgi_R_RegisterSkin( name );
+		if ( h != cgs.skins[i] )
+		{
+			cgs.skins[i] = h;
+			skins++;
+		}
+	}
+	for ( i = 1; i < MAX_MODELS; i++ )
+	{
+		const char *name = CG_ConfigString( CS_MODELS + i );
+		if ( !name[0] )
+		{
+			continue;
+		}
+		const qhandle_t h = cgi_R_RegisterModel( name );
+		if ( h != cgs.model_draw[i] )
+		{
+			cgs.model_draw[i] = h;
+			models++;
+		}
+	}
+	if ( skins || models )
+	{
+		Com_Printf( "coop: %i skin(s) and %i model(s) registered again\n", skins, models );
+	}
+}
+
 static void CG_CoopCheckPaksGen( void )
 {
-	static int	coopPaksGenSeen = -1;
-
 	if ( coopPaksGenSeen == cg_coopPaksGen.integer )
 	{
 		return;
@@ -1441,6 +1496,7 @@ static void CG_CoopCheckPaksGen( void )
 	if ( coopPaksGenSeen != -1 )
 	{
 		int n = 0;
+		CG_CoopRegisterTablesAgain();
 		for ( int i = 0; i < MAX_GENTITIES; i++ )
 		{
 			if ( coopChar[i].specIndex && cg_entities[i].gent )
