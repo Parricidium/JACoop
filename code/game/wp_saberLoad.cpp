@@ -2320,7 +2320,12 @@ void WP_SaberLoadParms( void )
 			len = COM_Compress( buffer );
 
 			if ( totallen + len >= MAX_SABER_DATA_SIZE ) {
-				G_Error( "WP_SaberLoadParms: ran out of space before reading %s\n(you must make the .sab files smaller)", holdChar  );
+				// coop: this also runs mid-game now (a saber pack that just arrived over the
+				// network, g_coop.cpp G_CoopCheckPaksGen) - dropping the session for it would
+				// be worse than missing the hilts of the last file
+				gi.FS_FreeFile( buffer );
+				gi.Printf( S_COLOR_YELLOW "WP_SaberLoadParms: plus de place avant %s, les manches suivants sont ignores\n", holdChar );
+				break;
 			}
 			strcat( marker, buffer );
 			gi.FS_FreeFile( buffer );

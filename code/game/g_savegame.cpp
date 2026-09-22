@@ -1033,6 +1033,10 @@ static void ReadGEntities(qboolean qbAutosave)
 		{
 			for (int j=iPreviousEntRead+1; j!=iEntIndex; j++)
 			{
+				if ( j > 0 && j < MAX_CLIENTS )
+				{
+					continue;	// coop: a joiner is a live connection, the save never held it
+				}
 				if ( g_entities[j].inuse )		// not actually necessary
 				{
 					G_FreeEntity(&g_entities[j]);
@@ -1243,6 +1247,10 @@ static void ReadGEntities(qboolean qbAutosave)
 		//
 		for (i=iPreviousEntRead+1; i<globals.num_entities; i++)
 		{
+			if ( i > 0 && i < MAX_CLIENTS )
+			{
+				continue;	// coop: see above
+			}
 			if ( g_entities[i].inuse )	// not actually necessary
 			{
 				G_FreeEntity(&g_entities[i]);

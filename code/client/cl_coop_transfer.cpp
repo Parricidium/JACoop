@@ -582,9 +582,10 @@ static void CL_CoopTransferListComplete( void ) {
 			continue;
 		}
 		if ( maxBytes > 0 && dl->totalBytes + dl->offer[i].size > maxBytes ) {
-			Com_Printf( "coop: les skins de l'hote depassent cl_coopTransferMaxMB (%i Mo)\n", cl_coopTransferMaxMB->integer );
-			CL_CoopTransferFail( "size", dl->offer[i].name );
-			return;
+			// coop: skip that one and take the rest (cl_coopTransferMaxMB is a total)
+			Com_Printf( S_COLOR_YELLOW "coop: %s ignore, cl_coopTransferMaxMB (%i Mo) serait depasse\n",
+				dl->offer[i].name, cl_coopTransferMaxMB->integer );
+			continue;
 		}
 		dl->need[dl->needCount++] = dl->offer[i].checksum;
 		dl->totalBytes += dl->offer[i].size;

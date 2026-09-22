@@ -209,6 +209,10 @@ static void UI_CoopEndLevelState( void )
 	phase[0] = CL_GetCoopEndPhase();
 	phase[1] = '\0';
 	Cvar_Set( "ui_coopEndPhase", phase );
+	if ( phase[0] != 'L' )
+	{	// coop: a new loadout phase gives the host its point again
+		Cvar_Set( "ui_coopEndForceDone", "0" );
+	}
 	Cvar_Set( "ui_coopEndTitle", CL_GetCoopEndHeader( 1 ) );
 	Cvar_Set( "ui_coopEndStats", CL_GetCoopEndHeader( 2 ) );
 	Cvar_Set( "ui_coopEndInfo", CL_GetCoopEndHeader( 3 ) );
@@ -6234,6 +6238,13 @@ static void UI_AffectForcePowerLevel ( const char *forceName )
 		return;
 	}
 
+	if ( pState && Cvar_VariableIntegerValue( "ui_coopEndForceDone" ) )
+	{	// coop: the host already spent its point at this end of mission (the panel can be
+		// reopened, the campaign still gives one point per mission - joiners are checked
+		// by the host itself in G_CoopForceCommand)
+		return;
+	}
+
 	// Increment power level.
 	DC->startLocalSound(uiInfo.uiDC.Assets.forceChosenSound, CHAN_AUTO );
 
@@ -6244,6 +6255,10 @@ static void UI_AffectForcePowerLevel ( const char *forceName )
 		pState->forcePowerLevel[powerEnums[forcePowerI].powerEnum]++;	// Increment it
 		pState->forcePowersKnown |= ( 1 << powerEnums[forcePowerI].powerEnum );
 		UI_CoopSendForce( pState );	// coop
+		if ( !Q_stricmp( Cvar_VariableString( "ui_coopForceFrom" ), "endlevel" ) )
+		{	// coop: one point per mission for the host as well
+			Cvar_Set( "ui_coopEndForceDone", "1" );
+		}
 		forcelevel = pState->forcePowerLevel[powerEnums[forcePowerI].powerEnum];
 	}
 	else

@@ -615,6 +615,12 @@ void SV_CoopTransferFrame( void ) {
 		if ( up->state != CUL_LISTED && up->state != CUL_RECEIVING ) {
 			continue;
 		}
+		if ( up->state == CUL_LISTED && up->lastBlockTime && now - up->lastBlockTime > COOP_UP_TIMEOUT_MS ) {
+			Com_Printf( "coop: %s a annonce ses mods mais n'envoie rien (timeout)\n", cl->name );
+			up->state = CUL_FAILED;
+			SV_CoopTransferTagUserinfo( cl );
+			continue;
+		}
 		if ( up->state == CUL_RECEIVING && now - up->lastBlockTime > COOP_UP_TIMEOUT_MS ) {
 			Com_Printf( "coop: envoi de %s interrompu (timeout)\n", cl->name );
 			SV_CoopUploadClose( cl, qtrue );
@@ -786,6 +792,7 @@ void SV_CoopUpList_f( client_t *cl ) {
 	if ( up->state != CUL_LISTED ) {
 		memset( up, 0, sizeof( *up ) );
 		up->state = CUL_LISTED;
+		up->lastBlockTime = Sys_Milliseconds();	// coop: the announce itself starts the timeout
 	}
 	up->listTotal = total;
 	for ( i = 3; i < Cmd_Argc() && up->offerCount < total; i++ ) {
@@ -831,11 +838,32 @@ void SV_CoopUpList_f( client_t *cl ) {
 	up->wantCount = 0;
 	up->totalBytes = up->doneBytes = 0;
 	for ( i = 0; i < up->offerCount; i++ ) {
+		int j;
+
 		if ( FS_CoopHavePak( up->offer[i].checksum ) ) {
 			continue;
 		}
-		if ( up->offer[i].size > sv_coopUploadMaxMB->integer * 1024 * 1024
-			|| up->totalBytes + up->offer[i].size > sv_coopUploadMaxMB->integer * 1024 * 1024 ) {
+		for ( j = 0; j < sv_maxclients->integer; j++ ) {	// coop: another joiner is already sending this one
+			const coopUpload_t *other = &svs.clients[j].coopup;
+			int k;
+
+			if ( &svs.clients[j] == cl || other->state != CUL_RECEIVING ) {
+				continue;
+			}
+			for ( k = 0; k < other->wantCount; k++ ) {
+				if ( other->want[k] == up->offer[i].checksum ) {
+					break;
+				}
+			}
+			if ( k < other->wantCount ) {
+				break;
+			}
+		}
+		if ( j < sv_maxclients->integer ) {
+			continue;
+		}
+		if ( (int64_t)up->offer[i].size > (int64_t)sv_coopUploadMaxMB->integer * 1024 * 1024
+			|| (int64_t)up->totalBytes + up->offer[i].size > (int64_t)sv_coopUploadMaxMB->integer * 1024 * 1024 ) {
 			Com_Printf( S_COLOR_YELLOW "coop: %s de %s refuse (%.1f Mo, plus que sv_coopUploadMaxMB)\n",
 				up->offer[i].name, cl->name, up->offer[i].size / ( 1024.0f * 1024.0f ) );
 			continue;

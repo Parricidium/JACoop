@@ -469,13 +469,16 @@ void G_CoopNote( const char *text )
 	{	// alone: the log stays exactly the stock game's
 		return;
 	}
-	if ( !strcmp( text, coopLastNote ) && level.time >= coopLastNoteTime
+	char	cur[sizeof( coopLastNote )];
+
+	Q_strncpyz( cur, text, sizeof( cur ) );	// compare what we would store, not the full text
+	if ( !strcmp( cur, coopLastNote ) && level.time >= coopLastNoteTime
 		&& level.time - coopLastNoteTime < COOP_NOTE_REPEAT )
 	{	// (level.time restarts on a level change, hence the lower bound: a note
 		// must not be swallowed on the first frames of the next mission)
 		return;
 	}
-	Q_strncpyz( coopLastNote, text, sizeof( coopLastNote ) );
+	Q_strncpyz( coopLastNote, cur, sizeof( coopLastNote ) );
 	coopLastNoteTime = level.time;
 	gi.Printf( "coop: note: %s\n", text );
 }
@@ -793,6 +796,14 @@ static void G_CoopPlaceFindSpot( const vec3_t base, float yawStart, vec3_t out )
 			{
 				continue;
 			}
+			{	// and it must be reachable from the mate: no wall in between
+				trace_t	path;
+				gi.trace( &path, (float *)base, NULL, NULL, cand, ENTITYNUM_NONE, MASK_SOLID, (EG2_Collision)0, 0 );
+				if ( path.fraction < 1.0f )
+				{
+					continue;
+				}
+			}
 			G_CoopPlaceDropToFloor( cand );
 			if ( G_CoopPlaceIsTaken( cand ) )
 			{
@@ -901,6 +912,10 @@ static qboolean G_CoopUnstickNudge( gentity_t *ent, const vec3_t dir, float dist
 
 static qboolean G_CoopUnstickCandidate( const gentity_t *ent )
 {
+	if ( ent && ent->client && ent->client->ps.groundEntityNum == ENTITYNUM_NONE )
+	{	// in the air (a jump, a fall, a lift): let physics settle it, never push
+		return qfalse;
+	}
 	if ( !ent || !ent->client || !ent->inuse || ent->health <= 0 )
 	{
 		return qfalse;
@@ -1666,7 +1681,7 @@ void G_CoopClientBegin( const gentity_t *ent )
 		// G_CoopNote). Start writing qconsole.log, flushed line by line, so the last
 		// lines say where it was. Solo never gets here, so solo keeps the stock
 		// behaviour of writing nothing.
-		if ( !gi.cvar( "logfile", "0", CVAR_TEMP )->integer )
+		if ( gi.cvar( "g_coopLog", "1", CVAR_ARCHIVE )->integer && !gi.cvar( "logfile", "0", CVAR_TEMP )->integer )
 		{
 			gi.cvar_set( "logfile", "2" );
 			gi.Printf( "coop: logging this session to base/qconsole.log (a crash leaves its last lines there)\n" );
@@ -2414,6 +2429,14 @@ void G_CoopCheckPaksGen( void )
 		return;
 	}
 	seen = gen;
+	if ( !G_CoopIsLobby() )
+	{	// mid-mission a pack can still arrive (a joiner connecting in game): parse the new
+		// hilts, but do not rebuild everyone's character in the middle of a fight - the next
+		// level (or the next character change) picks the models up
+		WP_SaberLoadParms();
+		gi.Printf( "coop: pk3 list changed (gen %i) in game, hilts reloaded\n", gen );
+		return;
+	}
 	// the hilt definitions are read once at InitGame into SaberParms; a pack that
 	// arrives now carries ext_data/sabers/*.sab nobody has parsed yet, so the
 	// hilt a player picked from it would fall back to the default one
