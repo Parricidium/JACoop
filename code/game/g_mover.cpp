@@ -2624,16 +2624,31 @@ void security_panel_use( gentity_t *self, gentity_t *other, gentity_t *activator
 	{
 		return;
 	}
-	if ( INV_SecurityKeyCheck( activator, self->message ) )
+	// coop: players cannot hand keys over, so any connected teammate holding
+	// the right key lets the panel open for whoever uses it
+	gentity_t *holder = activator;
+	if ( !INV_SecurityKeyCheck( activator, self->message ) && G_CoopIsPlayer( activator ) )
+	{
+		for ( int i = 0; i < MAX_CLIENTS; i++ )
+		{
+			gentity_t *mate = G_CoopPlayerSlot( i );
+			if ( mate && mate != activator && INV_SecurityKeyCheck( mate, self->message ) )
+			{
+				holder = mate;
+				break;
+			}
+		}
+	}
+	if ( INV_SecurityKeyCheck( holder, self->message ) )
 	{//congrats!
 		gi.SendServerCommand( -1, "cp @SP_INGAME_SECURITY_KEY_UNLOCKEDDOOR" );
 		//use targets
 		G_UseTargets( self, activator );
 		//take key
-		INV_SecurityKeyTake( activator, self->message );
-		if ( activator->ghoul2.size() )
+		INV_SecurityKeyTake( holder, self->message );
+		if ( holder->ghoul2.size() )
 		{
-			gi.G2API_SetSurfaceOnOff( &activator->ghoul2[activator->playerModel], "l_arm_key", 0x00000002 );
+			gi.G2API_SetSurfaceOnOff( &holder->ghoul2[holder->playerModel], "l_arm_key", 0x00000002 );
 		}
 		//FIXME: maybe set frame on me to have key sticking out?
 		//self->s.frame = 1;

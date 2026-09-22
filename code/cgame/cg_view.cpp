@@ -2071,7 +2071,7 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 		Vehicle_t *pVeh = NULL;
 
 		// Mouse turns slower.
-		if ( !cg_remoteClient && ( pVeh = G_IsRidingVehicle( &g_entities[cg.snap->ps.clientNum] ) ) != NULL )	// coop: vehicle info lives server-side
+		if ( ( pVeh = G_IsRidingVehicle( &g_entities[cg.snap->ps.clientNum] ) ) != NULL )	// coop: a remote rider holds a placeholder Vehicle_t (cg_coop.cpp)
 		{
 			if ( pVeh->m_pVehicleInfo->mousePitch )
 			{

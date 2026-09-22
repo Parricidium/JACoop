@@ -26,7 +26,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 // wire. A serverless remote client has none of that, so the host packs each
 // character's appearance into a "model spec" configstring
 //
-//     model;skin;surfOff;surfOn;saber1;colors1;saber2;colors2;class;r,g,b,a;hand
+//     model;skin;surfOff;surfOn;saber1;colors1;saber2;colors2;class;r,g,b,a;hand;vehicle
 //
 // (';' because JA's three-part skins already use '|'; hand = "L:path" or
 // "R:path", a cutscene prop bolted to that hand, see G_CoopRecordHandModel)
@@ -390,6 +390,8 @@ void G_CoopUpdateAppearance( gentity_t *ent )
 	const byte *rgba = ent->client->renderInfo.customRGBA;
 	Q_strcat( spec, sizeof( spec ), va( ";%i,%i,%i,%i", rgba[0], rgba[1], rgba[2], rgba[3] ) );
 	Q_strcat( spec, sizeof( spec ), va( ";%s", a->handModel ) );
+	// vehicles: the .veh name, so the remote cgame can hold a placeholder Vehicle_t (by name: vehicle indices differ per process)
+	Q_strcat( spec, sizeof( spec ), va( ";%s", ( ent->m_pVehicle && ent->m_pVehicle->m_pVehicleInfo && ent->m_pVehicle->m_pVehicleInfo->name ) ? ent->m_pVehicle->m_pVehicleInfo->name : "" ) );
 
 	if ( !strcmp( spec, a->lastSpec ) )
 	{
@@ -539,6 +541,7 @@ they died with; the mission only fails once nobody is left alive.
 #define COOP_RESPAWN_DELAY	4000
 
 qboolean G_CoopIsUp( const gentity_t *ent );	// defined with the downed/revive code below
+static void G_CoopAfterRespawn( gentity_t *ent );	// defined with the camera code below
 
 static int				coopRespawnTime[MAX_CLIENTS];
 static playerState_t	coopDeathState[MAX_CLIENTS];	// loadout snapshot taken at death
@@ -595,7 +598,14 @@ qboolean G_CoopPlayerDied( gentity_t *self )
 	const int delay = ( G_CoopDownedActive() && g_coopRespawnDelay->integer > 0 ) ? g_coopRespawnDelay->integer * 1000 : COOP_RESPAWN_DELAY;
 	coopDeathState[self->s.number] = self->client->ps;
 	coopRespawnTime[self->s.number] = level.time + delay;
-	gi.SendServerCommand( -1, "print \"%s ^3est tombe, retour dans %i s...\n\"", self->client->pers.netname, delay / 1000 );
+	if ( G_CoopLivingTeammate( self ) )
+	{
+		gi.SendServerCommand( -1, "print \"%s ^3est tombe, retour dans %i s...\n\"", self->client->pers.netname, delay / 1000 );
+	}
+	else
+	{	// nobody is up: the all-down screen says what happens next
+		gi.SendServerCommand( -1, "print \"%s ^3est tombe.\n\"", self->client->pers.netname );
+	}
 	return qtrue;
 }
 
@@ -673,6 +683,51 @@ void G_CoopGatherJoiners( qboolean all )
 	}
 }
 
+/*
+================
+G_CoopFollowHostTeleport
+
+A script moved "player" (SET_ORIGIN / SET_COPY_ORIGIN, or a cutscene that
+ended somewhere else): the campaign only ever relocates the host, so the
+joiners left where they stood would be in the wrong room. Bring the ones
+that are not beside it any more.
+================
+*/
+void G_CoopFollowHostTeleport( const vec3_t from )
+{
+	gentity_t *host = &g_entities[0];
+	if ( !host->inuse || !host->client || host->health <= 0 )
+	{
+		return;
+	}
+	if ( Distance( from, host->currentOrigin ) < 128.0f )
+	{
+		return;	// a script nudge, not a relocation
+	}
+	for ( int i = 1; i < MAX_CLIENTS; i++ )
+	{
+		gentity_t *ent = &g_entities[i];
+		if ( !ent->inuse || !ent->client || ent->client->pers.connected != CON_CONNECTED || ent->health <= 0 )
+		{
+			continue;	// (a downed joiner keeps health 1 and follows: it stays revivable beside the host)
+		}
+		if ( ent->client->ps.eFlags & EF_LOCKED_TO_WEAPON )
+		{
+			continue;
+		}
+		if ( ent->s.m_iVehicleNum )
+		{
+			continue;	// never rip a rider off its swoop
+		}
+		if ( Distance( ent->currentOrigin, host->currentOrigin ) < 256.0f && gi.inPVS( host->currentOrigin, ent->currentOrigin ) )
+		{
+			continue;
+		}
+		G_CoopPlaceBeside( ent, host );
+		gi.Printf( "coop: %s follows the host's script teleport\n", ent->client->pers.netname );
+	}
+}
+
 // "coop_tp": a joiner asks to be brought beside the host (stuck behind a locked
 // door...); the host asks to be brought beside its nearest joiner (a script
 // locked a door with the joiner on the far side).
@@ -726,6 +781,11 @@ static void G_CoopRespawn( gentity_t *ent )
 	ps->stats[STAT_WEAPONS] = dead->stats[STAT_WEAPONS] | ( 1 << WP_NONE );
 	memcpy( ps->ammo, dead->ammo, sizeof( ps->ammo ) );
 	memcpy( ps->inventory, dead->inventory, sizeof( ps->inventory ) );
+	// security keys are a count in inventory[] plus the key names the door
+	// panels compare against (INV_SecurityKeyCheck): bring the names back too,
+	// otherwise the panel answers "wrong key" forever and the level is blocked
+	memcpy( ps->security_key_message, dead->security_key_message, sizeof( ps->security_key_message ) );
+	ps->stats[STAT_ITEMS] = dead->stats[STAT_ITEMS];
 	memcpy( ps->forcePowerLevel, dead->forcePowerLevel, sizeof( ps->forcePowerLevel ) );
 	ps->forcePowersKnown = dead->forcePowersKnown;
 	ps->forcePowerMax = dead->forcePowerMax;
@@ -742,13 +802,7 @@ static void G_CoopRespawn( gentity_t *ent )
 	// come back beside a living teammate rather than at the map start
 	G_CoopPlaceBeside( ent, mate );
 	ent->health = ps->stats[STAT_HEALTH] = ps->stats[STAT_MAX_HEALTH];
-
-	// a falling death faded this player's screen to black (g_trigger.cpp, g_target.cpp)
-	{
-		extern void G_CoopFadeClient( const gentity_t *ent, const vec4_t dst, int ms );
-		const vec4_t clear = { 0, 0, 0, 0 };
-		G_CoopFadeClient( ent, clear, 500 );
-	}
+	G_CoopAfterRespawn( ent );
 }
 
 // run once per server frame
@@ -769,6 +823,44 @@ void G_CoopRunRespawns( void )
 		if ( ent->inuse && ent->client && ent->client->pers.connected == CON_CONNECTED && ent->health <= 0 )
 		{
 			G_CoopRespawn( ent );
+			gi.SendServerCommand( -1, "print \"^2%s ^7est de retour\n\"", ent->client->pers.netname );
+		}
+	}
+}
+
+/*
+================
+G_CoopRespawnPendingNow
+
+A level transition is about to be recorded: SV_Player_EndOfLevelSave
+snapshots every client's playerState and KEEP_PREV spawn points import
+STAT_HEALTH as is, so anyone still waiting for a co-op respawn must come
+back before it runs (the "maptransition" command executes before the next
+G_RunFrame, G_CoopRunRespawns would be too late).
+================
+*/
+static void G_CoopRevive( gentity_t *target, gentity_t *reviver );	// downed/revive code below
+
+void G_CoopRespawnPendingNow( void )
+{
+	for ( int slot = 0; slot < MAX_CLIENTS; slot++ )
+	{
+		gentity_t *downed = &g_entities[slot];
+		if ( G_CoopIsDowned( downed ) )
+		{	// a downed player would carry its 1 hp into the next level: stand it up
+			G_CoopRevive( downed, NULL );
+			gi.Printf( "coop: %s stood up for the level transition\n", downed->client->pers.netname );
+		}
+		if ( !coopRespawnTime[slot] )
+		{
+			continue;
+		}
+		coopRespawnTime[slot] = 0;
+		gentity_t *ent = &g_entities[slot];
+		if ( ent->inuse && ent->client && ent->client->pers.connected == CON_CONNECTED && ent->health <= 0 )
+		{
+			G_CoopRespawn( ent );
+			gi.Printf( "coop: %s respawned for the level transition\n", ent->client->pers.netname );
 		}
 	}
 }
@@ -812,6 +904,7 @@ A fade meant for the host alone is not broadcast by G_CoopUpdateCamera,
 until the next script fade (CameraFade), which is for everyone.
 ================
 */
+void G_CoopFadePlayer( gentity_t *ent, const vec4_t src, const vec4_t dst, int ms );
 static qboolean coopFadeLocal = qfalse;
 
 void G_CoopFadeClient( const gentity_t *ent, const vec4_t dst, int ms )
@@ -820,16 +913,9 @@ void G_CoopFadeClient( const gentity_t *ent, const vec4_t dst, int ms )
 	{
 		return;
 	}
-	if ( ent->s.number == 0 )
-	{
-		vec4_t src, dest;
-		VectorCopy4( client_camera.fade_color, src );
-		VectorCopy4( dst, dest );
-		CGCam_Fade( src, dest, ms );
-		coopFadeLocal = qtrue;
-		return;
-	}
-	gi.SendServerCommand( ent->s.number, "fade %g %g %g %g %i", dst[0], dst[1], dst[2], dst[3], ms );
+	vec4_t src;
+	VectorCopy4( client_camera.fade_color, src );
+	G_CoopFadePlayer( (gentity_t *)ent, src, dst, ms );	// (marks a host-local fade below)
 }
 
 // a script fade (CQuake3GameInterface::CameraFade) is for everyone
@@ -837,6 +923,7 @@ void G_CoopFadeShared( void )
 {
 	coopFadeLocal = qfalse;
 }
+static vec3_t coopCameraHostOrigin;					// where the host stood when the cutscene started
 
 void G_CoopUpdateCamera( void )
 {
@@ -849,6 +936,8 @@ void G_CoopUpdateCamera( void )
 		{
 			G_FreeEntity( coopCameraEnt );
 			coopCameraEnt = NULL;
+			// the cutscene may have relocated the host (ROFF, SET_ORIGIN during the fade...)
+			G_CoopFollowHostTeleport( coopCameraHostOrigin );
 		}
 		coopCameraWasIn = qfalse;
 		return;
@@ -856,6 +945,11 @@ void G_CoopUpdateCamera( void )
 
 	if ( !coopCameraEnt || !coopCameraEnt->inuse || coopCameraEnt->s.eType != ET_COOPCAMERA )
 	{
+		// a cutscene starts: scripts lock doors behind the host and drive the
+		// story from where it stands. A joiner left out of sight (a door that
+		// closed on it, a fall, a detour) would be stranded, so bring it along.
+		G_CoopGatherJoiners( qfalse );
+		VectorCopy( g_entities[0].currentOrigin, coopCameraHostOrigin );
 		coopCameraEnt = G_Spawn();
 		if ( !coopCameraEnt )
 		{
@@ -960,6 +1054,49 @@ void G_CoopShakeNear( const vec3_t origin, float perUnit, float range, int durat
 
 /*
 ================
+Screen fades that belong to one player
+
+A falling death (trigger_hurt FALLING, target_kill) fades the screen of the
+player who fell: the host's own cgame for slot 0 (game and cgame are one
+module here), a "fade" server command for a remote client. The respawn
+fades back in the same way.
+================
+*/
+void G_CoopFadePlayer( gentity_t *ent, const vec4_t src, const vec4_t dst, int ms )
+{
+	if ( !G_CoopIsPlayer( ent ) )
+	{
+		return;
+	}
+	if ( ent->s.number == 0 )
+	{
+		coopFadeLocal = qtrue;
+		CGCam_Fade( (float *)src, (float *)dst, ms );
+	}
+	else
+	{
+		gi.SendServerCommand( ent->s.number, "fade %i %g %g %g %g %g %g %g %g", ms, src[0], src[1], src[2], src[3], dst[0], dst[1], dst[2], dst[3] );
+	}
+}
+
+void G_CoopFadeInPlayer( gentity_t *ent, int ms )
+{
+	if ( !G_CoopIsPlayer( ent ) )
+	{
+		return;
+	}
+	if ( ent->s.number == 0 )
+	{
+		CG_CoopFadeIn( ms );
+	}
+	else
+	{
+		gi.SendServerCommand( ent->s.number, "fadein %i", ms );
+	}
+}
+
+/*
+================
 G_CoopMirrorCvars
 
 The cinematic skip (g_active.cpp G_StartCinematicSkip, CGCam_Disable) and
@@ -999,6 +1136,84 @@ void G_CoopMirrorCvars( void )
 	}
 }
 
+/*
+================
+Rider / gunner feedback routed to the right client
+
+Vehicles and emplaced guns switch the rider's view, weapon selection and
+print "press USE to exit" straight into the host's cgame. For a remote
+client the same goes through reliable commands ("tp", "wp", "cp").
+================
+*/
+void G_CoopRiderThirdPerson( gentity_t *rider, qboolean on )
+{
+	if ( !G_CoopIsPlayer( rider ) )
+	{
+		return;
+	}
+	if ( rider->s.number == 0 )
+	{
+		gi.cvar_set( "cg_thirdperson", on ? "1" : "0" );
+	}
+	else
+	{
+		gi.SendServerCommand( rider->s.number, "tp %i", on ? 1 : 0 );
+	}
+}
+
+void G_CoopRiderCenterPrint( gentity_t *rider, const char *str, float yFrac )
+{
+	if ( !G_CoopIsPlayer( rider ) )
+	{
+		return;
+	}
+	if ( rider->s.number == 0 )
+	{
+		CG_CenterPrint( str, SCREEN_HEIGHT * yFrac );
+	}
+	else
+	{
+		gi.SendServerCommand( rider->s.number, "cp %s %g", str, yFrac );
+	}
+}
+
+extern void CG_ChangeWeapon( int num );
+void G_CoopRiderWeapon( gentity_t *rider, int wp )
+{
+	if ( !G_CoopIsPlayer( rider ) )
+	{
+		return;
+	}
+	if ( rider->s.number == 0 )
+	{
+		CG_ChangeWeapon( wp );
+	}
+	else
+	{
+		gi.SendServerCommand( rider->s.number, "wp %i", wp );
+	}
+}
+
+// the host's cgame state after a co-op respawn: no death fade, no locked camera
+static void G_CoopAfterRespawn( gentity_t *ent )
+{
+	if ( in_camera )
+	{
+		return;
+	}
+	G_CoopFadeInPlayer( ent, 700 );
+	if ( ent->s.number == 0 )
+	{
+		cg.overrides.active &= ~CG_OVERRIDE_3RD_PERSON_CDP;
+		cg.overrides.thirdPersonCameraDamp = 0;
+	}
+	else if ( client_camera.fade_color[3] > 0.0f && !cg.missionStatusShow && !cg.missionStatusDeadTime )
+	{	// a script death fade (t1_rail/death_fade) tripped by the joiner landed on the
+		// alive host's screen; outside a cutscene it has no purpose once the joiner is back
+		CG_CoopFadeIn( 700 );
+	}
+}
+
 // forget the camera entity when the level goes away
 void G_CoopResetCamera( void )
 {
@@ -1007,6 +1222,7 @@ void G_CoopResetCamera( void )
 	coopCameraEnt = NULL;
 	coopCameraWasIn = qfalse;
 	coopFadeLocal = qfalse;
+	VectorClear( coopCameraHostOrigin );
 	memset( coopMissionFailedSent, 0, sizeof( coopMissionFailedSent ) );
 	memset( coopRespawnTime, 0, sizeof( coopRespawnTime ) );
 	G_CoopResetDowned();
@@ -1037,9 +1253,8 @@ void G_CoopUpdateMissionFailed( void )
 		if ( !coopMissionFailedSent[i] && ent->inuse && ent->client && ent->client->pers.connected == CON_CONNECTED )
 		{
 			coopMissionFailedSent[i] = qtrue;
-			gi.SendServerCommand( i, "mf %i", statusTextIndex );
-			gi.SendServerCommand( i, "cad -1" );
-			gi.SendServerCommand( i, "coopmenu coopAllDownClient" );
+			gi.SendServerCommand( i, "cad -1" );				// no downed overlay under the screen
+			gi.SendServerCommand( i, "mf %i", statusTextIndex );	// CG_MissionFailed opens coopAllDownClient with the reason
 		}
 	}
 }
@@ -1107,9 +1322,13 @@ typedef struct coopDown_s {
 } coopDown_t;
 
 static coopDown_t	coopDown[MAX_CLIENTS];
+static qboolean		coopPendingAutosave;	// a target_autosave fired with the host down (deferred checkpoint below)
+static void G_CoopRunDeferredAutosave( void );
 static int			coopAllDownTime;		// level.time nobody was up any more, 0 = someone is
 static int			coopAllDownLastSec = -1;
 static int			coopBleedingOutNum = -1;	// the player G_CoopDownedFrame is killing for real right now
+static int			coopReloadTime;			// level.time the checkpoint reload was asked (0 = none)
+static int			coopReloadTries;
 
 cvar_t	*g_coopDowned;
 cvar_t	*g_coopBleedOut;
@@ -1124,7 +1343,7 @@ void G_CoopInitDownedCvars( void )
 	g_coopDowned = gi.cvar( "g_coopDowned", "1", CVAR_ARCHIVE );
 	g_coopBleedOut = gi.cvar( "g_coopBleedOut", "60", CVAR_ARCHIVE );
 	g_coopReviveTime = gi.cvar( "g_coopReviveTime", "3", CVAR_ARCHIVE );
-	g_coopReviveRange = gi.cvar( "g_coopReviveRange", "80", CVAR_ARCHIVE );
+	g_coopReviveRange = gi.cvar( "g_coopReviveRange", "80", CVAR_ARCHIVE|CVAR_SERVERINFO );	// serverinfo: the HUD prompt uses the same range
 	g_coopReviveHealth = gi.cvar( "g_coopReviveHealth", "40", CVAR_ARCHIVE );
 	g_coopRespawnDelay = gi.cvar( "g_coopRespawnDelay", "10", CVAR_ARCHIVE );
 	g_coopAllDownAuto = gi.cvar( "g_coopAllDownAuto", "20", CVAR_ARCHIVE );
@@ -1141,6 +1360,9 @@ void G_CoopResetDowned( void )
 	coopAllDownTime = 0;
 	coopAllDownLastSec = -1;
 	coopBleedingOutNum = -1;
+	coopPendingAutosave = qfalse;
+	coopReloadTime = 0;
+	coopReloadTries = 0;
 }
 
 // downed players exist only in a real co-op game
@@ -1246,11 +1468,15 @@ qboolean G_CoopTryDown( gentity_t *targ, gentity_t *attacker, int mod, int dflag
 		return qfalse;
 	}
 	if ( mod == MOD_SUICIDE || mod == MOD_SNIPER || mod == MOD_CRUSH || mod == MOD_TRIGGER_HURT
+		|| mod == MOD_LAVA || mod == MOD_SLIME || mod == MOD_WATER		// no lying down in liquids
+		|| ( targ->client->ps.eFlags & EF_LOCKED_TO_WEAPON )				// dead on an emplaced gun: RunEmplacedWeapon ejects the body (D7)
+		|| ( targ->client->ps.eFlags & ( EF_FORCE_GRIPPED|EF_FORCE_DRAINED ) )	// held in the air by a gripper (D12)
 		|| targ->s.m_iVehicleNum != 0
 		|| ( targ->client->ps.eFlags & ( EF_HELD_BY_RANCOR|EF_HELD_BY_WAMPA|EF_HELD_BY_SAND_CREATURE ) )
 		|| in_camera
-		|| ( mod == MOD_FALLING && targ->client->ps.groundEntityNum == ENTITYNUM_NONE ) )
-	{	// no way to lie on the ground there: a real death
+		|| ( mod == MOD_FALLING && targ->client->ps.groundEntityNum == ENTITYNUM_NONE )
+		|| ( attacker && attacker->classname && !Q_stricmp( attacker->classname, "trigger_hurt" ) ) )
+	{	// no way to lie on the ground there (a pit floor is out of reach for a revive): a real death
 		return qfalse;
 	}
 
@@ -1405,8 +1631,8 @@ void G_CoopDownedThink( gentity_t *ent, usercmd_t *ucmd )
 		return;
 	}
 
-	// standing: reviving someone?
-	const qboolean	key = (qboolean)( ( ucmd->buttons & BUTTON_COOP_REVIVE ) != 0 );
+	// standing: reviving someone? (the use key works too, for a player whose revive key is taken)
+	const qboolean	key = (qboolean)( ( ucmd->buttons & ( BUTTON_COOP_REVIVE|BUTTON_USE ) ) != 0 );
 	const qboolean	moving = (qboolean)( ucmd->forwardmove || ucmd->rightmove || ucmd->upmove );
 	const float		range = g_coopReviveRange->value > 0 ? g_coopReviveRange->value : 80.0f;
 
@@ -1429,9 +1655,9 @@ void G_CoopDownedThink( gentity_t *ent, usercmd_t *ucmd )
 			G_CoopRevive( target, ent );
 			return;
 		}
-		// hold the kneeling pose, no moves, no shots
+		// hold the kneeling pose, no moves, no shots, and no door/panel use meanwhile
 		ucmd->forwardmove = ucmd->rightmove = ucmd->upmove = 0;
-		ucmd->buttons &= ~( BUTTON_ATTACK|BUTTON_ALT_ATTACK|BUTTON_USE_FORCE|BUTTON_FORCE_LIGHTNING|BUTTON_FORCE_DRAIN|BUTTON_FORCEGRIP );
+		ucmd->buttons &= ~( BUTTON_ATTACK|BUTTON_ALT_ATTACK|BUTTON_USE_FORCE|BUTTON_FORCE_LIGHTNING|BUTTON_FORCE_DRAIN|BUTTON_FORCEGRIP|BUTTON_USE );
 		ps->weaponTime = 200;
 		if ( ps->legsAnim != BOTH_FORCEHEAL_START )
 		{
@@ -1478,6 +1704,7 @@ void G_CoopDownedThink( gentity_t *ent, usercmd_t *ucmd )
 		coopDown[best->s.number].reviveStartTime = level.time;
 		NPC_SetAnim( ent, SETANIM_BOTH, BOTH_FORCEHEAL_START, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
 		ucmd->forwardmove = ucmd->rightmove = ucmd->upmove = 0;
+		ucmd->buttons &= ~BUTTON_USE;
 		G_CoopSetReviveStats( ent, 1, best->s.number );
 		G_CoopSetReviveStats( best, 1, ent->s.number );
 	}
@@ -1494,6 +1721,8 @@ stats, and the "everyone is down" flow.
 void G_CoopDownedFrame( void )
 {
 	const int frame = level.time - level.previousTime;
+
+	G_CoopRunDeferredAutosave();
 
 	for ( int i = 0; i < MAX_CLIENTS; i++ )
 	{
@@ -1528,9 +1757,29 @@ void G_CoopDownedFrame( void )
 	}
 
 	// everyone down (or dead): offer the last checkpoint, reload it after a while
-	if ( !G_CoopDownedActive() || in_camera || coopAllDownTime < 0 )
+	if ( coopAllDownTime < 0 )
+	{	// the reload is on its way; a failed load (no checkpoint yet) leaves us here
+		if ( coopReloadTime && level.time - coopReloadTime > 3000 )
+		{
+			coopReloadTime = level.time;
+			coopReloadTries++;
+			if ( coopReloadTries == 1 )
+			{
+				gi.Printf( "coop: the checkpoint did not load, loading the level start instead\n" );
+				gi.SendServerCommand( -1, "print \"^3Pas de point de controle : retour au debut du niveau...\n\"" );
+				gi.SendConsoleCommand( "load current\n" );
+			}
+			else
+			{
+				gi.Printf( "coop: no save to reload, restarting the map\n" );
+				gi.SendConsoleCommand( va( "map %s\n", level.mapname ) );
+			}
+		}
+		return;
+	}
+	if ( !G_CoopDownedActive() || in_camera )
 	{
-		return;	// (< 0: the reload is on its way)
+		return;
 	}
 	if ( G_CoopAnyPlayerUp() )
 	{
@@ -1568,6 +1817,47 @@ void G_CoopDownedFrame( void )
 	}
 }
 
+/*
+================
+Deferred checkpoint
+
+target_autosave fired while the host was downed or dead: the save would
+record it with 1 hp (or none) and the all-down reload would loop on it.
+Remember the checkpoint and write it as soon as the host is up again.
+================
+*/
+qboolean G_CoopDeferAutosave( void )
+{
+	const gentity_t *host = &g_entities[0];
+	if ( !G_CoopIsDowned( host ) && !G_CoopRespawnPending( host ) && !( host->inuse && host->client && host->health <= 0 ) )
+	{
+		return qfalse;
+	}
+	if ( !coopPendingAutosave )
+	{
+		coopPendingAutosave = qtrue;
+		gi.SendServerCommand( -1, "print \"^3Point de controle en attente : l'hote est a terre\n\"" );
+		gi.Printf( "coop: autosave deferred, the host is down\n" );
+	}
+	return qtrue;
+}
+
+static void G_CoopRunDeferredAutosave( void )
+{
+	if ( !coopPendingAutosave || in_camera )
+	{
+		return;
+	}
+	const gentity_t *host = &g_entities[0];
+	if ( !G_CoopIsUp( host ) || G_CoopRespawnPending( host ) )
+	{
+		return;
+	}
+	coopPendingAutosave = qfalse;
+	gi.Printf( "coop: writing the deferred autosave\n" );
+	gi.SendConsoleCommand( "wait 2;save auto\n" );
+}
+
 // the host reloads the last checkpoint (all-down screen, or its button)
 void G_CoopReloadCheckpoint( void )
 {
@@ -1576,6 +1866,7 @@ void G_CoopReloadCheckpoint( void )
 		return;	// already asked
 	}
 	coopAllDownTime = -1;
+	coopReloadTime = level.time;
 	gi.SendServerCommand( -1, "print \"^3Retour au dernier point de controle...\n\"" );
 	gi.Printf( "coop: reloading the last checkpoint\n" );
 	gi.SendConsoleCommand( "load *respawn\n" );

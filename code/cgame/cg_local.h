@@ -573,6 +573,10 @@ void CG_CoopMissionFailed_f( void );
 void CG_CoopFog_f( void );
 void CG_CoopMenu_f( void );
 void CG_CoopAllDown_f( void );
+void CG_CoopFade_f( void );
+void CG_CoopFadeIn_f( void );
+void CG_CoopFadeIn( int ms );
+void CG_CoopThirdPerson_f( void );
 void CG_CoopDrawDowned( void );
 void CG_CoopReset( void );
 void CG_CoopModelSpecChanged( int specIndex );	// coop: CS_COOP_MODELSPECS slot rewritten

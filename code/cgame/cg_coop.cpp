@@ -38,6 +38,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "cg_media.h"
 #include "../game/anims.h"
 #include "../game/wp_saber.h"
+#include "../game/g_vehicles.h"
 
 extern qboolean ValidAnimFileIndex( int index );
 extern void G_SetG2PlayerModel( gentity_t * const ent, const char *modelName, const char *customSkin, const char *surfOff, const char *surfOn );
@@ -77,15 +78,18 @@ static unsigned CG_CoopBodyHash( const char *spec )
 	return h;
 }
 
-// the spec's 11th field, "" when absent
+// the spec's 11th field (up to the next ';'), "" when absent
 static const char *CG_CoopHandField( const char *spec )
 {
-	int seps = 0;
+	static char	field[MAX_QPATH + 2];
+	int			seps = 0;
 	for ( const char *p = spec; *p; p++ )
 	{
 		if ( *p == ';' && ++seps == 10 )
 		{
-			return p + 1;
+			const char *end = strchr( p + 1, ';' );
+			Q_strncpyz( field, p + 1, end ? Q_min( (int)( end - p ), (int)sizeof( field ) ) : (int)sizeof( field ) );
+			return field;
 		}
 	}
 	return "";
@@ -258,8 +262,8 @@ static void CG_CoopEnsureCharacter( centity_t *cent )
 		return;
 	}
 	const unsigned bodyHash = CG_CoopBodyHash( spec );
-	const char *f[11];
-	CG_CoopSplitSpec( spec, f, 11 );
+	const char *f[12];
+	CG_CoopSplitSpec( spec, f, 12 );
 	const char *modelName = f[0], *skin = f[1], *surfOff = f[2], *surfOn = f[3];
 
 	if ( st->specIndex )
@@ -282,11 +286,39 @@ static void CG_CoopEnsureCharacter( centity_t *cent )
 	gent->s.clientNum = cent->currentState.clientNum;
 	gent->inuse = qtrue;
 	gent->client->ps.clientNum = entNum;
-	const class_t npcClass = (class_t)atoi( f[8] );
-	// a vehicle (swoop, tauntaun...) is built as a plain character: G_SetG2PlayerModel /
-	// G_SetG2PlayerModelInfo take the vehicle path through m_pVehicle, which only the
-	// host game creates (the class is put back below for CG_Player's vehicle angles)
-	gent->client->NPC_class = ( npcClass == CLASS_VEHICLE ) ? CLASS_NONE : npcClass;
+	gent->client->NPC_class = (class_t)atoi( f[8] );
+	// a vehicle: the render code reads its Vehicle_t (muzzle tags, armor low
+	// effect, flying flag) and G_IsRidingVehicle returns it for the rider,
+	// so hold a placeholder with the .veh info, looked up by name
+	if ( gent->client->NPC_class == CLASS_VEHICLE && f[11][0] )
+	{
+		const int vIndex = BG_VehicleGetIndex( f[11] );
+		if ( vIndex > VEHICLE_NONE && vIndex < MAX_VEHICLES )
+		{
+			if ( !gent->m_pVehicle )
+			{
+				gent->m_pVehicle = (Vehicle_t *)G_Alloc( sizeof( Vehicle_t ) );
+			}
+			if ( gent->m_pVehicle )
+			{
+				memset( gent->m_pVehicle, 0, sizeof( Vehicle_t ) );
+				gent->m_pVehicle->m_pParentEntity = gent;
+				gent->m_pVehicle->m_pVehicleInfo = &g_vehicleInfo[vIndex];
+				for ( int i = 0; i < MAX_VEHICLE_MUZZLES; i++ )
+				{
+					gent->m_pVehicle->m_iMuzzleTag[i] = -1;
+				}
+				if ( cg_developer.integer )
+				{
+					Com_Printf( "coop: ent %i vehicle '%s' (index %i)\n", entNum, f[11], vIndex );
+				}
+			}
+		}
+	}
+	else
+	{
+		gent->m_pVehicle = NULL;
+	}
 	// clothing tint (customRGBA is the whole-model colour for the jedi_* player models)
 	{
 		int r = 255, g = 255, b = 255, a = 255;
@@ -327,7 +359,6 @@ static void CG_CoopEnsureCharacter( centity_t *cent )
 	}
 
 	G_SetG2PlayerModel( gent, modelName, skin[0] ? skin : NULL, surfOff[0] ? surfOff : NULL, surfOn[0] ? surfOn : NULL );
-	gent->client->NPC_class = npcClass;
 	if ( gent->playerModel < 0 )
 	{
 		return;
@@ -515,6 +546,7 @@ void CG_CoopReset( void )
 		gent->playerModel = -1;
 		gent->weaponModel[0] = gent->weaponModel[1] = -1;
 		gent->owner = NULL;
+		gent->m_pVehicle = NULL;
 		gent->inuse = qfalse;
 		gent->e_clThinkFunc = clThinkF_NULL;
 		gent->soundSet = NULL;
@@ -945,6 +977,16 @@ void CG_CoopSyncCharacter( centity_t *cent )
 			ps->forceDrainEntityNum = ( s->coopForce & COOPF_DRAIN_AREA ) ? ENTITYNUM_NONE : 0;
 			ps->powerups[PW_SHOCKED] = s->coopShockTime;
 		}
+	}
+	// riding: G_IsRidingVehicle reads s.m_iVehicleNum and the camera reads owner (g_vehicles.cpp Board)
+	gent->s.m_iVehicleNum = s->m_iVehicleNum;
+	if ( gent->client->NPC_class != CLASS_VEHICLE )
+	{
+		gent->owner = ( s->m_iVehicleNum > 0 && s->m_iVehicleNum < ENTITYNUM_WORLD ) ? &g_entities[s->m_iVehicleNum] : NULL;
+	}
+	else if ( gent->m_pVehicle )
+	{
+		gent->m_pVehicle->m_iArmor = s->coopHealth;
 	}
 	VectorCopy( cent->lerpOrigin, gent->currentOrigin );
 	VectorCopy( cent->lerpAngles, gent->currentAngles );
@@ -1428,29 +1470,6 @@ static void CG_CoopCameraEnd( void )
 
 /*
 ================
-CG_CoopFade_f
-
-"fade r g b a ms" from the host: fade our screen from its current colour
-(a falling death, or the respawn clearing it). See G_CoopFadeClient.
-================
-*/
-void CG_CoopFade_f( void )
-{
-	if ( !cg_remoteClient )
-	{
-		return;
-	}
-	vec4_t src, dst;
-	VectorCopy4( client_camera.fade_color, src );
-	for ( int i = 0; i < 4; i++ )
-	{
-		dst[i] = atof( CG_Argv( 1 + i ) );
-	}
-	CGCam_Fade( src, dst, atoi( CG_Argv( 5 ) ) );
-}
-
-/*
-================
 CG_CoopSkip_f / CG_CoopTimescale_f
 
 "skip N": the host toggled the cinematic skip. Our own skippingCinematic
@@ -1705,8 +1724,8 @@ void CG_CoopPrecacheCharacters( void )
 		{
 			continue;
 		}
-		const char *f[11];
-		CG_CoopSplitSpec( spec, f, 11 );
+		const char *f[12];
+		CG_CoopSplitSpec( spec, f, 12 );
 		// one build per model+skin pair is enough, the rest is per-entity
 		char key[MAX_QPATH];
 		Com_sprintf( key, sizeof( key ), "%s/%s", f[0], f[1] );
@@ -1779,6 +1798,7 @@ void CG_CoopFixLocalEntityState( centity_t *cent )
 		cent->currentState.coopForce = es->coopForce;
 		cent->currentState.coopShockTime = es->coopShockTime;
 		cent->currentState.coopPushTime = es->coopPushTime;
+		cent->currentState.m_iVehicleNum = es->m_iVehicleNum;
 		return;
 	}
 }
@@ -1796,7 +1816,7 @@ Same screen as the host; it goes away with the host's next level load.
 void CG_CoopSelectWeapon_f( void )
 {
 	const int wp = atoi( CG_Argv( 1 ) );
-	if ( wp <= WP_NONE || wp >= WP_NUM_WEAPONS )
+	if ( wp < WP_NONE || wp >= WP_NUM_WEAPONS )	// WP_NONE: riding a vehicle, dead on an emplaced gun
 	{
 		return;
 	}
@@ -1854,6 +1874,62 @@ void CG_CoopFog_f( void )
 		Com_Printf( "coop: fog flash %g %g %g\n", color[0], color[1], color[2] );
 	}
 	gi.WE_SetTempGlobalFogColor( color );
+}
+
+/*
+================
+Screen fades of a co-op death
+
+A falling death (trigger_hurt FALLING, target_kill) fades the screen of the
+player who fell. The host's game module writes the host's own client_camera
+straight, and sends "fade" / "fadein" to a remote client (g_coop.cpp
+G_CoopFadePlayer); CGCam_UpdateFade / CGCam_DrawWideScreen run outside
+cutscenes here too, and CG_CoopSyncCamera only owns the fade while a
+broadcast camera exists.
+================
+*/
+// fade back from whatever is on the screen (no-op when nothing is up)
+void CG_CoopFadeIn( int ms )
+{
+	vec4_t clear = { 0, 0, 0, 0 };
+	if ( client_camera.fade_color[3] > 0.0f || ( client_camera.info_state & CAMERA_FADING ) )
+	{
+		CGCam_Fade( client_camera.fade_color, clear, ms );
+	}
+}
+
+// "fade <ms> <sr> <sg> <sb> <sa> <dr> <dg> <db> <da>"
+void CG_CoopFade_f( void )
+{
+	vec4_t src, dst;
+	const int ms = atoi( CG_Argv( 1 ) );
+	for ( int i = 0; i < 4; i++ )
+	{
+		src[i] = atof( CG_Argv( 2 + i ) );
+		dst[i] = atof( CG_Argv( 6 + i ) );
+	}
+	CGCam_Fade( src, dst, ms );
+}
+
+// "fadein <ms>"
+void CG_CoopFadeIn_f( void )
+{
+	CG_CoopFadeIn( atoi( CG_Argv( 1 ) ) );
+}
+
+// "tp <1|0|-1>": the host puts us in / out of third person (vehicle, emplaced
+// gun); -1 = back to a gun, first person only if we want it (cg_gunAutoFirst)
+void CG_CoopThirdPerson_f( void )
+{
+	const int mode = atoi( CG_Argv( 1 ) );
+	if ( mode > 0 )
+	{
+		cgi_Cvar_Set( "cg_thirdperson", "1" );
+	}
+	else if ( mode == 0 || cg_gunAutoFirst.integer )
+	{
+		cgi_Cvar_Set( "cg_thirdperson", "0" );
+	}
 }
 
 void CG_CoopMissionFailed_f( void )
@@ -1915,6 +1991,13 @@ void CG_CoopAllDown_f( void )
 	}
 }
 
+// g_coopReviveRange as the host runs it (CVAR_SERVERINFO), default 80
+static float CG_CoopReviveRange( void )
+{
+	const float r = atof( Info_ValueForKey( CG_ConfigString( CS_SERVERINFO ), "g_coopReviveRange" ) );
+	return r > 0 ? r : 80.0f;
+}
+
 // name of the key bound to +coop_revive ("G"), refreshed now and then
 static const char *CG_CoopReviveKeyName( void )
 {
@@ -1922,6 +2005,10 @@ static const char *CG_CoopReviveKeyName( void )
 	{
 		coopReviveKeyTime = cg.time;
 		cgi_Key_BindingKeyName( "+coop_revive", coopReviveKey, sizeof( coopReviveKey ) );
+		if ( !coopReviveKey[0] )
+		{	// the use key revives too (G_CoopDownedThink)
+			cgi_Key_BindingKeyName( "+use", coopReviveKey, sizeof( coopReviveKey ) );
+		}
 		if ( !coopReviveKey[0] )
 		{
 			Q_strncpyz( coopReviveKey, "(touche non liee)", sizeof( coopReviveKey ) );
@@ -1971,7 +2058,7 @@ void CG_CoopDrawDowned( void )
 	const playerState_t *ps = &cg.snap->ps;
 	const int	font = cgs.media.qhFontMedium;
 	const int	small = cgs.media.qhFontSmall;
-	float		nearest = -1;
+	float		nearest = -1, nearestBody = -1;
 
 	if ( !coopDownedIcon )
 	{
@@ -1990,9 +2077,14 @@ void CG_CoopDrawDowned( void )
 		vec3_t	org;
 		float	x, y;
 		const float dist = Distance( cg.refdef.vieworg, cent->lerpOrigin );
+		const float bodyDist = Distance( ps->origin, cent->lerpOrigin );
 		if ( nearest < 0 || dist < nearest )
 		{
 			nearest = dist;
+		}
+		if ( nearestBody < 0 || bodyDist < nearestBody )
+		{
+			nearestBody = bodyDist;
 		}
 		VectorCopy( cent->lerpOrigin, org );
 		org[2] += 40;
@@ -2052,8 +2144,8 @@ void CG_CoopDrawDowned( void )
 		CG_CoopDrawCentered( 300, va( "Vous relevez un coequipier...  %i%%", ps->stats[STAT_COOP_REVIVE] ), green, font, 1.0f );
 		CG_CoopDrawBar( 220, 326, 200, 12, ps->stats[STAT_COOP_REVIVE] / 100.0f, greenFill );
 	}
-	else if ( nearest >= 0 && nearest <= 80 && ps->stats[STAT_HEALTH] > 0 )
-	{	// beside someone on the ground
+	else if ( nearestBody >= 0 && nearestBody <= CG_CoopReviveRange() && ps->stats[STAT_HEALTH] > 0 )
+	{	// beside someone on the ground (same measure as the host: player origin to body, g_coopReviveRange)
 		CG_CoopDrawCentered( 300, va( "Maintenir %s pour relever", CG_CoopReviveKeyName() ), white, font, 1.0f );
 	}
 }

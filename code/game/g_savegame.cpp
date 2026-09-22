@@ -1372,6 +1372,12 @@ void ReadLevel(qboolean qbAutosave, qboolean qbLoadTransition)
 extern int killPlayerTimer;
 qboolean GameAllowedToSaveHere(void)
 {
+	// coop: a save with the host downed (health 1) or dead makes a checkpoint
+	// the all-down reload would loop on; target_autosave defers it (g_coop.cpp)
+	if ( G_CoopIsDowned( &g_entities[0] ) || G_CoopRespawnPending( &g_entities[0] ) )
+	{
+		return qfalse;
+	}
 	return (qboolean)(!in_camera&&!killPlayerTimer);
 }
 

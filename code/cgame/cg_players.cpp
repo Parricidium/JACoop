@@ -4418,7 +4418,7 @@ static void CG_ForceElectrocution( centity_t *cent, const vec3_t origin, vec3_t 
 
 static void CG_BoltedEffects( centity_t *cent, const vec3_t origin, vec3_t tempAngles )
 {
-	if ( cent->gent && cent->gent->client && cent->gent->client->NPC_class == CLASS_VEHICLE )
+	if ( cent->gent && cent->gent->client && cent->gent->client->NPC_class == CLASS_VEHICLE && cent->gent->m_pVehicle )	// coop: a remote placeholder may have none
 	{
 		Vehicle_t *pVeh = cent->gent->m_pVehicle;
 		gentity_t *parent = cent->gent;

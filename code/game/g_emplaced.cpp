@@ -374,11 +374,16 @@ extern void ChangeWeapon( gentity_t *ent, int newWeapon );
 	{
 		ChangeWeapon( activator, WP_EMPLACED_GUN );
 	}
-	else if ( G_CoopIsPlayer( activator ) )
+	else if ( activator->s.number == 0 )
 	{
 		// we don't want for it to draw the weapon select stuff
 		cg.weaponSelect = WP_EMPLACED_GUN;
 		CG_CenterPrint( "@SP_INGAME_EXIT_VIEW", SCREEN_HEIGHT * 0.95 );
+	}
+	else if ( G_CoopIsPlayer( activator ) )
+	{	// coop: the joiner's own cgame must learn the weapon (its usercmd would pull the old one back)
+		gi.SendServerCommand( activator->s.number, "wp %i", WP_EMPLACED_GUN );
+		gi.SendServerCommand( activator->s.number, "cp @SP_INGAME_EXIT_VIEW 0.95" );
 	}
 
 	VectorCopy( activator->currentOrigin, self->pos4 );//keep this around so we know when to make them play the strafe anim
@@ -601,11 +606,16 @@ extern void ChangeWeapon( gentity_t *ent, int newWeapon );
 		{
 			ChangeWeapon( activator, WP_EMPLACED_GUN );
 		}
-		else if ( G_CoopIsPlayer( activator ) )
+		else if ( activator->s.number == 0 )
 		{
 			// we don't want for it to draw the weapon select stuff
 			cg.weaponSelect = WP_EMPLACED_GUN;
 			CG_CenterPrint( "@SP_INGAME_EXIT_VIEW", SCREEN_HEIGHT * 0.95 );
+		}
+		else if ( G_CoopIsPlayer( activator ) )
+		{	// coop: the joiner's own cgame must learn the weapon (its usercmd would pull the old one back)
+			gi.SendServerCommand( activator->s.number, "wp %i", WP_EMPLACED_GUN );
+			gi.SendServerCommand( activator->s.number, "cp @SP_INGAME_EXIT_VIEW 0.95" );
 		}
 		// Since we move the activator inside of the gun, we reserve a solid spot where they were standing in order to be able to get back out without being in solid
 		if ( self->nextTrain )
@@ -1020,13 +1030,14 @@ extern void CG_ChangeWeapon( int num );
 		{
 			ChangeWeapon( ent, ent->client->ps.weapon );	// should be OK actually.
 		}
-		else
+		else if ( ent->s.number == 0 )
 		{
 			CG_ChangeWeapon( ent->client->ps.weapon );
-		}
-		if ( ent->s.number < MAX_CLIENTS )
-		{
 			gi.cvar_set( "cg_thirdperson", "1" );
+		}
+		else if ( G_CoopIsPlayer( ent ) )
+		{	// coop: the joiner's cgame, not the host's
+			gi.SendServerCommand( ent->s.number, "tp 1" );
 		}
 	}
 	else
@@ -1041,7 +1052,14 @@ extern void CG_ChangeWeapon( int num );
 		else
 		{
 			G_RemoveWeaponModels( ent );
-			CG_ChangeWeapon( ent->client->ps.weapon );
+			if ( ent->s.number == 0 )
+			{
+				CG_ChangeWeapon( ent->client->ps.weapon );
+			}
+			else if ( G_CoopIsPlayer( ent ) && ent->client->ps.weapon > WP_NONE )
+			{	// coop: the joiner's own selection follows
+				gi.SendServerCommand( ent->s.number, "wp %i", ent->client->ps.weapon );
+			}
 			if ( ent->client->ps.weapon == WP_SABER )
 			{
 				WP_SaberAddG2SaberModels( ent );
@@ -1051,7 +1069,7 @@ extern void CG_ChangeWeapon( int num );
 				G_CreateG2AttachedWeaponModel( ent, weaponData[ent->client->ps.weapon].weaponMdl, ent->handRBolt, 0 );
 			}
 
-			if ( ent->s.number < MAX_CLIENTS )
+			if ( ent->s.number == 0 )
 			{
 				if ( ent->client->ps.weapon == WP_SABER )
 				{
@@ -1061,6 +1079,10 @@ extern void CG_ChangeWeapon( int num );
 				{
 					gi.cvar_set( "cg_thirdperson", "0" );
 				}
+			}
+			else if ( G_CoopIsPlayer( ent ) )
+			{	// coop: the joiner's view, decided by its own cgame (CG_CoopThirdPerson_f applies its cg_gunAutoFirst)
+				gi.SendServerCommand( ent->s.number, "tp %i", ( ent->client->ps.weapon == WP_SABER ) ? 1 : -1 );
 			}
 		}
 

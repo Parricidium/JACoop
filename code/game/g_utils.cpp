@@ -1647,7 +1647,7 @@ qboolean CanUseInfrontOf(gentity_t *ent)
 		return qfalse;
 	}
 
-	if (ent->client->ps.viewEntity != ent->s.number)
+	if (ent->client->ps.viewEntity && ent->client->ps.viewEntity != ent->s.number)	// coop: 0 is "no view entity" (a joiner must not trace from slot 0)
 	{
 		ent = &g_entities[ent->client->ps.viewEntity];
 
@@ -1856,13 +1856,14 @@ extern int killPlayerTimer;
 void G_ChangeMap (const char *mapname, const char *spawntarget, qboolean hub)
 {
 //	gi.Printf("Loading...");
-	//ignore if player is dead
-	if (g_entities[0].client->ps.pm_type == PM_DEAD)
+	//ignore if player is dead (coop: unless a co-op respawn is on its way, a joiner may carry on)
+	if (g_entities[0].client->ps.pm_type == PM_DEAD && !G_CoopRespawnPending( &g_entities[0] ))
 		return;
 	if ( killPlayerTimer )
 	{//can't go to next map if your allies have turned on you
 		return;
 	}
+	G_CoopRespawnPendingNow();	// coop: dead host/joiners come back now, so the transition records live players (KEEP_PREV maps import STAT_HEALTH as is)
 
 	if (mapname[0] == '+')	//fire up the menu instead
 	{

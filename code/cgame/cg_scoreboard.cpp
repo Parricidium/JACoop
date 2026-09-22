@@ -96,7 +96,10 @@ void CG_MissionFailed(void)
 
 	if (!cg.missionFailedScreen)
 	{
-		cgi_UI_SetActive_Menu("missionfailed_menu");
+		if ( !cg_remoteClient )
+		{	// coop: a remote client gets its own screen below (LOAD / NEW MISSION cannot work there)
+			cgi_UI_SetActive_Menu("missionfailed_menu");
+		}
 		cg.missionFailedScreen = qtrue;
 
 		switch (statusTextIndex)
@@ -160,7 +163,24 @@ void CG_MissionFailed(void)
 					break;
 		}
 
-		gi.cvar_set("ui_missionfailed_text", text);
+		if ( cg_remoteClient )
+		{	// coop: the reason on the waiting screen; the host decides what happens next
+			char reason[1024];
+			if ( text[0] == '@' )
+			{
+				cgi_SP_GetStringTextString( text + 1, reason, sizeof( reason ) );
+			}
+			else
+			{
+				Q_strncpyz( reason, text, sizeof( reason ) );
+			}
+			cgi_Cvar_Set( "ui_coopAllDownText", va( "Mission echouee : %s", reason ) );
+			cgi_UI_SetActive_Menu( "coopAllDownClient" );
+		}
+		else
+		{
+			gi.cvar_set("ui_missionfailed_text", text);
+		}
 	}
 //	w = cgi_R_Font_StrLenPixels(text, cgs.media.qhFontMedium, 1.2f);
 //		cgi_R_Font_DrawString(320 - w/2, y+30, text, colorTable[CT_HUD_RED], cgs.media.qhFontMedium, -1, 1.2f);
@@ -376,8 +396,10 @@ qboolean CG_DrawScoreboard( void )
 	}
 
 	// Character is either dead, or a script has brought up the screen
-	// coop: a remote client never decides mission failure itself (it respawns; the host says when everyone is dead)
-	if ((!cg_remoteClient && (cg.predicted_player_state.pm_type == PM_DEAD) && (cg.missionStatusDeadTime < level.time))
+	// coop: a remote client never decides mission failure itself (it respawns; the host says when everyone is dead),
+	// and the host dead with a co-op respawn on its way is not a mission failure either
+	extern qboolean G_CoopRespawnPending( const gentity_t *ent );
+	if ((!cg_remoteClient && (cg.predicted_player_state.pm_type == PM_DEAD) && (cg.missionStatusDeadTime < level.time) && !G_CoopRespawnPending( &g_entities[0] ))
 		|| (cg.missionStatusShow))
 	{
 		CG_MissionFailed();

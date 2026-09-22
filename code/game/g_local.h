@@ -416,9 +416,16 @@ qboolean G_CoopInAnyPlayerPVS( const vec3_t org );
 qboolean G_CoopRespawnPending( const gentity_t *ent );
 qboolean G_CoopPlayerDied( gentity_t *self );
 void G_CoopRunRespawns( void );
+void G_CoopRespawnPendingNow( void );
 void G_CoopPlaceBeside( gentity_t *ent, gentity_t *mate );
 void G_CoopGatherJoiners( qboolean all );
+void G_CoopFollowHostTeleport( const vec3_t from );
 void G_CoopTeleportCommand( gentity_t *ent );
+void G_CoopFadePlayer( gentity_t *ent, const vec4_t src, const vec4_t dst, int ms );
+void G_CoopFadeInPlayer( gentity_t *ent, int ms );
+void G_CoopRiderThirdPerson( gentity_t *rider, qboolean on );
+void G_CoopRiderCenterPrint( gentity_t *rider, const char *str, float yFrac );
+void G_CoopRiderWeapon( gentity_t *rider, int wp );
 gentity_t *G_CoopLivingTeammate( const gentity_t *self );
 void G_CoopInitDownedCvars( void );
 void G_CoopResetDowned( void );
@@ -432,6 +439,8 @@ qboolean G_CoopTryDown( gentity_t *targ, gentity_t *attacker, int mod, int dflag
 void G_CoopDownedThink( gentity_t *ent, usercmd_t *ucmd );
 void G_CoopDownedFrame( void );
 void G_CoopReloadCheckpoint( void );
+qboolean G_CoopDeferAutosave( void );
+qboolean CanUseInfrontOf( gentity_t *ent );	// g_utils.cpp
 extern cvar_t *g_coopDowned, *g_coopRespawnDelay;
 const char *G_CoopPlayerVar( const gentity_t *ent, const char *key, const cvar_t *hostCvar );
 void G_CoopCheckCharacterChange( gentity_t *ent );

@@ -3983,8 +3983,11 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 		//player killing a jedi with a lightsaber spawns a matrix-effect entity
 		if ( d_slowmodeath->integer )
 		{
-			if ( G_CoopIsPlayer( self ) )
+			if ( G_CoopIsPlayer( self ) && !G_CoopLivingTeammate( self ) && !G_CoopDownedActive() )
 			{//what the hell, always do slow-mo when player dies
+				// coop: only for a real mission failure (the last one standing). A death
+				// that ends in a respawn must not spin everyone's camera around the body
+				// nor slow the whole game down (10 s at 0.25 for a fall into a pit)
 				//FIXME: don't do this when crushed to death?
 				if ( meansOfDeath == MOD_FALLING && self->client->ps.groundEntityNum == ENTITYNUM_NONE )
 				{//falling to death, have not hit yet
@@ -5696,8 +5699,10 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 	{
 		dflags |= DAMAGE_NO_KNOCKBACK;
 	}
-	if ( client && G_CoopIsDowned( targ ) && !( dflags & DAMAGE_NO_PROTECTION ) )
-	{	// coop: lying on the ground waiting for a teammate: nothing touches it
+	if ( client && G_CoopIsDowned( targ ) && !( dflags & DAMAGE_NO_PROTECTION )
+		&& mod != MOD_CRUSH && mod != MOD_LAVA && mod != MOD_SLIME && mod != MOD_WATER && mod != MOD_TRIGGER_HURT )
+	{	// coop: lying on the ground waiting for a teammate: nothing touches it - except
+		// the world itself (a door or lift it blocks, lava, drowning, a pit): a real death then
 		return;
 	}
 	if ( G_CoopIsPlayer( attacker ) && targ->client && attacker->client && targ->client->playerTeam == attacker->client->playerTeam )

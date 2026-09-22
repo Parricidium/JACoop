@@ -1080,6 +1080,9 @@ static void Q3_SetOrigin( int entID, vec3_t origin )
 		return;
 	}
 
+	vec3_t from;
+	VectorCopy( ent->currentOrigin, from );	// coop: joiners follow a relocated host
+
 	gi.unlinkentity (ent);
 
 	if(ent->client)
@@ -1102,6 +1105,10 @@ static void Q3_SetOrigin( int entID, vec3_t origin )
 	}
 
 	gi.linkentity( ent );
+	if ( entID == 0 && ent->client )
+	{
+		G_CoopFollowHostTeleport( from );	// coop
+	}
 }
 
 
@@ -8260,7 +8267,7 @@ void	CQuake3GameInterface::Set( int taskID, int entID, const char *type_name, co
 	gentity_t	*ent = &g_entities[entID];
 	float		float_data;
 	int			int_data, toSet;
-	vec3_t		vector_data;
+	vec3_t		vector_data, vector_data2;
 
 	// eezstreet: Add support for cvars getting modified thru ICARUS script
 	if(strlen(type_name) > 5 && !Q_stricmpn(type_name, "cvar_", 5))
@@ -8279,6 +8286,7 @@ void	CQuake3GameInterface::Set( int taskID, int entID, const char *type_name, co
 	{
 	case SET_ORIGIN:
 		sscanf( data, "%f %f %f", &vector_data[0], &vector_data[1], &vector_data[2] );
+		VectorCopy( ent->currentOrigin, vector_data2 );	// coop: joiners follow a relocated host
 		G_SetOrigin( ent, vector_data );
 		if ( Q_strncmp( "NPC_", ent->classname, 4 ) == 0 )
 		{//hack for moving spawners
@@ -8289,6 +8297,10 @@ void	CQuake3GameInterface::Set( int taskID, int entID, const char *type_name, co
 			ent->client->ps.jumpZStart = ent->client->ps.forceJumpZStart = vector_data[2];
 		}
 		gi.linkentity( ent );
+		if ( entID == 0 && ent->client )
+		{
+			G_CoopFollowHostTeleport( vector_data2 );	// coop
+		}
 		break;
 
 	case SET_TELEPORT_DEST:

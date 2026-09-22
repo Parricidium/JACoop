@@ -489,10 +489,10 @@ void target_kill_use( gentity_t *self, gentity_t *other, gentity_t *activator ) 
 	if ( self->spawnflags & 1 )
 	{//falling death
 		G_Damage ( activator, NULL, NULL, NULL, NULL, 100000, DAMAGE_NO_PROTECTION, MOD_FALLING );
-		if ( G_CoopIsPlayer( activator ) && activator->health <= 0 && 1 )
-		{
-			const vec4_t dst = {0,0,0,1};
-			G_CoopFadeClient( activator, dst, 10000 );	// coop: the victim's screen, not the host's
+		if ( G_CoopIsPlayer( activator ) && activator->health <= 0 )
+		{	// coop: the fade belongs to the player who fell
+			vec4_t	src = {0,0,0,0}, dst = {0,0,0,1};
+			G_CoopFadePlayer( activator, src, dst, 10000 );
 		}
 	}
 	else if ( self->spawnflags & 2 ) // electrical
@@ -801,6 +801,20 @@ void target_scriptrunner_use(gentity_t *self, gentity_t *other, gentity_t *activ
 		return;
 	}
 
+	// coop: 'runonactivator' scripts were written for the single SP "player":
+	// their per-entity state (SET_COUNT, SET_PARMn, ...) is written by
+	// AFFECT "player" = slot 0 (t1_danger ship parts...). A joiner tripping
+	// the trigger runs them on the host instead.
+	if ( ( self->spawnflags & 1 ) && G_CoopIsPlayer( activator ) && activator->s.number != 0
+		&& g_entities[0].inuse && g_entities[0].client )
+	{
+		self->lastEnemy = activator;	// who really tripped it
+		if ( g_developer->integer )
+		{
+			gi.Printf( "coop: scriptrunner %s run on the host for %s\n", self->targetname ? self->targetname : "?", activator->client->pers.netname );
+		}
+		activator = &g_entities[0];
+	}
 	self->activator = activator;
 	G_SetEnemy( self, other );
 	if ( self->delay )
@@ -1206,6 +1220,10 @@ void target_autosave_use(gentity_t *self, gentity_t *other, gentity_t *activator
 	//gi.SendServerCommand( NULL, "cp @SP_INGAME_CHECKPOINT" );
 	CG_CenterPrint( "@SP_INGAME_CHECKPOINT", SCREEN_HEIGHT * 0.25 );	//jump the network
 
+	if ( G_CoopDeferAutosave() )
+	{	// coop: the host is on the ground, the checkpoint is written once it is up again
+		return;
+	}
 	gi.SendConsoleCommand( "wait 2;save auto\n" );
 }
 
