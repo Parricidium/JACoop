@@ -101,6 +101,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define FEEDER_COOP_PLAYERS					0x19			// coop: players in the lobby / game (CS_COOP_LOBBY)
 #define FEEDER_COOP_MODELS					0x1a			// coop: models/players/* player models (coopskins.menu)
 #define FEEDER_COOP_SKINS					0x1b			// coop: model_*.skin of the selected model
+#define FEEDER_COOP_MISSIONS				0x1c			// coop: missions to vote for between two missions (CS_COOP_ENDLEVEL)
 
 
 #define UI_VERSION				200

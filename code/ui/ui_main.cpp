@@ -108,6 +108,10 @@ extern qboolean    CL_GetCoopServerAddress( int index, char *out, int outSize );
 extern int         CL_GetCoopLobbyCount( void );
 extern const char *CL_GetCoopLobbyText( int index );
 extern char        CL_GetCoopLobbyPhase( void );
+extern char        CL_GetCoopEndPhase( void );
+extern const char *CL_GetCoopEndHeader( int field );
+extern int         CL_GetCoopEndCount( void );
+extern const char *CL_GetCoopEndText( int index );
 
 // coop: the player whose state the menus read and edit (force allocation,
 // saber styles, datapad). The host's is the local server's client 0; a remote
@@ -179,6 +183,33 @@ static void UI_CoopLobbyState( void )
 		{
 			Cvar_Set( "ui_coopLobbyState", Cvar_VariableIntegerValue( "coop_ready" ) ? "1" : "0" );
 		}
+	}
+}
+
+static int ui_coopMissionSelection = 0;	// coop: row picked in the vote list (feeder 0x1c)
+void Menus_CloseByName( const char *p );	// ui_shared.cpp
+
+// coop: the cvars the end-of-mission panels (coopDebrief, coopVote, coopLoadout)
+// are built on. Everything comes from the host through CS_COOP_ENDLEVEL, so the
+// panels follow the flow without the host having to push a menu on every change.
+// ui_coopEndPhase: N none, D debrief, V vote, L loadout, W the host is on the
+// stock screens. Refreshed every frame while a menu is up.
+static void UI_CoopEndLevelState( void )
+{
+	char phase[2];
+
+	phase[0] = CL_GetCoopEndPhase();
+	phase[1] = '\0';
+	Cvar_Set( "ui_coopEndPhase", phase );
+	Cvar_Set( "ui_coopEndTitle", CL_GetCoopEndHeader( 1 ) );
+	Cvar_Set( "ui_coopEndStats", CL_GetCoopEndHeader( 2 ) );
+	Cvar_Set( "ui_coopEndInfo", CL_GetCoopEndHeader( 3 ) );
+	const qboolean host = (qboolean)( com_sv_running && com_sv_running->integer );
+	Cvar_Set( "ui_coopEndHost", host ? "1" : "0" );
+	if ( host && phase[0] == 'W' )
+	{	// nothing to vote for at this step: the host drives the game's own screens and
+		// our fullscreen debrief would paint over them (the joiners keep it, and wait)
+		Menus_CloseByName( "coopDebrief" );
 	}
 }
 
@@ -674,6 +705,10 @@ void _UI_Refresh( int realtime )
 		{
 			UI_CoopLobbyState();
 		}
+		if ( focused )
+		{	// coop: the end-of-mission panels read the host's phase, votes and ready count
+			UI_CoopEndLevelState();
+		}
 	}
 
 	if (Menu_Count() > 0)
@@ -1097,6 +1132,10 @@ const char *UI_FeederItemText(float feederID, int index, int column, qhandle_t *
 	else if (feederID == FEEDER_COOP_SKINS)
 	{
 		return UI_CoopSkinName( coopModelSel, index );
+	}
+	else if (feederID == FEEDER_COOP_MISSIONS)
+	{
+		return CL_GetCoopEndText( index );
 	}
 	else if (feederID == FEEDER_SAVEGAMES)
 	{
@@ -2168,6 +2207,10 @@ static qboolean UI_RunMenuScript ( const char **args )
 			{
 				Menus_OpenByName( "coopLobby" );
 			}
+			else if ( Q_stricmp( Cvar_VariableString( "ui_coopForceFrom" ), "endlevel" ) == 0 )
+			{	// between two missions: back to the loadout panel
+				Menus_OpenByName( "coopLoadout" );
+			}
 			else
 			{
 				trap_Key_SetCatcher( trap_Key_GetCatcher() & ~KEYCATCH_UI );
@@ -2200,6 +2243,39 @@ static qboolean UI_RunMenuScript ( const char **args )
 		else if ( Q_stricmp( name, "coopApplyModel" ) == 0 )
 		{
 			UI_CoopApplyModel();
+		}
+		else if ( Q_stricmp( name, "coopEndNext" ) == 0 )
+		{
+			// Debrief read: tell the host, it moves everybody on when all did.
+			ui.Cmd_ExecuteText( EXEC_APPEND, "cmd coop_endnext\n" );
+		}
+		else if ( Q_stricmp( name, "coopEndVote" ) == 0 )
+		{
+			// Vote for the mission selected in the list (feeder 0x1c).
+			ui.Cmd_ExecuteText( EXEC_APPEND, va( "cmd coop_endvote %i\n", ui_coopMissionSelection ) );
+		}
+		else if ( Q_stricmp( name, "coopEndReady" ) == 0 )
+		{
+			// PRET / annuler: the host starts the mission when everybody is ready.
+			ui.Cmd_ExecuteText( EXEC_APPEND, "cmd coop_endready\n" );
+		}
+		else if ( Q_stricmp( name, "coopEndGo" ) == 0 )
+		{
+			// Host: skip the current step (close the debrief, count the votes, start).
+			ui.Cmd_ExecuteText( EXEC_APPEND, "cmd coop_endgo\n" );
+		}
+		else if ( Q_stricmp( name, "coopWeaponsDone" ) == 0 )
+		{
+			// Weapons screen over. The host edited its own playerState through the
+			// menu's uiScripts (stock behaviour); a joiner has no server, so it sends
+			// its three choices and the host hands them out.
+			if ( !com_sv_running || !com_sv_running->integer )
+			{
+				ui.Cmd_ExecuteText( EXEC_APPEND, va( "cmd coop_endwpn %i %i %i\n",
+					uiInfo.selectedWeapon1, uiInfo.selectedWeapon2, uiInfo.selectedThrowWeapon ) );
+			}
+			Menus_CloseAll();
+			Menus_ActivateByName( "coopLoadout" );
 		}
 		else if ( Q_stricmp( name, "coopLeave" ) == 0 )
 		{
@@ -2454,6 +2530,10 @@ static int UI_FeederCount(float feederID)
 	{
 		return ( coopModelSel >= 0 && coopModelSel < coopModelCount ) ? coopModels[coopModelSel].numSkins : 0;
 	}
+	else if (feederID == FEEDER_COOP_MISSIONS)
+	{
+		return CL_GetCoopEndCount();
+	}
 	else if (feederID == FEEDER_SAVEGAMES )
 	{
 		if (s_savegame.saveFileCnt == -1)
@@ -2539,6 +2619,10 @@ static void UI_FeederSelection(float feederID, int index, itemDef_t *item)
 	{
 		coopSkinSel = index;
 		UI_CoopUpdatePreview();
+	}
+	else if (feederID == FEEDER_COOP_MISSIONS)
+	{
+		ui_coopMissionSelection = index;
 	}
 	else if (feederID == FEEDER_SAVEGAMES)
 	{
