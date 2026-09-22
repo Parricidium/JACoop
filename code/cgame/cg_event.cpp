@@ -34,6 +34,10 @@ extern void CG_Chunks( int owner, vec3_t origin, const vec3_t normal, const vec3
 
 extern qboolean CG_TryPlayCustomSound( vec3_t origin, int entityNum, soundChannel_t channel, const char *soundName, int customSoundSet );
 extern void FX_KothosBeam( vec3_t start, vec3_t end );
+// coop: game -> cgame shortcuts replayed from temp entities on a remote client
+extern void CG_MiscModelExplosion( vec3_t mins, vec3_t maxs, int size, material_t chunkType );
+extern void CG_DoGlass( vec3_t verts[4], vec3_t normal, vec3_t dmgPt, vec3_t dmgDir, float dmgRadius );
+extern void cgi_R_GetBModelVerts( int bmodelIndex, vec3_t *verts, vec3_t normal );
 
 //==========================================================================
 
@@ -291,6 +295,29 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 
 	//ci = &cent->gent->client->clientInfo;
 	clientNum = cent->gent->s.number;
+
+	if ( cg_remoteClient )
+	{	// coop: impact normal / alt-fire relayed by SV_BuildClientSnapshot (host-only gentity fields)
+		switch ( event )
+		{
+		case EV_MISSILE_HIT:
+		case EV_MISSILE_MISS:
+		case EV_MISSILE_STICK:
+		case EV_GRENADE_BOUNCE:
+		case EV_DISRUPTOR_SNIPER_MISS:
+		case EV_DISRUPTOR_SNIPER_SHOT:
+		case EV_CONC_ALT_MISS:
+			VectorCopy( es->angles2, cent->gent->pos1 );
+			cent->gent->alt_fire = (qboolean)( es->time2 != 0 );
+			if ( cg_developer.integer > 1 )
+			{
+				Com_Printf( "coop: impact event %i ent %i weapon %i normal %.2f %.2f %.2f alt %i\n", event, es->number, es->weapon, es->angles2[0], es->angles2[1], es->angles2[2], es->time2 );
+			}
+			break;
+		default:
+			break;
+		}
+	}
 
 	switch ( event ) {
 	//
@@ -774,6 +801,37 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 		}
 		break;
 
+	case EV_COOP_EXPLOSION:	// coop: misc_model_breakable / func_breakable burst the host played straight into its own cgame
+		DEBUGNAME("EV_COOP_EXPLOSION");
+		if ( cg_remoteClient )
+		{
+			vec3_t mins, maxs;
+			VectorCopy( es->angles, mins );
+			VectorCopy( es->angles2, maxs );
+			CG_MiscModelExplosion( mins, maxs, es->eventParm, (material_t)es->weapon );
+			if ( cg_developer.integer > 1 )
+			{
+				Com_Printf( "coop: explosion size %i material %i at %.0f %.0f %.0f\n", es->eventParm, es->weapon, position[0], position[1], position[2] );
+			}
+		}
+		break;
+
+	case EV_COOP_GLASS:		// coop: a func_glass pane the host shattered straight into its own cgame (funcGlassDie)
+		DEBUGNAME("EV_COOP_GLASS");
+		if ( cg_remoteClient && es->modelindex > 0 && es->modelindex < MAX_MODELS && cgs.inlineDrawModel[es->modelindex] )
+		{
+			vec3_t verts[4], normal, dmgPt, dmgDir;
+			VectorCopy( es->origin2, dmgPt );
+			VectorCopy( es->angles, dmgDir );
+			cgi_R_GetBModelVerts( cgs.inlineDrawModel[es->modelindex], verts, normal );
+			CG_DoGlass( verts, normal, dmgPt, dmgDir, (float)es->time );
+			if ( cg_developer.integer > 1 )
+			{
+				Com_Printf( "coop: glass *%i shattered at %.0f %.0f %.0f\n", es->modelindex, dmgPt[0], dmgPt[1], dmgPt[2] );
+			}
+		}
+		break;
+
 	case EV_COOP_SOUND:		// coop: a sound the host played straight into its own sound system
 		DEBUGNAME("EV_COOP_SOUND");
 		if ( cg_remoteClient && es->otherEntityNum >= 0 && es->otherEntityNum < MAX_GENTITIES )
@@ -893,8 +951,25 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 			}
 			else
 			{
-				VectorCopy( cent->gent->pos3, axis[0] );
-				VectorCopy( cent->gent->pos4, axis[1] );
+				if ( cg_remoteClient )
+				{	// coop: axis relayed by SV_BuildClientSnapshot (pos3/pos4 are host-only gentity fields)
+					VectorCopy( es->origin2, axis[0] );
+					VectorCopy( es->angles2, axis[1] );
+					if ( VectorLengthSquared( axis[0] ) < 0.5f )
+					{	// nothing relayed: assume up, like G_PlayEffect( name, origin )
+						VectorSet( axis[0], 0, 0, 1 );
+						MakeNormalVectors( axis[0], axis[1], axis[2] );
+					}
+					if ( cg_developer.integer > 1 )
+					{
+						Com_Printf( "coop: effect '%s' ent %i axis %.2f %.2f %.2f / %.2f %.2f %.2f\n", s, es->number, axis[0][0], axis[0][1], axis[0][2], axis[1][0], axis[1][1], axis[1][2] );
+					}
+				}
+				else
+				{
+					VectorCopy( cent->gent->pos3, axis[0] );
+					VectorCopy( cent->gent->pos4, axis[1] );
+				}
 				CrossProduct( axis[0], axis[1], axis[2] );
 
 				// the entNum the effect may be attached to

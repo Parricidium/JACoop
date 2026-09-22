@@ -98,7 +98,7 @@ extern saberMoveName_t PM_SaberLungeAttackMove( qboolean fallbackToNormalLunge )
 extern qboolean PM_CheckLungeAttackMove( void );
 extern qboolean PM_InSecondaryStyle( void );
 extern qboolean PM_KnockDownAnimExtended( int anim );
-extern void G_StartMatrixEffect( gentity_t *ent, int meFlags = 0, int length = 1000, float timeScale = 0.0f, int spinTime = 0 );
+extern void G_StartMatrixEffect( gentity_t *ent, int meFlags = 0, int length = 1000, float timeScale = 0.0f, int spinTime = 0, int viewerNum = -1 );	// coop: viewer = who gets the camera
 extern void WP_ForcePowerStop( gentity_t *self, forcePowers_t forcePower );
 extern qboolean WP_ForcePowerAvailable( gentity_t *self, forcePowers_t forcePower, int overrideAmt );
 extern void WP_ForcePowerDrain( gentity_t *self, forcePowers_t forcePower, int overrideAmt );
@@ -5497,7 +5497,7 @@ void PM_HoverTrace( void )
  				if (!trace2.startsolid && !trace2.allsolid && trace2.fraction>0.75 && Q_irand(0, 3)==0)
 				{
 					LastMatrixJumpTime += 20000;
- 				 	G_StartMatrixEffect(pm->gent, MEF_HIT_GROUND_STOP);
+ 				 	G_StartMatrixEffect(pm->gent, MEF_HIT_GROUND_STOP, 1000, 0.0f, 0, ( pm->gent->owner && pm->gent->owner->s.number < MAX_CLIENTS ) ? pm->gent->owner->s.number : -1 );	// coop: the rider's camera
 //					CG_DrawEdge(pm->ps->origin, predictedApx,			EDGE_WHITE_TWOSECOND);
 //					CG_DrawEdge(predictedApx, predictedLandPosition,	EDGE_WHITE_TWOSECOND);
 				}
@@ -11970,8 +11970,8 @@ void PM_WeaponLightsaber(void)
 		animLevelOverridden = qtrue;
 	}
 	else if ( pm->gent
-		&& cg.saberAnimLevelPending != pm->ps->saberAnimLevel
-		&& WP_SaberStyleValidForSaber( pm->gent, cg.saberAnimLevelPending ) )
+		&& G_SaberPendingLevel( pm->gent ) != pm->ps->saberAnimLevel	// coop: per player
+		&& WP_SaberStyleValidForSaber( pm->gent, G_SaberPendingLevel( pm->gent ) ) )
 	{//go ahead and use the cg.saberAnimLevelPending below
 		animLevelOverridden = qfalse;
 	}
@@ -12030,20 +12030,20 @@ void PM_WeaponLightsaber(void)
 	if ( !animLevelOverridden )
 	{
 		if ( (pm->ps->clientNum < MAX_CLIENTS||PM_ControlledByPlayer())
- 			&& cg.saberAnimLevelPending > SS_NONE
-			&& cg.saberAnimLevelPending != pm->ps->saberAnimLevel )
+ 			&& G_SaberPendingLevel( pm->gent ) > SS_NONE	// coop: per player, a joiner's stance no longer tracks the host's
+			&& G_SaberPendingLevel( pm->gent ) != pm->ps->saberAnimLevel )
 		{
 			if ( !PM_SaberInStart( pm->ps->saberMove )
 				&& !PM_SaberInTransition( pm->ps->saberMove )
 				&& !PM_SaberInAttack( pm->ps->saberMove ) )
 			{//don't allow changes when in the middle of an attack set...(or delay the change until it's done)
-				pm->ps->saberAnimLevel = cg.saberAnimLevelPending;
+				pm->ps->saberAnimLevel = G_SaberPendingLevel( pm->gent );
 			}
 		}
 	}
 	else if ( (pm->ps->clientNum < MAX_CLIENTS||PM_ControlledByPlayer()) )
 	{//if overrid the player's saberAnimLevel, let the cgame know
-		cg.saberAnimLevelPending = pm->ps->saberAnimLevel;
+		G_SaberSetPendingLevel( pm->gent, pm->ps->saberAnimLevel );	// coop: per player
 	}
 	/*
 	if ( PM_InForceGetUp( pm->ps ) )
@@ -12919,7 +12919,7 @@ static bool PM_DoChargedWeapons( void )
 		//	lovely, eh?
 		if ( (pm->ps->clientNum < MAX_CLIENTS||PM_ControlledByPlayer()) )
 		{
-			if ( cg.zoomMode == 2 )
+			if ( G_CoopZoomMode( pm->gent ) == 2 )	// coop: per player zoom
 			{
 				if ( pm->cmd.buttons & BUTTON_ATTACK )
 				{
@@ -13343,7 +13343,7 @@ static void PM_Weapon( void )
 	{//draining
 		return;
 	}
-	if (pm->ps->weapon == WP_SABER && (cg.zoomMode==3||!cg.zoomMode||pm->ps->clientNum) )		// WP_LIGHTSABER
+	if (pm->ps->weapon == WP_SABER && (G_CoopZoomMode( pm->gent )==3||!G_CoopZoomMode( pm->gent )||pm->ps->clientNum>=MAX_CLIENTS) )		// WP_LIGHTSABER // coop: per player zoom
 	{	// Separate logic for lightsaber, but not for player when zoomed
 		PM_WeaponLightsaber();
 		if ( pm->gent && pm->gent->client && pm->ps->saber[0].Active() && pm->ps->saberInFlight )
@@ -13812,7 +13812,7 @@ static void PM_Weapon( void )
 
 			case WP_DISRUPTOR:
 				if ( ((pm->ps->clientNum >= MAX_CLIENTS&&!PM_ControlledByPlayer())&& pm->gent && pm->gent->NPC && (pm->gent->NPC->scriptFlags&SCF_ALT_FIRE)) ||
-					((pm->ps->clientNum < MAX_CLIENTS||PM_ControlledByPlayer()) && cg.zoomMode == 2 ) )
+					((pm->ps->clientNum < MAX_CLIENTS||PM_ControlledByPlayer()) && G_CoopZoomMode( pm->gent ) == 2 ) )	// coop: per player zoom
 				{//NPC or player in alt-fire, sniper mode
 					PM_SetAnim( pm, SETANIM_TORSO, BOTH_ATTACK4, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
 				}
@@ -14428,7 +14428,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		amount = pm->ps->ammo[weaponData[ pm->ps->weapon ].ammoIndex] - weaponData[pm->ps->weapon].energyPerShot;
 	}
 
-	if ( pm->ps->weapon == WP_SABER && (!cg.zoomMode||pm->ps->clientNum) )
+	if ( pm->ps->weapon == WP_SABER && (!G_CoopZoomMode( pm->gent )||pm->ps->clientNum>=MAX_CLIENTS) )	// coop: per player zoom
 	{//don't let the alt-attack be interpreted as an actual attack command
 		if ( pm->ps->saberInFlight )
 		{
@@ -14463,27 +14463,28 @@ void PM_AdjustAttackStates( pmove_t *pm )
 				&& ( pm->cmd.upmove < 0 || ( !pm->cmd.forwardmove && !pm->cmd.rightmove )))
 		{
 			// We just pressed the alt-fire key
-			if ( cg.zoomMode == 0 || cg.zoomMode == 3 )
+			const int zoom = G_CoopZoomMode( pm->gent );	// coop: per player zoom (a joiner's cgame follows through "zoom N")
+			if ( zoom == 0 || zoom == 3 )
 			{
 				G_SoundOnEnt( pm->gent, CHAN_AUTO, "sound/weapons/disruptor/zoomstart.wav" );
 				// not already zooming, so do it now
-				cg.zoomMode = 2;
-				cg.zoomLocked = qfalse;
-				cg_zoomFov = 80.0f;//(cg.overrides.active&CG_OVERRIDE_FOV) ? cg.overrides.fov : cg_fov.value;
+				G_CoopSetZoomMode( pm->gent, 2 );
+				if ( pm->gent->s.number == 0 )
+				{
+					cg_zoomFov = 80.0f;//(cg.overrides.active&CG_OVERRIDE_FOV) ? cg.overrides.fov : cg_fov.value;
+				}
 			}
-			else if ( cg.zoomMode == 2 )
+			else if ( zoom == 2 )
 			{
 				G_SoundOnEnt( pm->gent, CHAN_AUTO, "sound/weapons/disruptor/zoomend.wav" );
 				// already zooming, so must be wanting to turn it off
-				cg.zoomMode = 0;
-				cg.zoomTime = cg.time;
-				cg.zoomLocked = qfalse;
+				G_CoopSetZoomMode( pm->gent, 0 );
 			}
 		}
 		else if ( !(pm->cmd.buttons & BUTTON_ALT_ATTACK ))
 		{
 			// Not pressing zoom any more
-			if ( cg.zoomMode == 2 )
+			if ( G_CoopZoomMode( pm->gent ) == 2 && pm->gent->s.number == 0 )	// coop: a joiner's cgame locks its own
 			{
 				// were zooming in, so now lock the zoom
 				cg.zoomLocked = qtrue;
@@ -14494,7 +14495,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		{
 			// If we are zoomed, we should switch the ammo usage to the alt-fire, otherwise, we'll
 			//	just use whatever ammo was selected from above
-			if ( cg.zoomMode == 2 )
+			if ( G_CoopZoomMode( pm->gent ) == 2 )	// coop: per player zoom
 			{
 				amount = pm->ps->ammo[weaponData[ pm->ps->weapon ].ammoIndex] -
 							weaponData[pm->ps->weapon].altEnergyPerShot;
@@ -14509,9 +14510,12 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	}
 
 	// Check for binocular specific mode
-	if ( cg.zoomMode == 1 && pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)) ) //
+	if ( pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)) && G_CoopZoomMode( pm->gent ) == 1 ) // coop: per player zoom
 	{
-		if ( pm->cmd.buttons & BUTTON_ALT_ATTACK && pm->ps->batteryCharge )
+		if ( pm->gent->s.number != 0 )
+		{	// coop: a joiner's cgame drives its own zoomDir/zoomLocked (CG_CoopSyncLocalPlayer)
+		}
+		else if ( pm->cmd.buttons & BUTTON_ALT_ATTACK && pm->ps->batteryCharge )
 		{
 			// zooming out
 			cg.zoomLocked = qfalse;
@@ -14581,7 +14585,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	// disruptor should convert a main fire to an alt-fire if the gun is currently zoomed
 	if ( pm->ps->weapon == WP_DISRUPTOR && pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)) )
 	{
-		if ( pm->cmd.buttons & BUTTON_ATTACK && cg.zoomMode == 2 )
+		if ( pm->cmd.buttons & BUTTON_ATTACK && G_CoopZoomMode( pm->gent ) == 2 )	// coop: per player zoom
 		{
 			// converting the main fire to an alt-fire
 			pm->cmd.buttons |= BUTTON_ALT_ATTACK;

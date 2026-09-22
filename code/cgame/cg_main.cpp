@@ -1926,6 +1926,11 @@ static void CG_GameStateReceived( void ) {
 	cgi_GetGameState( &cgs.gameState );
 
 	CG_ParseServerinfo();
+	if ( cg_remoteClient )
+	{	// coop: the host's clock as it is now (CS_COOP_TIMESCALE only changes reach us as "cs" commands)
+		const char *ts = CG_ConfigString( CS_COOP_TIMESCALE );
+		cgi_Cvar_Set( "timescale", ts[0] ? ts : "1" );
+	}
 
 	// load the new map
 	cgs.media.levelLoad = cgi_R_RegisterShaderNoMip( "gfx/hud/mp_levelload" );

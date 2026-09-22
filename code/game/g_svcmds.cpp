@@ -361,17 +361,23 @@ extern qboolean PM_SaberInStart( int move );
 extern qboolean PM_SaberInTransition( int move );
 extern qboolean PM_SaberInAttack( int move );
 extern qboolean WP_SaberCanTurnOffSomeBlades( saberInfo_t *saber );
-void Svcmd_SaberAttackCycle_f( void )
+// coop: shared by the host's console command and a joiner's "saberAttackCycle" client command
+void G_SaberAttackCycle( gentity_t *self )
 {
-	if ( !&g_entities[0] || !g_entities[0].client )
+	if ( !self || !self->client )
 	{
 		return;
 	}
-
-	gentity_t *self = G_GetSelfForPlayerCmd();
 	if ( self->s.weapon != WP_SABER )
 	{// saberAttackCycle button also switches to saber
-		gi.SendConsoleCommand("weapon 1" );
+		if ( self->s.number == 0 )
+		{
+			gi.SendConsoleCommand("weapon 1" );
+		}
+		else if ( self->s.number < MAX_CLIENTS )
+		{	// coop: the joiner's cgame selects it (its usercmd brings it back like any weapon change)
+			G_CoopChangeWeapon( self, WP_SABER );
+		}
 		return;
 	}
 
@@ -513,7 +519,7 @@ void Svcmd_SaberAttackCycle_f( void )
 	int	saberAnimLevel;
 	if ( G_CoopIsPlayer( self ) )
 	{
-		saberAnimLevel = cg.saberAnimLevelPending;
+		saberAnimLevel = G_SaberPendingLevel( self );	// coop: per player
 	}
 	else
 	{
@@ -541,7 +547,7 @@ void Svcmd_SaberAttackCycle_f( void )
 	WP_UseFirstValidSaberStyle( self, &saberAnimLevel );
 	if ( G_CoopIsPlayer( self ) )
 	{
-		cg.saberAnimLevelPending = saberAnimLevel;
+		G_SaberSetPendingLevel( self, saberAnimLevel );	// coop: per player
 	}
 	else
 	{
@@ -582,6 +588,15 @@ void Svcmd_SaberAttackCycle_f( void )
 	}
 	//gi.Printf("\n");
 #endif
+}
+
+void Svcmd_SaberAttackCycle_f( void )
+{
+	if ( !&g_entities[0] || !g_entities[0].client )
+	{
+		return;
+	}
+	G_SaberAttackCycle( G_GetSelfForPlayerCmd() );
 }
 
 qboolean G_ReleaseEntity( gentity_t *grabber )

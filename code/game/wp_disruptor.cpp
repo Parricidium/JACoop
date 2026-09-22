@@ -299,6 +299,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 					tent = G_TempEntity( tr.endpos, EV_DISRUPTOR_SNIPER_MISS );
 					tent->svFlags |= SVF_BROADCAST;
 					VectorCopy( tr.plane.normal, tent->pos1 );
+					VectorCopy( tr.plane.normal, tent->s.angles2 );	// coop: pos1 for remote clients
 					break; // hit solid, but doesn't take damage, so stop the shot...we _could_ allow it to shoot through walls, might be cool?
 				}
 			}
@@ -317,6 +318,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 	tent = G_TempEntity( tr.endpos, EV_DISRUPTOR_SNIPER_SHOT );
 	tent->svFlags |= SVF_BROADCAST;
 	tent->alt_fire = fullCharge; // mark us so we can alter the effect
+	tent->s.time2 = fullCharge ? 1 : 0;	// coop: alt_fire for remote clients
 	VectorCopy( muzzle, tent->s.origin2 );
 
 	// now go along the trail and make sight events

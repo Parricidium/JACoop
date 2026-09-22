@@ -155,7 +155,7 @@ void funcBBrushDieGo (gentity_t *self)
 	if ( !(self->spawnflags & 2048) ) // NO_EXPLOSION
 	{
 		// we are allowed to explode
-		CG_MiscModelExplosion( self->absmin, self->absmax, size, chunkType );
+		G_CoopMiscModelExplosion( self, size, chunkType );	// coop: remote clients get it as a temp entity
 	}
 
 	if ( self->splashDamage > 0 && self->splashRadius > 0 )
@@ -596,7 +596,7 @@ void misc_model_breakable_die( gentity_t *self, gentity_t *inflictor, gentity_t 
 			}
 			else
 			{
-				CG_MiscModelExplosion( self->absmin, self->absmax, size, self->material );
+				G_CoopMiscModelExplosion( self, (int)size, self->material );	// coop: remote clients get it as a temp entity
 				G_Sound( self, G_SoundIndex("sound/weapons/explosions/cargoexplode.wav") );
 				self->s.loopSound = 0;
 			}
@@ -606,7 +606,7 @@ void misc_model_breakable_die( gentity_t *self, gentity_t *inflictor, gentity_t 
 			AddSightEvent( attacker, self->currentOrigin, 128, AEL_DISCOVERED );
 			AddSoundEvent( attacker, self->currentOrigin, 64, AEL_SUSPICIOUS, qfalse, qtrue );//FIXME: am I on ground or not?
 			// This is the default explosion
-			CG_MiscModelExplosion( self->absmin, self->absmax, size, self->material );
+			G_CoopMiscModelExplosion( self, (int)size, self->material );	// coop: remote clients get it as a temp entity
 			G_Sound(self, G_SoundIndex("sound/weapons/explosions/cargoexplode.wav"));
 		}
 	}
@@ -1420,6 +1420,7 @@ void funcGlassDie( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, i
 	// Really naughty cheating.  Put in an EVENT at some point...
 	cgi_R_GetBModelVerts( cgs.inlineDrawModel[self->s.modelindex], verts, normal );
 	CG_DoGlass( verts, normal, self->pos1, self->pos2, self->splashRadius );
+	G_CoopGlass( self );	// coop: the remote clients rebuild the same shards from the inline model
 
 	self->takedamage = qfalse;//stop chain reaction runaway loops
 

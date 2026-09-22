@@ -728,7 +728,8 @@ Ghoul2 Insert End
 #define CS_COOP_MODELSPECS		(CS_WORLD_FX + MAX_WORLD_FX)
 #define CS_COOP_OBJECTIVES		(CS_COOP_MODELSPECS + MAX_COOP_MODELSPECS)	// coop: host mission objectives (one char per objective)
 #define CS_COOP_LOBBY			(CS_COOP_OBJECTIVES + 1)	// coop: "L|name\tready\tmodel|..." (L = lobby, G = in game)
-#define CS_MAX					(CS_COOP_LOBBY + 1)
+#define CS_COOP_TIMESCALE		(CS_COOP_LOBBY + 1)	// coop: the host's timescale cvar, mirrored on remote clients (Force Speed/Rage, matrix)
+#define CS_MAX					(CS_COOP_TIMESCALE + 1)
 
 #if (CS_MAX) > MAX_CONFIGSTRINGS
 #error overflow: (CS_MAX) > MAX_CONFIGSTRINGS
@@ -2269,6 +2270,8 @@ using playerState_t = PlayerStateBase<saberInfo_t>;
 
 #define	BUTTON_FORCE_FOCUS	256			// any key whatsoever
 #define	BUTTON_COOP_REVIVE	512			// coop: +coop_revive held beside a downed teammate
+#define	BUTTON_COOP_ZOOM_SHIFT	10			// coop: bits 10-11 = the remote cgame's cg.zoomMode (0 none, 1 binoculars, 2 scope, 3 goggles)
+#define	BUTTON_COOP_ZOOM_MASK	( 3 << BUTTON_COOP_ZOOM_SHIFT )
 
 #define	MOVE_RUN			120			// if forwardmove or rightmove are >= MOVE_RUN,
 										// then BUTTON_WALKING should be set
@@ -2343,6 +2346,20 @@ typedef struct usercmd_s {
 // coop: what a mover's s.coopHealth says about it to the remote cgame
 #define COOP_MOVER_DOOR		0x100	// func_door, low byte = spawnflags (2 = MOVER_FORCE_ACTIVATE)
 #define COOP_MOVER_STATIC	0x200	// func_static, low byte = spawnflags (1 = F_PUSH, 2 = F_PULL)
+
+// coop: layout of a character's s.coopForce (the Force visuals the remote cgame
+// draws from a placeholder gentity's playerState)
+#define COOPF_ACTIVE_MASK			0xffff		// bits 0-15 = ps.forcePowersActive (NUM_FORCE_POWERS == 16)
+#define COOPF_LVL_LIGHTNING_SHIFT	16			// 2 bits each, level clamped to 3
+#define COOPF_LVL_DRAIN_SHIFT		18
+#define COOPF_LVL_PROTECT_SHIFT		20
+#define COOPF_LVL_ABSORB_SHIFT		22
+#define COOPF_DRAIN_AREA			( 1 << 24 )	// forceDrainEntityNum >= ENTITYNUM_WORLD (sweep, not a grab)
+#define COOPF_PUSH_LHAND			( 1 << 25 )	// ps.powerups[PW_FORCE_PUSH] running
+#define COOPF_PUSH_RHAND			( 1 << 26 )	// ps.powerups[PW_FORCE_PUSH_RHAND] running
+
+// coop: s.modelindex2 of a broadcast ET_THINKER the remote cgame must think for
+#define COOP_THINKER_MATRIX			1			// G_StartMatrixEffect (otherEntityNum2 = viewer, ENTITYNUM_NONE = everyone)
 
 typedef enum {// !!!!!!!!!!! LOADSAVE-affecting struct !!!!!!!!!!
 	TR_STATIONARY,
@@ -2473,6 +2490,10 @@ Ghoul2 Insert End
 	int		coopMaxHealth;
 	int		coopLookTarget;	// entity the head turns to (renderInfo.lookTarget), ENTITYNUM_NONE if none
 							// (movers: coopHealth carries COOP_MOVER_* | spawnflags for the remote crosshair scan)
+	// republished every frame, never saved (older .sav files stay loadable):
+	int		coopForce;		// characters: COOPF_* (forcePowersActive, levels, drain sweep, push hands)
+	int		coopShockTime;	// characters: ps.powerups[PW_SHOCKED] (host level.time), 0 when none
+	int		coopPushTime;	// any entity: gentity_t::forcePushTime while being pushed, else 0
 
 
 	void sg_export(

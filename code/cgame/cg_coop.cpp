@@ -337,6 +337,7 @@ modelindex3 (g_items.cpp), everything else in modelindex.
 ================
 */
 static int coopG2Key[MAX_GENTITIES];	// CS_MODELS index the ghoul2 in this slot was built from (0 = none, -1 = a limb)
+static int coopMatrixKey[MAX_GENTITIES];	// s.time of the matrix effect this slot is thinking for (0 = none)
 
 // Dismemberment: the host cuts the victim's ghoul2 into a limb entity
 // (ET_THINKER) and turns the limb's surfaces off on the victim - all of it in
@@ -479,6 +480,7 @@ void CG_CoopReset( void )
 		gent->weaponModel[0] = gent->weaponModel[1] = -1;
 		gent->owner = NULL;
 		gent->inuse = qfalse;
+		gent->e_clThinkFunc = clThinkF_NULL;
 		if ( gent->client )
 		{
 			memset( gent->client->ps.saber, 0, sizeof( gent->client->ps.saber ) );
@@ -492,6 +494,13 @@ void CG_CoopReset( void )
 	cgi_Cvar_Set( "skippingCinematic", "0" );
 	cgi_Cvar_Set( "timescale", "1" );
 	CG_CoopResetCamera();
+	memset( coopMatrixKey, 0, sizeof( coopMatrixKey ) );
+	{
+		extern int coopMatrixEnt;
+		extern qboolean MatrixMode;
+		coopMatrixEnt = -1;
+		MatrixMode = qfalse;
+	}
 	Com_Printf( "coop: remote client state reset for the new level\n" );
 }
 
@@ -600,8 +609,9 @@ void CG_CoopEnts_f( void )
 			levels[fp * 2] = (char)( '0' + ps->forcePowerLevel[fp] );
 			levels[fp * 2 + 1] = ( fp == NUM_FORCE_POWERS - 1 ) ? '\0' : ' ';
 		}
-		Com_Printf( "coop: ps weapon %i weapons 0x%x force %i/%i known 0x%x levels [%s] styles 0x%x view %.0f %.0f\n",
-			ps->weapon, ps->stats[STAT_WEAPONS], ps->forcePower, ps->forcePowerMax, ps->forcePowersKnown, levels, ps->saberStylesKnown, ps->viewangles[PITCH], ps->viewangles[YAW] );
+		Com_Printf( "coop: ps weapon %i weapons 0x%x force %i/%i known 0x%x levels [%s] styles 0x%x stance %i active 0x%x speedDur %i drainEnt %i view %.0f %.0f\n",
+			ps->weapon, ps->stats[STAT_WEAPONS], ps->forcePower, ps->forcePowerMax, ps->forcePowersKnown, levels, ps->saberStylesKnown, ps->saberAnimLevel,
+			ps->forcePowersActive, ps->forcePowerDuration[FP_SPEED], ps->forceDrainEntityNum, ps->viewangles[PITCH], ps->viewangles[YAW] );
 	}
 	for ( int i = 0; i < cg.snap->numEntities; i++ )
 	{
@@ -622,8 +632,9 @@ void CG_CoopEnts_f( void )
 		{
 			vec3_t amb, dir, ldir;
 			cgi_R_GetLighting( cent->lerpOrigin, amb, dir, ldir );
-			name = va( "spec %i hp %i/%i%s pw 0x%x ef 0x%x light amb %.0f %.0f %.0f dir %.0f %.0f %.0f", es->modelindex3, es->coopHealth, es->coopMaxHealth & COOP_MAXHEALTH_MASK,
-				( es->coopMaxHealth & COOP_MAXHEALTH_MORELIGHT ) ? " morelight" : "", es->powerups, es->eFlags, amb[0], amb[1], amb[2], dir[0], dir[1], dir[2] );
+			name = va( "spec %i hp %i/%i%s pw 0x%x ef 0x%x force 0x%x shock %i push %i light amb %.0f %.0f %.0f dir %.0f %.0f %.0f", es->modelindex3, es->coopHealth, es->coopMaxHealth & COOP_MAXHEALTH_MASK,
+				( es->coopMaxHealth & COOP_MAXHEALTH_MORELIGHT ) ? " morelight" : "", es->powerups, es->eFlags,
+				es->coopForce, es->coopShockTime, es->coopPushTime, amb[0], amb[1], amb[2], dir[0], dir[1], dir[2] );
 		}
 		else
 		{
@@ -789,6 +800,22 @@ void CG_CoopSyncCharacter( centity_t *cent )
 	gent->s.eFlags = s->eFlags;
 	gent->client->ps.weapon = s->weapon;
 	gent->client->ps.saberInFlight = s->saberInFlight;
+	{	// Force visuals (s.coopForce, G_CoopUpdateAppearance); every check is "> cg.time"
+		// and rewritten each frame, so cg.time + 1 stops the frame the host clears it
+		playerState_t *ps = &gent->client->ps;
+		if ( cent->currentState.number != cg_localEntNum )
+		{	// ours already has forcePowersActive/forcePowerLevel/powerups/drain from the playerState
+			ps->forcePowersActive = s->coopForce & COOPF_ACTIVE_MASK;
+			ps->forcePowerLevel[FP_LIGHTNING] = ( s->coopForce >> COOPF_LVL_LIGHTNING_SHIFT ) & 3;
+			ps->forcePowerLevel[FP_DRAIN] = ( s->coopForce >> COOPF_LVL_DRAIN_SHIFT ) & 3;
+			ps->forcePowerLevel[FP_PROTECT] = ( s->coopForce >> COOPF_LVL_PROTECT_SHIFT ) & 3;
+			ps->forcePowerLevel[FP_ABSORB] = ( s->coopForce >> COOPF_LVL_ABSORB_SHIFT ) & 3;
+			ps->powerups[PW_FORCE_PUSH] = ( s->coopForce & COOPF_PUSH_LHAND ) ? cg.time + 1 : 0;
+			ps->powerups[PW_FORCE_PUSH_RHAND] = ( s->coopForce & COOPF_PUSH_RHAND ) ? cg.time + 1 : 0;
+			ps->forceDrainEntityNum = ( s->coopForce & COOPF_DRAIN_AREA ) ? ENTITYNUM_NONE : 0;
+			ps->powerups[PW_SHOCKED] = s->coopShockTime;
+		}
+	}
 	VectorCopy( cent->lerpOrigin, gent->currentOrigin );
 	VectorCopy( cent->lerpAngles, gent->currentAngles );
 
@@ -889,10 +916,38 @@ void CG_CoopSyncEntity( centity_t *cent )
 	cent->gent->inuse = qtrue;
 	cent->gent->s.number = cent->currentState.number;
 	cent->gent->s.clientNum = cent->currentState.clientNum;	// lip sync / head bob index gi.VoiceVolume[] by it (CG_G2PlayerHeadAnims, CG_AddHeadBob)
+	cent->gent->s.eType = cent->currentState.eType;	// the crosshair scan tests it (Force door hint)
+	if ( cent->currentState.eType == ET_MISSILE )
+	{	// alt-fire model/trail/loop sound (CG_Missile), relayed by SV_BuildClientSnapshot
+		cent->gent->alt_fire = (qboolean)( cent->currentState.time2 != 0 );
+		VectorCopy( cent->currentState.angles2, cent->gent->pos1 );
+	}
+	cent->gent->forcePushTime = cent->currentState.coopPushTime;	// push heat-haze; input lock while we are thrown
 	if ( cent->currentState.eType == ET_MOVER && ( cent->currentState.coopHealth & ( COOP_MOVER_DOOR | COOP_MOVER_STATIC ) ) )
 	{	// the crosshair scan reads classname/spawnflags (Force push/pull hint)
 		cent->gent->classname = ( cent->currentState.coopHealth & COOP_MOVER_DOOR ) ? "func_door" : "func_static";
 		cent->gent->spawnflags = cent->currentState.coopHealth & 0xff;
+	}
+	else if ( cent->currentState.eType == ET_MOVER )
+	{	// not a Force mover (or a slot reused by one)
+		cent->gent->classname = NULL;
+		cent->gent->spawnflags = 0;
+	}
+	{	// the matrix (bullet time) camera entity: think it like the host does, once per instance
+		const int num = cent->currentState.number;
+		if ( cent->currentState.eType == ET_THINKER && cent->currentState.modelindex2 == COOP_THINKER_MATRIX )
+		{
+			if ( coopMatrixKey[num] != cent->currentState.time )
+			{
+				coopMatrixKey[num] = cent->currentState.time;
+				cent->gent->e_clThinkFunc = clThinkF_CG_MatrixEffect;
+			}
+		}
+		else if ( cent->gent->e_clThinkFunc == clThinkF_CG_MatrixEffect )
+		{	// slot reused after the host freed it
+			cent->gent->e_clThinkFunc = clThinkF_NULL;
+			coopMatrixKey[num] = 0;
+		}
 	}
 	CG_CoopEnsureG2Model( cent );
 	CG_CoopEnsureCharacter( cent );
@@ -948,6 +1003,48 @@ void CG_CoopSyncLocalPlayer( void )
 
 	memcpy( me->client->ps.saber, saber, sizeof( saber ) );
 	me->client->ps.dualSabers = dualSabers;
+
+	if ( cg.zoomMode == 1 || cg.zoomMode == 2 )
+	{	// the host's pmove drives cg.zoomDir/zoomLocked from the buttons for slot 0 only (bg_pmove.cpp)
+		usercmd_t cmd;
+		if ( cgi_GetUserCmd( cgi_GetCurrentCmdNumber(), &cmd ) )
+		{
+			if ( cg.zoomMode == 1 )
+			{
+				if ( ( cmd.buttons & BUTTON_ALT_ATTACK ) && cg.snap->ps.batteryCharge )
+				{
+					cg.zoomLocked = qfalse;
+					cg.zoomDir = 1;
+				}
+				else if ( ( cmd.buttons & BUTTON_ATTACK ) && cg.snap->ps.batteryCharge )
+				{
+					cg.zoomLocked = qfalse;
+					cg.zoomDir = -1;
+				}
+				else
+				{
+					cg.zoomLocked = qtrue;
+				}
+			}
+			else if ( !( cmd.buttons & BUTTON_ALT_ATTACK ) )
+			{	// scope: releasing alt-fire locks the zoom where it is
+				cg.zoomLocked = qtrue;
+			}
+		}
+	}
+
+	{	// the host frees the matrix entity 500 ms after ITS stop; if it left the snapshot before we
+		// reached our own stop branch, drop the camera overrides rather than keep a stuck orbit
+		extern int coopMatrixEnt;
+		extern qboolean MatrixMode;
+		if ( coopMatrixEnt >= 0 && !cg_entities[coopMatrixEnt].currentValid )
+		{
+			cg.overrides.active &= ~( CG_OVERRIDE_3RD_PERSON_RNG | CG_OVERRIDE_3RD_PERSON_ANG | CG_OVERRIDE_3RD_PERSON_POF );
+			cg.overrides.thirdPersonAngle = cg.overrides.thirdPersonPitchOffset = cg.overrides.thirdPersonRange = 0;
+			MatrixMode = qfalse;
+			coopMatrixEnt = -1;
+		}
+	}
 
 
 	// mission objectives mirrored from the host (CS_COOP_OBJECTIVES); a change
@@ -1468,6 +1565,9 @@ void CG_CoopFixLocalEntityState( centity_t *cent )
 		cent->currentState.coopHealth = es->coopHealth;
 		cent->currentState.coopMaxHealth = es->coopMaxHealth;
 		cent->currentState.coopLookTarget = es->coopLookTarget;
+		cent->currentState.coopForce = es->coopForce;
+		cent->currentState.coopShockTime = es->coopShockTime;
+		cent->currentState.coopPushTime = es->coopPushTime;
 		return;
 	}
 }
@@ -1491,6 +1591,32 @@ void CG_CoopSelectWeapon_f( void )
 	}
 	cg.weaponSelect = wp;
 	cg.weaponSelectTime = cg.time;
+}
+
+/*
+================
+CG_CoopZoom_f
+
+"zoom <mode>": the host toggled our scope (disruptor alt-fire runs in its
+pmove), or dropped our zoom (death, knockdown, view entity). Mirrors what
+bg_pmove.cpp does to the host's own cg.zoomMode.
+================
+*/
+extern float cg_zoomFov;
+void CG_CoopZoom_f( void )
+{
+	const int mode = atoi( CG_Argv( 1 ) );
+	if ( mode < 0 || mode > 3 || mode == cg.zoomMode )
+	{
+		return;
+	}
+	cg.zoomMode = mode;
+	cg.zoomTime = cg.time;
+	cg.zoomLocked = qfalse;
+	if ( mode == 2 )
+	{
+		cg_zoomFov = 80.0f;
+	}
 }
 
 void CG_CoopMissionFailed_f( void )

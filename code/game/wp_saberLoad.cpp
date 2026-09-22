@@ -2090,7 +2090,7 @@ void WP_RemoveSaber( gentity_t *ent, int saberNum )
 				ent->client->ps.saberAnimLevel = i;
 				if ( ent->s.number < MAX_CLIENTS )
 				{
-					cg.saberAnimLevelPending = ent->client->ps.saberAnimLevel;
+					G_SaberSetPendingLevel( ent, ent->client->ps.saberAnimLevel );	// coop: per player
 				}
 				break;
 			}
@@ -2158,7 +2158,7 @@ void WP_SetSaber( gentity_t *ent, int saberNum, const char *saberName )
 	WP_UseFirstValidSaberStyle( ent, &ent->client->ps.saberAnimLevel );
 	if ( ent->s.number < MAX_CLIENTS )
 	{
-		cg.saberAnimLevelPending = ent->client->ps.saberAnimLevel;
+		G_SaberSetPendingLevel( ent, ent->client->ps.saberAnimLevel );	// coop: per player
 	}
 }
 

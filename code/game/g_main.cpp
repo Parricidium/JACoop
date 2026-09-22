@@ -2042,6 +2042,8 @@ void G_RunFrame( int levelTime ) {
 	//Look to clear out old events
 	ClearPlayerAlertEvents();
 
+	G_CoopUpdateTimescale();	// coop: Force Speed/Rage bullet time, one arbiter for every player (after the client thinks)
+
 	//Run the frame for all entities
 //	for ( i = 0, ent = &g_entities[0]; i < globals.num_entities ; i++, ent++)
 	for ( i = 0; i < globals.num_entities ; i++)
@@ -2088,6 +2090,8 @@ void G_RunFrame( int levelTime ) {
 		{
 			G_CoopUpdateAppearance( ent );	// coop: publish model/skin/saber spec for remote clients
 		}
+		// coop: the push heat-haze (characters, crates, weapons) reads gentity_t::forcePushTime
+		ent->s.coopPushTime = ( ent->forcePushTime > level.time ) ? ent->forcePushTime : 0;
 
 		if( !ent->client )
 		{
@@ -2132,18 +2136,26 @@ void G_RunFrame( int levelTime ) {
 		//The player
 		if ( i == 0 )
 		{
-			// decay batteries if the goggles are active
-			if ( cg.zoomMode == 1 && ent->client->ps.batteryCharge > 0 )
+			// decay batteries if the goggles are active (coop: every player, with its own zoom)
+			for ( int p = 0; p < MAX_CLIENTS; p++ )
 			{
-				ent->client->ps.batteryCharge--;
-			}
-			else if ( cg.zoomMode == 3 && ent->client->ps.batteryCharge > 0 )
-			{
-				ent->client->ps.batteryCharge -= 2;
-
-				if ( ent->client->ps.batteryCharge < 0 )
+				gentity_t *pl = &g_entities[p];
+				if ( !pl->inuse || !pl->client )
 				{
-					ent->client->ps.batteryCharge = 0;
+					continue;
+				}
+				if ( G_CoopZoomMode( pl ) == 1 && pl->client->ps.batteryCharge > 0 )
+				{
+					pl->client->ps.batteryCharge--;
+				}
+				else if ( G_CoopZoomMode( pl ) == 3 && pl->client->ps.batteryCharge > 0 )
+				{
+					pl->client->ps.batteryCharge -= 2;
+
+					if ( pl->client->ps.batteryCharge < 0 )
+					{
+						pl->client->ps.batteryCharge = 0;
+					}
 				}
 			}
 

@@ -210,6 +210,7 @@ static void WP_FireConcussionAlt( gentity_t *ent )
 					tent = G_TempEntity( tr.endpos, EV_CONC_ALT_MISS );
 					tent->svFlags |= SVF_BROADCAST;
 					VectorCopy( tr.plane.normal, tent->pos1 );
+					VectorCopy( tr.plane.normal, tent->s.angles2 );	// coop: pos1 for remote clients
 					break; // hit solid, but doesn't take damage, so stop the shot...we _could_ allow it to shoot through walls, might be cool?
 				}
 			}

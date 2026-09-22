@@ -466,6 +466,17 @@ qboolean G_CoopCustomSound( vec3_t origin, int entityNum, soundChannel_t channel
 void G_CoopSoundPath( const vec3_t origin, int entityNum, int channel, const char *path );
 void G_CoopChunks( int owner, vec3_t origin, const vec3_t normal, const vec3_t mins, const vec3_t maxs,
 						float speed, int numChunks, material_t chunkType, int customChunk, float baseScale, int customSound = 0 );
+void G_CoopMiscModelExplosion( gentity_t *self, int size, material_t chunkType );
+void G_CoopGlass( gentity_t *self );
+// coop: per-player state that stock SP keeps in the host's cgame globals
+int G_SaberPendingLevel( const gentity_t *ent );
+void G_SaberSetPendingLevel( gentity_t *ent, int level );
+void G_SaberAttackCycle( gentity_t *self );
+int G_CoopZoomMode( const gentity_t *ent );
+void G_CoopSetZoomMode( gentity_t *ent, int mode );
+void G_CoopReadZoomMode( gentity_t *ent, usercmd_t *ucmd );
+void G_CoopChangeWeapon( gentity_t *ent, int wp );
+void G_CoopUpdateTimescale( void );
 int	G_SoundIndex( const char *name );
 /*
 Ghoul2 Insert Start

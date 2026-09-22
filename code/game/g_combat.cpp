@@ -803,7 +803,9 @@ void G_MakeTeamVulnerable( void )
 	}
 }
 
-void G_StartMatrixEffect( gentity_t *ent, int meFlags = 0, int length = 1000, float timeScale = 0.0f, int spinTime = 0 )
+// coop: viewerNum = the player whose camera orbits (default: the focal entity when it is a
+// player, else everyone as in SP); the slow motion is shared through the host clock anyway
+void G_StartMatrixEffect( gentity_t *ent, int meFlags = 0, int length = 1000, float timeScale = 0.0f, int spinTime = 0, int viewerNum = -1 )
 {
 	//FIXME: allow them to specify a different focal entity or point?
 	if ( g_timescale->value != 1.0 || in_camera )
@@ -820,6 +822,12 @@ void G_StartMatrixEffect( gentity_t *ent, int meFlags = 0, int length = 1000, fl
 		matrix->e_clThinkFunc = clThinkF_CG_MatrixEffect;
 		matrix->s.eType = ET_THINKER;
 		matrix->svFlags |= SVF_BROADCAST;// Broadcast to all clients
+		matrix->s.modelindex2 = COOP_THINKER_MATRIX;	// coop: the remote cgame arms the think itself
+		if ( viewerNum < 0 )
+		{
+			viewerNum = ( ent->s.number < MAX_CLIENTS ) ? ent->s.number : ENTITYNUM_NONE;
+		}
+		matrix->s.otherEntityNum2 = viewerNum;
 		matrix->s.time = level.time;
 		matrix->s.eventParm = length;
 		//now the cgame decides when to remove us... in case the framerate chugs so severely that it never finishes the effect before it removes itself!
@@ -4010,11 +4018,11 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 				{//Matrix!
 					if ( attacker->client->ps.torsoAnim == BOTH_A6_SABERPROTECT )
 					{//don't override the range and vertbob
-						G_StartMatrixEffect( self, (MEF_NO_RANGEVAR|MEF_NO_VERTBOB) );
+						G_StartMatrixEffect( self, (MEF_NO_RANGEVAR|MEF_NO_VERTBOB), 1000, 0.0f, 0, attacker->s.number );	// coop: the killer's camera
 					}
 					else
 					{
-						G_StartMatrixEffect( self );
+						G_StartMatrixEffect( self, 0, 1000, 0.0f, 0, attacker->s.number );	// coop: the killer's camera
 					}
 				}
 			}
@@ -4029,11 +4037,11 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 				{//Matrix!
 					if ( attacker->client->ps.torsoAnim == BOTH_A6_SABERPROTECT )
 					{//don't override the range and vertbob
-						G_StartMatrixEffect( self, (MEF_NO_RANGEVAR|MEF_NO_VERTBOB) );
+						G_StartMatrixEffect( self, (MEF_NO_RANGEVAR|MEF_NO_VERTBOB), 1000, 0.0f, 0, attacker->s.number );	// coop: the killer's camera
 					}
 					else
 					{
-						G_StartMatrixEffect( self );
+						G_StartMatrixEffect( self, 0, 1000, 0.0f, 0, attacker->s.number );	// coop: the killer's camera
 					}
 				}
 			}
@@ -4058,7 +4066,7 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 			{
 				cg.missionStatusDeadTime = level.time + 1000;	// Too long?? Too short??
 			}
-			cg.zoomMode = 0; // turn off zooming when we die
+			G_CoopSetZoomMode( self, 0 ); // turn off zooming when we die // coop: per player
 		}
 	}
 

@@ -588,6 +588,10 @@ void SV_Frame( int msec,float fractionMsec ) {
 		time_game = Sys_Milliseconds () - startTime;
 	}
 
+	// coop: the host's clock (Force Speed/Rage, matrix bullet time) is the shared clock; remote
+	// clients mirror the cvar so their frame time and snapshot cadence stay in step with sv.time
+	SV_SetConfigstring( CS_COOP_TIMESCALE, com_timescale->string );
+
 	SG_TestSave();	// returns immediately if not active, used for fake-save-every-cycle to test (mainly) Icarus disk code
 
 	// check timeouts

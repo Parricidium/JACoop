@@ -141,6 +141,8 @@ void G_PlayEffect( int fxID, const vec3_t origin, const vec3_t fwd )
 
 	// Assume angles, we'll do a cross product on the other end to finish up
 	MakeNormalVectors( fwd, tent->pos4, temp );
+	VectorCopy( tent->pos3, tent->s.origin2 );	// coop: the axis for remote clients (pos3/pos4 never travel)
+	VectorCopy( tent->pos4, tent->s.angles2 );
 	gi.linkentity( tent );
 }
 
@@ -160,6 +162,8 @@ void G_PlayEffect( int fxID, int entNum, const vec3_t fwd )
 
 	// Assume angles, we'll do a cross product on the other end to finish up
 	MakeNormalVectors( fwd, tent->pos4, temp );
+	VectorCopy( tent->pos3, tent->s.origin2 );	// coop: the axis for remote clients
+	VectorCopy( tent->pos4, tent->s.angles2 );
 }
 
 // Play an effect bolted onto the muzzle of the specified client
@@ -189,6 +193,8 @@ void G_PlayEffect( int fxID, const vec3_t origin, const vec3_t axis[3] )
 	// We can just assume axis[2] from doing a cross product on these.
 	VectorCopy( axis[0], tent->pos3 );
 	VectorCopy( axis[1], tent->pos4 );
+	VectorCopy( tent->pos3, tent->s.origin2 );	// coop: the axis for remote clients
+	VectorCopy( tent->pos4, tent->s.angles2 );
 }
 
 // Effect playing utilities	- bolt an effect to a ghoul2 models bolton point
