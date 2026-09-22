@@ -580,7 +580,22 @@ void *Sys_LoadSPGameDll( const char *name, GetGameAPIProc **GetGameAPI )
 		};
 		size_t numPaths = ARRAY_LEN( searchPaths );
 
-		libHandle = Sys_LoadDllFromPaths( filename, gamedir, searchPaths, numPaths,
+		// coop: JACoop ships its own game library at the root of fs_homepath
+		// (the JACoop folder) and this engine only works with that one (its
+		// game_import_t and the GetCGameAPI entry point are ours). The generic
+		// search below walks <homepath|basepath>/base, then /OpenJK, and only
+		// then the roots, so a stock OpenJK installed in the game's GameData
+		// (GameData/OpenJK/jagamex86_64.dll) would shadow ours and fail with
+		// "no GetCGameAPI" on a joiner. Try our own copy first.
+		if ( homepath[0] ) {
+			const char *fn = va( "%s%c%s", homepath, PATH_SEP, filename );
+			libHandle = Sys_LoadLibrary( fn );
+			if ( !libHandle )
+				Com_Printf( "%s(%s) failed: \"%s\"\n", __FUNCTION__, fn, Sys_LibraryError() );
+		}
+
+		if ( !libHandle )
+			libHandle = Sys_LoadDllFromPaths( filename, gamedir, searchPaths, numPaths,
 											SEARCH_PATH_BASE | SEARCH_PATH_MOD | SEARCH_PATH_OPENJK | SEARCH_PATH_ROOT,
 											__FUNCTION__ );
 		if ( !libHandle )
@@ -590,6 +605,17 @@ void *Sys_LoadSPGameDll( const char *name, GetGameAPIProc **GetGameAPI )
 	*GetGameAPI = (GetGameAPIProc *)Sys_LoadFunction( libHandle, "GetGameAPI" );
 	if ( !*GetGameAPI ) {
 		Com_DPrintf ( "%s(%s) failed to find GetGameAPI function:\n...%s!\n", __FUNCTION__, name, Sys_LibraryError() );
+		Sys_UnloadLibrary( libHandle );
+		return NULL;
+	}
+
+	// coop: a foreign jagame (stock OpenJK) exports GetGameAPI but not
+	// GetCGameAPI; hosting with it would crash on the mismatched import table,
+	// so refuse it here with a message that says what to look for.
+	if ( !Sys_LoadFunction( libHandle, "GetCGameAPI" ) ) {
+		Com_Printf( "^1%s(%s): the library found is not JACoop's (no GetCGameAPI export); "
+				"is %s missing from the JACoop folder (%s)?\n", __FUNCTION__, name, filename,
+				Cvar_VariableString( "fs_homepath" ) );
 		Sys_UnloadLibrary( libHandle );
 		return NULL;
 	}
