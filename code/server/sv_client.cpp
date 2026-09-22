@@ -197,6 +197,7 @@ void SV_DropClient( client_t *drop, const char *reason ) {
 	drop->state = CS_ZOMBIE;		// become free in a few seconds
 
 	SV_CoopTransferClose( drop );	// coop: pk3 transfer in flight, if any
+	SV_CoopUploadReset( drop );		// coop: ... and the one coming the other way
 
 	// call the prog function for removing a client
 	// this will remove the body, among other things
@@ -403,6 +404,10 @@ static ucmd_t ucmds[] = {
 	{"coopdl_done", SV_CoopDone_f},
 	{"coopdl_fail", SV_CoopFail_f},
 	{"coopdl_stop", SV_CoopStop_f},
+	// coop: joiner -> host pk3 transfer (the joiner's own mods)
+	{"coopup_list", SV_CoopUpList_f},
+	{"coopup_done", SV_CoopUpDone_f},
+	{"coopup_fail", SV_CoopUpFail_f},
 
 	{NULL, NULL}
 };
@@ -676,8 +681,17 @@ void SV_ExecuteClientMessage( client_t *cl, msg_t *msg ) {
 				return;	// disconnect command
 			}
 			break;
+
+		// coop: a block of a pk3 the joiner is pushing to us (sv_coop_transfer.cpp)
+		case clc_coopUpload:
+			SV_CoopUploadRead( cl, msg );
+			if ( cl->state == CS_ZOMBIE ) {
+				return;
+			}
+			break;
 		}
 	}
+	SV_CoopUploadEndOfMessage( cl );	// coop: one cumulative ack per packet that carried blocks
 }
 
 

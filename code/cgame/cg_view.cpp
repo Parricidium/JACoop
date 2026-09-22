@@ -2026,6 +2026,10 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 		return;
 	}
 
+	// coop: a pk3 entered the search path while we run (a download, or a mod a
+	// joiner pushed to us when we are the host): register the skin and model
+	// tables again, they hold the 0 of the lookups made while it was missing
+	CG_CoopCheckPaksGen();
 	// coop: feed the local player's placeholder gentity from the snapshot (remote client)
 	CG_CoopSyncLocalPlayer();
 	CG_CoopSyncCamera();

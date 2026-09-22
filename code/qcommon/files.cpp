@@ -2852,7 +2852,11 @@ ever touches names with the coopdl_ prefix.
 
 static const char *fs_coopPathPrefixes[] = {
 	"models/", "shaders/", "sound/", "textures/", "gfx/", "ext_data/",
-	"botfiles/", "levelshots/", "music/", "scripts/", "strings/", NULL
+	"botfiles/", "levelshots/", "music/", "scripts/", "strings/",
+	// a real skin or hilt pack from JKHub also carries these; all of them are
+	// inert data the engine only reads when something names them, and a
+	// downloaded pack sits under zz_jacoop so the mod's own menus still win
+	"ui/", "fonts/", "effects/", "icons/", "sprites/", "menus/", NULL
 };
 static const char *fs_coopBadExtensions[] = {
 	".dll", ".so", ".dylib", ".exe", ".bat", ".cmd", ".qvm", ".com", ".scr", ".ps1", ".vbs", NULL
@@ -2861,6 +2865,17 @@ static const char *fs_coopBadExtensions[] = {
 // basename (with or without extension) of a downloaded pack?
 static qboolean FS_CoopIsDownloadName( const char *basename ) {
 	return (qboolean)( !Q_stricmpn( basename, COOP_DL_PREFIX, (int)strlen( COOP_DL_PREFIX ) ) );
+}
+
+// ... of a pack a joiner uploaded to us (host side)? Those ARE offered again,
+// so the other joiners get the mod of the player who brought it.
+static qboolean FS_CoopIsUploadName( const char *basename ) {
+	return (qboolean)( !Q_stricmpn( basename, COOP_UP_PREFIX, (int)strlen( COOP_UP_PREFIX ) ) );
+}
+
+// ... of either: the temporary packs this engine may create and delete
+static qboolean FS_CoopIsTempName( const char *basename ) {
+	return (qboolean)( FS_CoopIsDownloadName( basename ) || FS_CoopIsUploadName( basename ) );
 }
 
 static void FS_CoopBumpGen( void ) {
@@ -2909,6 +2924,9 @@ static qboolean FS_CoopPakContentAllowed( pack_t *pak, char *why, int whySize ) 
 			|| !Q_stricmpn( name, "ext_data/sabers/", 16 )		// custom hilts: the appearance spec names them
 			|| !Q_stricmpn( name, "models/weapons2/saber", 20 ) ) {
 			hasPlayerModel = qtrue;
+		}
+		if ( !strchr( name, '/' ) ) {
+			continue;	// a file at the root of the pack (readme, licence): the engine never looks for it
 		}
 		for ( j = 0; fs_coopPathPrefixes[j]; j++ ) {
 			if ( !Q_stricmpn( name, fs_coopPathPrefixes[j], (int)strlen( fs_coopPathPrefixes[j] ) ) ) {
@@ -3035,7 +3053,8 @@ int FS_CoopEnumOffered( coopPakInfo_t *out, int max, int maxBytes ) {
 			continue;
 		}
 		if ( maxBytes > 0 && size > maxBytes ) {
-			Com_Printf( "coop: %s.pk3 non offert (%.1f Mo, plus que sv_coopTransferMaxMB)\n", pak->pakBasename, size / ( 1024.0f * 1024.0f ) );
+			Com_Printf( S_COLOR_YELLOW "coop: %s.pk3 non offert (%.1f Mo) : tape \"sv_coopTransferMaxMB %i\" pour l'envoyer quand meme\n",
+				pak->pakBasename, size / ( 1024.0f * 1024.0f ), (int)( size / ( 1024 * 1024 ) ) + 50 );
 			continue;
 		}
 		for ( i = 0; i < n; i++ ) {
@@ -3103,7 +3122,7 @@ void FS_CoopRemoveFile( const char *relPath ) {
 
 	base = strrchr( ospath, PATH_SEP );
 	base = base ? base + 1 : ospath;
-	if ( !FS_CoopIsDownloadName( base ) || !( COM_CompareExtension( base, ".pk3" ) || COM_CompareExtension( base, ".tmp" ) ) ) {
+	if ( !FS_CoopIsTempName( base ) || !( COM_CompareExtension( base, ".pk3" ) || COM_CompareExtension( base, ".tmp" ) ) ) {
 		Com_Error( ERR_FATAL, "FS_CoopRemoveFile: refusing to delete '%s'", ospath );
 	}
 	remove( ospath );
@@ -3202,7 +3221,7 @@ coopdl_<sum>_*.pk3 from an earlier session (or one unloaded at disconnect) in
 ================
 */
 qboolean FS_CoopHavePak( int checksum ) {
-	char dir[MAX_OSPATH], prefix[64], why[256];
+	char dir[MAX_OSPATH], prefix[64], prefixUp[64], why[256];
 	char **files;
 	int numfiles, i;
 	qboolean found = qfalse;
@@ -3213,11 +3232,13 @@ qboolean FS_CoopHavePak( int checksum ) {
 	Q_strncpyz( dir, FS_BuildOSPath( fs_homepath->string, BASEGAME, "" ), sizeof( dir ) );
 	dir[strlen( dir ) - 1] = '\0';
 	Com_sprintf( prefix, sizeof( prefix ), COOP_DL_PREFIX "%08x_", checksum );
+	Com_sprintf( prefixUp, sizeof( prefixUp ), COOP_UP_PREFIX "%08x_", checksum );
 	files = Sys_ListFiles( dir, ".pk3", NULL, &numfiles, qfalse );
 	for ( i = 0; i < numfiles && !found; i++ ) {
 		char ospath[MAX_OSPATH];
 
-		if ( Q_stricmpn( files[i], prefix, (int)strlen( prefix ) ) ) {
+		if ( Q_stricmpn( files[i], prefix, (int)strlen( prefix ) )
+			&& Q_stricmpn( files[i], prefixUp, (int)strlen( prefixUp ) ) ) {
 			continue;
 		}
 		Q_strncpyz( ospath, FS_BuildOSPath( fs_homepath->string, BASEGAME, files[i] ), sizeof( ospath ) );
@@ -3250,6 +3271,23 @@ fileHandle_t FS_CoopOpenDownload( int checksum, const char *name, char *relTmp, 
 
 /*
 ================
+FS_CoopOpenUpload
+
+Host side: same thing for a pack a joiner pushes to us. The name is ours, built
+from the checksum and the sanitized base name the joiner announced - nothing the
+client sends ever reaches a path.
+================
+*/
+fileHandle_t FS_CoopOpenUpload( int checksum, const char *name, char *relTmp, int relTmpSize ) {
+	char clean[COOP_DL_NAME_LEN];
+
+	FS_CoopSanitizeName( name, clean, sizeof( clean ) );
+	Com_sprintf( relTmp, relTmpSize, "%s/" COOP_UP_PREFIX "%08x_%s.tmp", BASEGAME, checksum, clean );
+	return FS_SV_FOpenFileWrite( relTmp );
+}
+
+/*
+================
 FS_CoopFinishDownload
 
 Joiner side: the temporary file is complete; rename it to its .pk3 name and load
@@ -3257,12 +3295,12 @@ it (checksum + whitelist verified in FS_CoopAddPak). On failure the file is
 deleted and 'why' tells what was wrong.
 ================
 */
-qboolean FS_CoopFinishDownload( const char *relTmp, int checksum, const char *name, char *why, int whySize ) {
+static qboolean FS_CoopFinishTemp( const char *relTmp, int checksum, const char *name, const char *prefix, char *why, int whySize ) {
 	char clean[COOP_DL_NAME_LEN], base[MAX_OSPATH], rel[MAX_OSPATH], ospath[MAX_OSPATH];
 	searchpath_t *sp;
 
 	FS_CoopSanitizeName( name, clean, sizeof( clean ) );
-	Com_sprintf( base, sizeof( base ), COOP_DL_PREFIX "%08x_%s", checksum, clean );
+	Com_sprintf( base, sizeof( base ), "%s%08x_%s", prefix, checksum, clean );
 	Com_sprintf( rel, sizeof( rel ), "%s/%s", BASEGAME, base );
 	Q_strncpyz( ospath, FS_BuildOSPath( fs_homepath->string, rel, "" ), sizeof( ospath ) );
 	ospath[strlen( ospath ) - 1] = '\0';
@@ -3283,6 +3321,24 @@ qboolean FS_CoopFinishDownload( const char *relTmp, int checksum, const char *na
 	return qtrue;
 }
 
+qboolean FS_CoopFinishDownload( const char *relTmp, int checksum, const char *name, char *why, int whySize ) {
+	return FS_CoopFinishTemp( relTmp, checksum, name, COOP_DL_PREFIX, why, whySize );
+}
+
+/*
+================
+FS_CoopFinishUpload
+
+Host side: a joiner's pack is complete. Same verification as a download
+(checksum + whitelist in FS_CoopAddPak), but the name carries the coopup_
+prefix, which FS_CoopPakOfferable does NOT skip: the pack is offered again to
+the other joiners, so everybody ends up seeing that player's model.
+================
+*/
+qboolean FS_CoopFinishUpload( const char *relTmp, int checksum, const char *name, char *why, int whySize ) {
+	return FS_CoopFinishTemp( relTmp, checksum, name, COOP_UP_PREFIX, why, whySize );
+}
+
 /*
 ================
 FS_CoopUnloadPaks
@@ -3300,7 +3356,7 @@ void FS_CoopUnloadPaks( void ) {
 	}
 	for ( sp = fs_searchpaths; sp; sp = next ) {
 		next = sp->next;
-		if ( !sp->pack || !FS_CoopIsDownloadName( sp->pack->pakBasename ) ) {
+		if ( !sp->pack || !FS_CoopIsTempName( sp->pack->pakBasename ) ) {
 			continue;
 		}
 		if ( FS_CoopPakInUse( sp->pack ) ) {
@@ -3350,7 +3406,7 @@ void FS_CoopPurgeDownloads( void ) {
 			for ( i = 0; i < numfiles; i++ ) {
 				char ospath[MAX_OSPATH];
 
-				if ( !FS_CoopIsDownloadName( files[i] ) ) {
+				if ( !FS_CoopIsTempName( files[i] ) ) {
 					continue;
 				}
 				Com_sprintf( ospath, sizeof( ospath ), "%s%c%s", dir, PATH_SEP, files[i] );

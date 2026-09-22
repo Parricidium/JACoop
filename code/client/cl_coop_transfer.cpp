@@ -49,6 +49,9 @@ cvar_t	*cl_coopTransferState;		// ROM: "" | list | downloading | done | error
 cvar_t	*cl_coopTransferStatus;		// ROM: text for the lobby
 cvar_t	*cl_coopTransferPct;		// ROM
 cvar_t	*cl_coopPaksGen;			// ROM: bumped by files.cpp at each pack add / unload
+cvar_t	*cl_coopUpload;				// coop: offer our own mods to the host (the other direction)
+
+static void CL_CoopUploadStart( void );
 
 /*
 ==================
@@ -62,6 +65,7 @@ void CL_CoopTransferInit( void ) {
 	cl_coopTransferStatus = Cvar_Get( "cl_coopTransferStatus", "", CVAR_ROM );
 	cl_coopTransferPct = Cvar_Get( "cl_coopTransferPct", "0", CVAR_ROM );
 	cl_coopPaksGen = Cvar_Get( "cl_coopPaksGen", "0", CVAR_ROM );
+	cl_coopUpload = Cvar_Get( "cl_coopUpload", "1", CVAR_ARCHIVE );
 	Cvar_Set( "cl_coopTransferState", "" );
 	Cvar_Set( "cl_coopTransferStatus", "" );
 	Cvar_Set( "cl_coopTransferPct", "0" );
@@ -119,6 +123,387 @@ static void CL_CoopCloseCurrent( qboolean removeTmp ) {
 		FS_CoopRemoveFile( clc.coopdl.cur.relTmp );
 	}
 	clc.coopdl.cur.relTmp[0] = '\0';
+}
+
+/*
+=============================================================================
+
+coop: our own mods, pushed to the host
+
+A joiner may be the one with the custom character or the custom hilt. The host
+cannot ask us for a file (in this engine the server talks first and a client has
+no svc_download), so once our download from the host is settled we announce
+what we could give ("coopup_list"), the host answers with the checksums it does
+not have ("coopup_want"), and we push those files inside our ordinary command
+packets with the new clc_coopUpload opcode (CL_CoopUploadWritePacket, called at
+the end of CL_WritePacket).
+
+A client packet must stay under MAX_PACKETLEN or the netchan would fragment it,
+so a block is COOP_UP_BLK (768 B) and only what is left of the packet is used:
+at ~20-30 packets a second that is 15-25 KB/s, enough for a skin or hilt pack.
+The host acks cumulatively ("coopup_ack <file> <block>") once per packet that
+carried blocks, exactly like we do for its downloads, and we resend the window
+when it stays silent.
+
+The host writes what it receives as coopup_<sum>_<name>.pk3, checks it against
+the same whitelist and offers it to the other joiners in turn.
+=============================================================================
+*/
+
+#define COOP_UP_RESEND_MS		300		// resend the unacknowledged window after this silence
+#define COOP_UP_WANT_TIMEOUT	10000	// ms without an answer to the announce
+#define COOP_UP_ACK_TIMEOUT		30000	// ms without an ack
+
+static void CL_CoopUploadCloseFile( void ) {
+	if ( clc.coopup.file ) {
+		FS_FCloseFile( clc.coopup.file );
+		clc.coopup.file = 0;
+	}
+}
+
+static void CL_CoopUploadFail( const char *code ) {
+	Com_Printf( S_COLOR_YELLOW "coop: envoi de nos mods echoue (%s)\n", code );
+	CL_CoopUploadCloseFile();
+	if ( cls.state >= CA_CONNECTED ) {
+		CL_AddReliableCommand( va( "coopup_fail %s", code ) );
+	}
+	clc.coopup.state = CLUP_FAILED;
+	Cvar_Set( "cl_coopTransferState", "error" );
+	CL_CoopSetStatus( va( "Echec de l'envoi de mes mods a l'hote (%s).", code ) );
+}
+
+static void CL_CoopUploadDone( void ) {
+	clientCoopUpload_t *up = &clc.coopup;
+	const float secs = ( cls.realtime - up->startTime ) / 1000.0f;
+
+	CL_CoopUploadCloseFile();
+	up->state = CLUP_DONE;
+	Cvar_Set( "cl_coopTransferState", "done" );
+	CL_AddReliableCommand( "coopup_done" );
+	if ( up->sendCount > 0 ) {
+		Com_Printf( "coop: mes mods envoyes a l'hote (%i fichier(s), %.1f Mo, %.1f s, %.0f Ko/s)\n",
+			up->sendCount, up->totalBytes / ( 1024.0f * 1024.0f ), secs,
+			secs > 0.01f ? up->totalBytes / 1024.0f / secs : 0.0f );
+		CL_CoopSetStatus( va( "Mes mods envoyes a l'hote (%i fichier(s), %.1f Mo).", up->sendCount, up->totalBytes / ( 1024.0f * 1024.0f ) ) );
+	}
+}
+
+/*
+==================
+CL_CoopUploadOpenNext
+
+Open send[sendIndex] for reading, by checksum only.
+==================
+*/
+static qboolean CL_CoopUploadOpenNext( void ) {
+	clientCoopUpload_t *up = &clc.coopup;
+	int size, i;
+
+	CL_CoopUploadCloseFile();
+	size = FS_CoopOpenOffered( up->send[up->sendIndex], &up->file );
+	if ( size < 0 || !up->file ) {
+		CL_CoopUploadFail( "introuvable" );
+		return qfalse;
+	}
+	up->curSum = up->send[up->sendIndex];
+	up->curSize = size;
+	up->curCount = 0;
+	up->curName[0] = '\0';
+	for ( i = 0; i < up->mineCount; i++ ) {
+		if ( up->mine[i].checksum == up->curSum ) {
+			Q_strncpyz( up->curName, up->mine[i].name, sizeof( up->curName ) );
+		}
+	}
+	up->currentBlock = up->hostBlock = up->xmitBlock = 0;
+	up->eof = qfalse;
+	up->sendTime = 0;
+	memset( up->blockSize, 0, sizeof( up->blockSize ) );
+	Com_Printf( "coop: envoi de %s a l'hote (%.1f Mo)\n", up->curName, size / ( 1024.0f * 1024.0f ) );
+	return qtrue;
+}
+
+/*
+==================
+CL_CoopUploadStart
+
+Our download from the host is settled: announce what we have that the host may
+not. Nothing to announce (or cl_coopUpload 0, or we ARE the host) = nothing to do.
+==================
+*/
+static void CL_CoopUploadStart( void ) {
+	clientCoopUpload_t *up = &clc.coopup;
+	char line[1024], cmd[MAX_STRING_CHARS];
+	int chunk = 0, i;
+
+	if ( com_sv_running->integer || !cl_coopUpload || !cl_coopUpload->integer ) {
+		return;
+	}
+	if ( up->state != CLUP_IDLE || cls.state < CA_CONNECTED ) {
+		return;
+	}
+	up->mineCount = FS_CoopEnumOffered( up->mine, MAX_COOP_OFFER, 0 );
+	if ( !up->mineCount ) {
+		return;
+	}
+	// "coopup_list <chunk> <total> <sum>:<size>:<name>...", as many chunks as needed
+	line[0] = '\0';
+	for ( i = 0; i < up->mineCount; i++ ) {
+		const char *entry = va( " %08x:%i:%s", up->mine[i].checksum, up->mine[i].size, up->mine[i].name );
+
+		if ( line[0] && strlen( line ) + strlen( entry ) > 800 ) {
+			Com_sprintf( cmd, sizeof( cmd ), "coopup_list %i %i%s", ++chunk, up->mineCount, line );
+			CL_AddReliableCommand( cmd );
+			line[0] = '\0';
+		}
+		Q_strcat( line, sizeof( line ), entry );
+	}
+	if ( line[0] ) {
+		Com_sprintf( cmd, sizeof( cmd ), "coopup_list %i %i%s", ++chunk, up->mineCount, line );
+		CL_AddReliableCommand( cmd );
+	}
+	up->state = CLUP_WAITWANT;
+	up->announceTime = cls.realtime;
+	Com_Printf( "coop: %i mod(s) a nous proposes a l'hote\n", up->mineCount );
+}
+
+/*
+==================
+CL_CoopUploadServerCommand
+
+"coopup_want <n> <sum>...", "coopup_ack <file> <block>" and "coopup_err <text>",
+already split into argv by CL_CoopTransferServerCommand.
+==================
+*/
+static void CL_CoopUploadServerCommand( int argc, char **argv, const char *rest ) {
+	clientCoopUpload_t *up = &clc.coopup;
+
+	if ( !strcmp( argv[0], "coopup_want" ) ) {
+		int n, i;
+
+		if ( up->state != CLUP_WAITWANT || argc < 2 ) {
+			return;
+		}
+		n = atoi( argv[1] );
+		if ( n > MAX_COOP_OFFER ) {
+			n = MAX_COOP_OFFER;
+		}
+		up->sendCount = 0;
+		up->totalBytes = up->ackedBytes = 0;
+		for ( i = 0; i < n && 2 + i < argc; i++ ) {
+			const int sum = (int)strtoul( argv[2 + i], NULL, 16 );
+			int j;
+
+			for ( j = 0; j < up->mineCount; j++ ) {
+				if ( up->mine[j].checksum == sum ) {
+					break;
+				}
+			}
+			if ( j == up->mineCount ) {
+				continue;	// not something we offered
+			}
+			up->send[up->sendCount++] = sum;
+			up->totalBytes += up->mine[j].size;
+		}
+		if ( !up->sendCount ) {
+			Com_Printf( "coop: l'hote a deja tous nos mods\n" );
+			up->state = CLUP_DONE;
+			return;
+		}
+		Com_Printf( "coop: l'hote veut %i de nos mods (%.1f Mo)\n", up->sendCount, up->totalBytes / ( 1024.0f * 1024.0f ) );
+		up->sendIndex = 0;
+		up->startTime = up->lastAckTime = cls.realtime;
+		up->state = CLUP_SENDING;
+		Cvar_Set( "cl_coopTransferState", "uploading" );	// the lobby hides "JE SUIS PRET"
+		if ( !CL_CoopUploadOpenNext() ) {
+			return;
+		}
+		CL_CoopSetStatus( va( "Envoi de mes mods a l'hote (%i fichier(s), %.1f Mo)...", up->sendCount, up->totalBytes / ( 1024.0f * 1024.0f ) ) );
+		return;
+	}
+
+	if ( !strcmp( argv[0], "coopup_ack" ) ) {
+		int block, b;
+
+		if ( up->state != CLUP_SENDING || !up->file || argc < 3 ) {
+			return;
+		}
+		up->lastAckTime = cls.realtime;
+		if ( atoi( argv[1] ) != up->sendIndex ) {
+			return;	// stale, for the previous file
+		}
+		block = atoi( argv[2] );
+		if ( block >= up->currentBlock ) {
+			return;	// acknowledging what was never sent
+		}
+		if ( block >= up->hostBlock ) {
+			for ( b = up->hostBlock; b <= block; b++ ) {
+				up->ackedBytes += up->blockSize[b % COOP_UP_WINDOW];
+			}
+			up->hostBlock = block + 1;
+			if ( up->eof && up->hostBlock == up->currentBlock ) {
+				// the EOF block is acknowledged: this file is in
+				Com_Printf( "coop: %s envoye\n", up->curName );
+				CL_CoopUploadCloseFile();
+				up->sendIndex++;
+				if ( up->sendIndex < up->sendCount ) {
+					CL_CoopUploadOpenNext();
+				} else {
+					CL_CoopUploadDone();
+				}
+			}
+		} else if ( block == up->hostBlock - 1 && up->xmitBlock > up->hostBlock ) {
+			up->xmitBlock = up->hostBlock;	// duplicate ack: resend from there
+		}
+		return;
+	}
+
+	if ( !strcmp( argv[0], "coopup_err" ) ) {
+		if ( up->state == CLUP_WAITWANT || up->state == CLUP_SENDING ) {
+			Com_Printf( S_COLOR_YELLOW "coop: l'hote a refuse nos mods (%s)\n", rest ? rest : "" );
+			CL_CoopUploadCloseFile();
+			up->state = CLUP_FAILED;
+			Cvar_Set( "cl_coopTransferState", "error" );
+		}
+		return;
+	}
+}
+
+/*
+==================
+CL_CoopUploadWritePacket
+
+End of CL_WritePacket: put as many blocks as the packet can still hold, keeping
+the whole thing under MAX_PACKETLEN so the netchan never fragments it.
+==================
+*/
+void CL_CoopUploadWritePacket( msg_t *msg ) {
+	clientCoopUpload_t *up = &clc.coopup;
+	int budget;
+
+	if ( up->state != CLUP_SENDING || !up->file || cls.state < CA_CONNECTED ) {
+		return;
+	}
+	// 1400 is MAX_PACKETLEN; 200 leaves room for the netchan header, the qport
+	// and whatever else this packet still carries
+	budget = 1400 - 200 - msg->cursize;
+	if ( budget < COOP_UP_BLK + 64 ) {
+		return;
+	}
+
+	// read ahead into the window
+	while ( up->currentBlock - up->hostBlock < COOP_UP_WINDOW && up->curCount < up->curSize ) {
+		const int idx = up->currentBlock % COOP_UP_WINDOW;
+		int want = up->curSize - up->curCount;
+
+		if ( want > COOP_UP_BLK ) {
+			want = COOP_UP_BLK;
+		}
+		up->blockSize[idx] = FS_Read( up->blocks[idx], want, up->file );
+		if ( up->blockSize[idx] <= 0 ) {
+			up->curCount = up->curSize;	// short file: finish now
+			up->blockSize[idx] = 0;
+			break;
+		}
+		up->curCount += up->blockSize[idx];
+		up->currentBlock++;
+	}
+	// queue the EOF block once the file is read through
+	if ( up->curCount == up->curSize && !up->eof && up->currentBlock - up->hostBlock < COOP_UP_WINDOW ) {
+		up->blockSize[up->currentBlock % COOP_UP_WINDOW] = 0;
+		up->currentBlock++;
+		up->eof = qtrue;
+	}
+
+	while ( 1 ) {
+		int idx, size, need;
+		const char *header = NULL;
+
+		if ( up->xmitBlock == up->currentBlock ) {
+			// the whole window went out; resend it when the host stays silent
+			if ( up->hostBlock == up->currentBlock ) {
+				break;	// nothing outstanding
+			}
+			if ( cls.realtime - up->sendTime <= COOP_UP_RESEND_MS ) {
+				break;
+			}
+			up->xmitBlock = up->hostBlock;
+		}
+		idx = up->xmitBlock % COOP_UP_WINDOW;
+		size = up->blockSize[idx];
+		need = 1 + 2 + 2 + size;
+		if ( up->xmitBlock == 0 ) {
+			header = va( "%08x:%s", up->curSum, up->curName );
+			need += 4 + (int)strlen( header ) + 1;
+		}
+		if ( need > budget ) {
+			break;
+		}
+		MSG_WriteByte( msg, clc_coopUpload );
+		MSG_WriteShort( msg, up->xmitBlock & 0xffff );
+		if ( header ) {
+			MSG_WriteLong( msg, up->curSize );
+			MSG_WriteString( msg, header );
+		}
+		MSG_WriteShort( msg, size );
+		if ( size ) {
+			MSG_WriteData( msg, up->blocks[idx], size );
+		}
+		budget -= need;
+		up->xmitBlock++;
+		up->sendTime = cls.realtime;
+	}
+}
+
+/*
+==================
+CL_CoopUploadFrame
+
+Timeouts and the lobby's status line, from CL_CoopTransferFrame.
+==================
+*/
+static void CL_CoopUploadFrame( void ) {
+	clientCoopUpload_t *up = &clc.coopup;
+
+	if ( up->state == CLUP_WAITWANT ) {
+		if ( cls.realtime - up->announceTime > COOP_UP_WANT_TIMEOUT ) {
+			Com_Printf( "coop: l'hote ne repond pas sur nos mods, on continue sans\n" );
+			up->state = CLUP_DONE;	// an older host: do not ask again this connection
+		}
+		return;
+	}
+	if ( up->state != CLUP_SENDING ) {
+		return;
+	}
+	if ( cls.realtime - up->lastAckTime > COOP_UP_ACK_TIMEOUT ) {
+		CL_CoopUploadFail( "timeout" );
+		return;
+	}
+	if ( Cvar_VariableIntegerValue( "coop_ready" ) ) {
+		Cvar_Set( "coop_ready", "0" );	// not while a file of ours is still going up
+	}
+	if ( up->totalBytes > 0 ) {
+		int pct = (int)( (float)up->ackedBytes * 100.0f / (float)up->totalBytes );
+		const float secs = ( cls.realtime - up->startTime ) / 1000.0f;
+
+		if ( pct > 99 ) {
+			pct = 99;
+		}
+		CL_CoopSetStatus( va( "Envoi de %s a l'hote : %i %%  (%.0f Ko/s)", up->curName[0] ? up->curName : "...", pct,
+			secs > 0.5f ? up->ackedBytes / 1024.0f / secs : 0.0f ) );
+	}
+}
+
+/*
+==================
+CL_CoopUploadAbort
+
+CL_Disconnect: stop sending, the state goes with the connection.
+==================
+*/
+static void CL_CoopUploadAbort( void ) {
+	CL_CoopUploadCloseFile();
+	memset( &clc.coopup, 0, sizeof( clc.coopup ) );
+	clc.coopup.state = CLUP_IDLE;
 }
 
 /*
@@ -210,6 +595,7 @@ static void CL_CoopTransferListComplete( void ) {
 		CL_AddReliableCommand( "coopdl_done" );
 		CL_CoopSetState( CLDL_DONE, "done" );
 		CL_CoopSetStatus( "" );
+		CL_CoopUploadStart();	// coop: ... but WE may have a mod the host lacks
 		return;
 	}
 	Com_sprintf( cmd, sizeof( cmd ), "coopdl_need %i", dl->needCount );
@@ -277,6 +663,7 @@ void CL_CoopTransferServerCommand( const char *s ) {
 			Com_Printf( "coop: l'hote n'a pas de skins a transferer\n" );
 			CL_CoopSetState( CLDL_IDLE, "" );
 			CL_CoopSetStatus( "" );
+			CL_CoopUploadStart();	// coop: we may still have one for it
 			return;
 		}
 		if ( total > MAX_COOP_OFFER ) {
@@ -310,6 +697,11 @@ void CL_CoopTransferServerCommand( const char *s ) {
 		if ( dl->listGot >= dl->listTotal ) {
 			CL_CoopTransferListComplete();
 		}
+		return;
+	}
+
+	if ( !Q_strncmp( argv[0], "coopup_", 7 ) ) {
+		CL_CoopUploadServerCommand( argc, argv, argc > 1 ? s + ( argv[1] - buf ) : NULL );
 		return;
 	}
 
@@ -347,6 +739,7 @@ static void CL_CoopTransferComplete( void ) {
 		// we were the reason the host waited: mark ourselves ready
 		Cvar_Set( "coop_ready", "1" );
 	}
+	CL_CoopUploadStart();	// coop: now the other way round, our own mods
 }
 
 /*
@@ -499,6 +892,7 @@ void CL_CoopTransferFrame( void ) {
 	if ( cls.state < CA_CONNECTED ) {
 		return;
 	}
+	CL_CoopUploadFrame();	// coop: our own mods going up to the host
 	if ( dl->state == CLDL_WAITLIST ) {
 		if ( cls.realtime - dl->helloTime > COOP_DL_LIST_TIMEOUT ) {
 			Com_Printf( "coop: pas de reponse de l'hote sur les skins, on continue sans\n" );
@@ -553,6 +947,7 @@ void CL_CoopTransferAbort( void ) {
 		Com_Printf( "coop: transfert interrompu par la deconnexion\n" );
 	}
 	CL_CoopCloseCurrent( qtrue );
+	CL_CoopUploadAbort();
 	clc.coopdl.state = CLDL_IDLE;
 	if ( cl_coopTransferState ) {
 		Cvar_Set( "cl_coopTransferState", "" );

@@ -473,8 +473,10 @@ static void G_CoopUpdateLobbyList( void )
 			char userinfo[MAX_INFO_STRING];
 			gi.GetUserinfo( i, userinfo, sizeof( userinfo ) );
 			Q_strncpyz( dl, Info_ValueForKey( userinfo, "coop_dl" ), sizeof( dl ) );
-			// a joiner still fetching the host's skins is never ready, whatever it says
-			const qboolean busy = (qboolean)( !Q_stricmp( dl, "list" ) || ( dl[0] >= '0' && dl[0] <= '9' ) );
+			// a joiner still fetching the host's skins - or still sending us its own
+			// mods ('u' + percentage) - is never ready, whatever it says
+			const qboolean busy = (qboolean)( !Q_stricmp( dl, "list" ) || ( dl[0] >= '0' && dl[0] <= '9' )
+				|| !Q_stricmp( dl, "ulist" ) || ( dl[0] == 'u' && dl[1] >= '0' && dl[1] <= '9' ) );
 			ready = ( atoi( Info_ValueForKey( userinfo, "coop_ready" ) ) && !busy ) ? 1 : 0;
 			if ( coopStarting )
 			{
@@ -498,6 +500,9 @@ static void G_CoopUpdateLobbyList( void )
 // once per server frame
 void G_CoopLobbyFrame( void )
 {
+	// coop: a pk3 arrived while we run (a joiner pushed its own mod up): the
+	// characters built with the missing model have to be built again
+	G_CoopCheckPaksGen();
 	if ( coopLobbyMenuTime && level.time > coopLobbyMenuTime )
 	{
 		coopLobbyMenuTime = 0;

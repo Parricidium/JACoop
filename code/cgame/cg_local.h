@@ -565,6 +565,7 @@ void CG_CoopSyncEntity( centity_t *cent );
 void CG_CoopSyncCharacter( centity_t *cent );
 void CG_CoopSyncLocalPlayer( void );
 void CG_CoopSyncCamera( void );
+void CG_CoopCheckPaksGen( void );
 void CG_CoopSpawnStaticModels( void );
 void CG_CoopPrecacheCharacters( void );
 void CG_CoopFixLocalEntityState( centity_t *cent );

@@ -126,6 +126,36 @@ typedef struct coopDownload_s {
 	int				blockSize[COOP_DL_WINDOW];
 } coopDownload_t;
 
+// coop: per-client state of the joiner -> host pk3 transfer (the mirror of the
+// one above: the joiner's own mods). The joiner announces its packs with
+// "coopup_list", we answer "coopup_want" with the checksums we lack, and the
+// blocks arrive as clc_coopUpload in its command packets.
+typedef enum {
+	CUL_NONE,		// nothing announced (host's own client, old build, cl_coopUpload 0)
+	CUL_LISTED,		// announce received, "coopup_want" sent
+	CUL_RECEIVING,	// blocks in flight
+	CUL_DONE,
+	CUL_FAILED
+} coopUploadState_t;
+
+typedef struct coopUpload_s {
+	coopUploadState_t state;
+	coopPakInfo_t	offer[MAX_COOP_OFFER];		// what the joiner announced
+	int				offerCount, listGot, listTotal;
+	int				want[MAX_COOP_OFFER];		// checksums we asked for, in order
+	int				wantCount, wantIndex;
+	int				totalBytes, doneBytes;		// progress over all the files
+	int				lastPct;
+	int				lastBlockTime;				// Sys_Milliseconds (timeout)
+	int				curSum, curSize, curCount;	// current file
+	int				curBlock;					// next block expected
+	char			curName[COOP_DL_NAME_LEN];
+	fileHandle_t	file;						// the .tmp being written (0 = none)
+	char			relTmp[MAX_OSPATH];			// fs_homepath-relative name of the .tmp
+	qboolean		ackPending;					// a block arrived this frame: ack once
+	int				receivedFiles;
+} coopUpload_t;
+
 typedef enum {
 	CS_FREE,		// can be reused for a new connection
 	CS_ZOMBIE,		// client has been disconnected, but don't reuse
@@ -160,6 +190,7 @@ typedef struct client_s {
 	gentity_t		*gentity;			// SV_GentityNum(clientnum)
 	char			name[MAX_NAME_LENGTH];			// extracted from userinfo, high bits masked
 	coopDownload_t	coopdl;				// coop: host -> joiner pk3 transfer (replaces the dead Q3 download fields)
+	coopUpload_t	coopup;				// coop: joiner -> host pk3 transfer (the joiner's own mods)
 	int				deltaMessage;		// frame last client usercmd message
 	int				lastPacketTime;		// sv.time when packet was last received
 	int				lastConnectTime;	// sv.time when connection started
@@ -278,6 +309,13 @@ void SV_CoopAck_f( client_t *cl );
 void SV_CoopDone_f( client_t *cl );
 void SV_CoopFail_f( client_t *cl );
 void SV_CoopStop_f( client_t *cl );
+void SV_CoopUpList_f( client_t *cl );
+void SV_CoopUpDone_f( client_t *cl );
+void SV_CoopUpFail_f( client_t *cl );
+void SV_CoopUploadRead( client_t *cl, msg_t *msg );
+void SV_CoopUploadEndOfMessage( client_t *cl );
+void SV_CoopUploadClose( client_t *cl, qboolean removeTmp );
+void SV_CoopUploadReset( client_t *cl );
 
 
 

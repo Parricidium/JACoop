@@ -894,6 +894,11 @@ void CL_WritePacket( void ) {
 		}
 	}
 
+	// coop: blocks of a pk3 of ours the host asked for (cl_coop_transfer.cpp).
+	// Last in the packet and within a budget that keeps it under MAX_PACKETLEN,
+	// so the netchan never has to fragment what a client sends.
+	CL_CoopUploadWritePacket( &buf );
+
 	//
 	// deliver the message
 	//

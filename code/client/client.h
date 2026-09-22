@@ -183,6 +183,38 @@ typedef struct clientCoopDownload_s {
 	qboolean		ackPending;					// a block arrived in this message: ack once at its end
 } clientCoopDownload_t;
 
+// coop: joiner side of the joiner -> host transfer of OUR own mods. Announced
+// after the download of the host's packs is settled, so one transfer runs at a
+// time and the lobby has a single state to show.
+typedef enum {
+	CLUP_IDLE,		// nothing to send, or we are the host
+	CLUP_WAITWANT,	// announce sent, waiting for "coopup_want"
+	CLUP_SENDING,
+	CLUP_DONE,
+	CLUP_FAILED
+} clientCoopUploadState_t;
+
+typedef struct clientCoopUpload_s {
+	clientCoopUploadState_t state;
+	int				announceTime;				// cls.realtime of the announce (timeout)
+	coopPakInfo_t	mine[MAX_COOP_OFFER];		// what we offered
+	int				mineCount;
+	int				send[MAX_COOP_OFFER];		// checksums the host asked for, in order
+	int				sendCount, sendIndex;
+	int				totalBytes, ackedBytes;
+	int				startTime, lastAckTime;
+	fileHandle_t	file;						// current pack, raw read handle
+	int				curSum, curSize, curCount;
+	char			curName[COOP_DL_NAME_LEN];
+	int				currentBlock;				// next block to read from the file
+	int				hostBlock;					// first block not acknowledged (window start)
+	int				xmitBlock;					// next block to put in a packet
+	qboolean		eof;						// the EOF block was queued
+	int				sendTime;					// cls.realtime of the last block written
+	byte			blocks[COOP_UP_WINDOW][COOP_UP_BLK];
+	int				blockSize[COOP_UP_WINDOW];
+} clientCoopUpload_t;
+
 typedef struct {
 	int			lastPacketSentTime;			// for retransmits
 	int			lastPacketTime;
@@ -202,6 +234,7 @@ typedef struct {
 	char		*serverCommands[MAX_RELIABLE_COMMANDS];
 
 	clientCoopDownload_t coopdl;	// coop: pk3 transfer (wiped with the connection, survives gamestates)
+	clientCoopUpload_t coopup;		// coop: our own mods, pushed to the host
 
 	// big stuff at end of structure so most offsets are 15 bits or less
 	netchan_t	netchan;
@@ -418,6 +451,7 @@ void CL_CoopTransferHello( void );
 void CL_CoopTransferServerCommand( const char *s );
 void CL_ParseDownload( msg_t *msg );
 void CL_CoopTransferEndOfMessage( void );
+void CL_CoopUploadWritePacket( msg_t *msg );	// coop: our mods, in our own command packets
 void CL_CoopTransferFrame( void );
 void CL_CoopTransferAbort( void );
 void CL_CoopCheckPaksGen( void );
