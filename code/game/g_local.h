@@ -437,6 +437,7 @@ qboolean G_CoopTryDown( gentity_t *targ, gentity_t *attacker, int mod, int dflag
 void G_CoopDownedThink( gentity_t *ent, usercmd_t *ucmd );
 void G_CoopDownedFrame( void );
 void G_CoopReloadCheckpoint( void );
+qboolean G_CoopDeferAutosave( void );
 extern cvar_t *g_coopDowned, *g_coopRespawnDelay;
 const char *G_CoopPlayerVar( const gentity_t *ent, const char *key, const cvar_t *hostCvar );
 void G_CoopCheckCharacterChange( gentity_t *ent );

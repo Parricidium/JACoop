@@ -891,9 +891,8 @@ void G_CoopUpdateMissionFailed( void )
 		if ( !coopMissionFailedSent[i] && ent->inuse && ent->client && ent->client->pers.connected == CON_CONNECTED )
 		{
 			coopMissionFailedSent[i] = qtrue;
-			gi.SendServerCommand( i, "mf %i", statusTextIndex );
-			gi.SendServerCommand( i, "cad -1" );
-			gi.SendServerCommand( i, "coopmenu coopAllDownClient" );
+			gi.SendServerCommand( i, "cad -1" );				// no downed overlay under the screen
+			gi.SendServerCommand( i, "mf %i", statusTextIndex );	// CG_MissionFailed opens coopAllDownClient with the reason
 		}
 	}
 }
@@ -950,6 +949,8 @@ typedef struct coopDown_s {
 } coopDown_t;
 
 static coopDown_t	coopDown[MAX_CLIENTS];
+static qboolean		coopPendingAutosave;	// a target_autosave fired with the host down (deferred checkpoint below)
+static void G_CoopRunDeferredAutosave( void );
 static int			coopAllDownTime;		// level.time nobody was up any more, 0 = someone is
 static int			coopAllDownLastSec = -1;
 static int			coopBleedingOutNum = -1;	// the player G_CoopDownedFrame is killing for real right now
@@ -984,6 +985,7 @@ void G_CoopResetDowned( void )
 	coopAllDownTime = 0;
 	coopAllDownLastSec = -1;
 	coopBleedingOutNum = -1;
+	coopPendingAutosave = qfalse;
 }
 
 // downed players exist only in a real co-op game
@@ -1252,8 +1254,8 @@ void G_CoopDownedThink( gentity_t *ent, usercmd_t *ucmd )
 		return;
 	}
 
-	// standing: reviving someone?
-	const qboolean	key = (qboolean)( ( ucmd->buttons & BUTTON_COOP_REVIVE ) != 0 );
+	// standing: reviving someone? (the use key works too, for a player whose revive key is taken)
+	const qboolean	key = (qboolean)( ( ucmd->buttons & ( BUTTON_COOP_REVIVE|BUTTON_USE ) ) != 0 );
 	const qboolean	moving = (qboolean)( ucmd->forwardmove || ucmd->rightmove || ucmd->upmove );
 	const float		range = g_coopReviveRange->value > 0 ? g_coopReviveRange->value : 80.0f;
 
@@ -1276,9 +1278,9 @@ void G_CoopDownedThink( gentity_t *ent, usercmd_t *ucmd )
 			G_CoopRevive( target, ent );
 			return;
 		}
-		// hold the kneeling pose, no moves, no shots
+		// hold the kneeling pose, no moves, no shots, and no door/panel use meanwhile
 		ucmd->forwardmove = ucmd->rightmove = ucmd->upmove = 0;
-		ucmd->buttons &= ~( BUTTON_ATTACK|BUTTON_ALT_ATTACK|BUTTON_USE_FORCE|BUTTON_FORCE_LIGHTNING|BUTTON_FORCE_DRAIN|BUTTON_FORCEGRIP );
+		ucmd->buttons &= ~( BUTTON_ATTACK|BUTTON_ALT_ATTACK|BUTTON_USE_FORCE|BUTTON_FORCE_LIGHTNING|BUTTON_FORCE_DRAIN|BUTTON_FORCEGRIP|BUTTON_USE );
 		ps->weaponTime = 200;
 		if ( ps->legsAnim != BOTH_FORCEHEAL_START )
 		{
@@ -1325,6 +1327,7 @@ void G_CoopDownedThink( gentity_t *ent, usercmd_t *ucmd )
 		coopDown[best->s.number].reviveStartTime = level.time;
 		NPC_SetAnim( ent, SETANIM_BOTH, BOTH_FORCEHEAL_START, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
 		ucmd->forwardmove = ucmd->rightmove = ucmd->upmove = 0;
+		ucmd->buttons &= ~BUTTON_USE;
 		G_CoopSetReviveStats( ent, 1, best->s.number );
 		G_CoopSetReviveStats( best, 1, ent->s.number );
 	}
@@ -1341,6 +1344,8 @@ stats, and the "everyone is down" flow.
 void G_CoopDownedFrame( void )
 {
 	const int frame = level.time - level.previousTime;
+
+	G_CoopRunDeferredAutosave();
 
 	for ( int i = 0; i < MAX_CLIENTS; i++ )
 	{
@@ -1413,6 +1418,47 @@ void G_CoopDownedFrame( void )
 	{
 		G_CoopReloadCheckpoint();
 	}
+}
+
+/*
+================
+Deferred checkpoint
+
+target_autosave fired while the host was downed or dead: the save would
+record it with 1 hp (or none) and the all-down reload would loop on it.
+Remember the checkpoint and write it as soon as the host is up again.
+================
+*/
+qboolean G_CoopDeferAutosave( void )
+{
+	const gentity_t *host = &g_entities[0];
+	if ( !G_CoopIsDowned( host ) && !G_CoopRespawnPending( host ) && !( host->inuse && host->client && host->health <= 0 ) )
+	{
+		return qfalse;
+	}
+	if ( !coopPendingAutosave )
+	{
+		coopPendingAutosave = qtrue;
+		gi.SendServerCommand( -1, "print \"^3Point de controle en attente : l'hote est a terre\n\"" );
+		gi.Printf( "coop: autosave deferred, the host is down\n" );
+	}
+	return qtrue;
+}
+
+static void G_CoopRunDeferredAutosave( void )
+{
+	if ( !coopPendingAutosave || in_camera )
+	{
+		return;
+	}
+	const gentity_t *host = &g_entities[0];
+	if ( !G_CoopIsUp( host ) || G_CoopRespawnPending( host ) )
+	{
+		return;
+	}
+	coopPendingAutosave = qfalse;
+	gi.Printf( "coop: writing the deferred autosave\n" );
+	gi.SendConsoleCommand( "wait 2;save auto\n" );
 }
 
 // the host reloads the last checkpoint (all-down screen, or its button)

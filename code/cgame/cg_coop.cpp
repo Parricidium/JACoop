@@ -1414,6 +1414,10 @@ static const char *CG_CoopReviveKeyName( void )
 		coopReviveKeyTime = cg.time;
 		cgi_Key_BindingKeyName( "+coop_revive", coopReviveKey, sizeof( coopReviveKey ) );
 		if ( !coopReviveKey[0] )
+		{	// the use key revives too (G_CoopDownedThink)
+			cgi_Key_BindingKeyName( "+use", coopReviveKey, sizeof( coopReviveKey ) );
+		}
+		if ( !coopReviveKey[0] )
 		{
 			Q_strncpyz( coopReviveKey, "(touche non liee)", sizeof( coopReviveKey ) );
 		}

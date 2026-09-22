@@ -1220,6 +1220,10 @@ void target_autosave_use(gentity_t *self, gentity_t *other, gentity_t *activator
 	//gi.SendServerCommand( NULL, "cp @SP_INGAME_CHECKPOINT" );
 	CG_CenterPrint( "@SP_INGAME_CHECKPOINT", SCREEN_HEIGHT * 0.25 );	//jump the network
 
+	if ( G_CoopDeferAutosave() )
+	{	// coop: the host is on the ground, the checkpoint is written once it is up again
+		return;
+	}
 	gi.SendConsoleCommand( "wait 2;save auto\n" );
 }
 

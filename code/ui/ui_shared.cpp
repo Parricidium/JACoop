@@ -5485,6 +5485,7 @@ static const char *g_bindCommands[] = {
 	"+altattack",
 	"+attack",
 	"+back",
+	"+coop_revive",	// coop: bindable from the controls menus
 #ifndef JK2_MODE
 	"+force_drain",
 #endif
