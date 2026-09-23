@@ -34,6 +34,9 @@ extern void G_Knockdown( gentity_t *self, gentity_t *attacker, const vec3_t push
 #define MAX_MISS_DIST_SQ	(MAX_MISS_DIST*MAX_MISS_DIST)
 #define MIN_SCORE			-37500 //speed of (50*50) - dist of (200*200)
 
+extern qboolean G_CoopIsPlayer( const gentity_t *ent );
+extern void G_CoopReleaseHeld( gentity_t *ent );
+
 void SandCreature_Precache( void )
 {
 	int i;
@@ -784,13 +787,21 @@ void NPC_BSSandCreature_Default( void )
 			//FIXME: want to play ...?  What was I going to say?
 			NPC->activator->health = 0;
 			GEntity_DieFunc( NPC->activator, NPC, NPC, 1000, MOD_MELEE, 0, HL_NONE );
-			if ( NPC->activator->s.number )
+			// coop: "s.number != 0 donc ce n'est pas le joueur" datait du temps
+			// ou le joueur etait forcement l'entite 0. Les slots 1 a 3 sont
+			// maintenant des invites : les liberer emporte leur client.
+			if ( !G_CoopIsPlayer( NPC->activator ) )
 			{
 				G_FreeEntity( NPC->activator );
 			}
 			else
 			{//can't remove the player, just make him invisible
 				NPC->client->ps.eFlags |= EF_NODRAW;
+				// coop: et surtout le relacher, sinon il garde EF_HELD_BY_SAND_
+				// CREATURE - qui interdit tout mouvement - jusqu'a la fin de la
+				// carte. En solo mourir rechargeait le point de passage et
+				// effacait le probleme ; en coop on reapparait sur place.
+				G_CoopReleaseHeld( NPC->activator );
 			}
 			NPC->activator = NPC->enemy = NPCInfo->goalEntity = NULL;
 		}

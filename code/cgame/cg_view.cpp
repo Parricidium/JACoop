@@ -727,6 +727,36 @@ static void CG_UpdateThirdPersonCameraDamp(void)
 
 /*
 ===============
+CG_CoopCaptorOf
+
+Rend l'entite qui tient ce joueur (Rancor, ver des sables), ou NULL. Le jeu
+d'origine lisait gent->activator sans garde : chez un invite c'est un pointeur
+de l'hote, qui n'a jamais voyage - d'ou le plantage a l'avalement.
+===============
+*/
+static const centity_t *CG_CoopCaptorOf( int clientNum )
+{
+	if ( clientNum < 0 || clientNum >= ENTITYNUM_MAX_NORMAL )
+	{
+		return NULL;
+	}
+
+	const gentity_t	*self = cg_entities[clientNum].gent;
+	const gentity_t	*holder = self ? self->activator : NULL;
+
+	if ( !holder || holder < g_entities || holder >= &g_entities[ENTITYNUM_MAX_NORMAL] )
+	{
+		return NULL;
+	}
+	if ( !holder->inuse || holder->s.number < 0 || holder->s.number >= ENTITYNUM_MAX_NORMAL )
+	{
+		return NULL;
+	}
+	return &cg_entities[holder->s.number];
+}
+
+/*
+===============
 CG_OffsetThirdPersonView
 
 ===============
@@ -743,17 +773,20 @@ static void CG_OffsetThirdPersonView( void )
 	// Set camera viewing direction.
 	VectorCopy( cg.refdefViewAngles, cameraFocusAngles );
 
+	// coop: celui qui nous tient. ->activator est un pointeur de l'hote, jamais
+	// transmis : chez un invite il ne veut rien dire. Sans cette verification, la
+	// branche du ver des sables plante l'invite des qu'il est avale.
+	const centity_t	*captor = CG_CoopCaptorOf( cg.snap ? cg.snap->ps.clientNum : 0 );
+
 	if ( cg.snap
 		&& (cg.snap->ps.eFlags&EF_HELD_BY_RANCOR)
-		&& cg_entities[cg.snap->ps.clientNum].gent->activator )
+		&& captor )
 	{
-		centity_t	*monster = &cg_entities[cg_entities[cg.snap->ps.clientNum].gent->activator->s.number];
-		VectorSet( cameraFocusAngles, 0, AngleNormalize180(monster->lerpAngles[YAW]+180), 0 );
+		VectorSet( cameraFocusAngles, 0, AngleNormalize180(captor->lerpAngles[YAW]+180), 0 );
 	}
-	else if ( cg.snap && (cg.snap->ps.eFlags&EF_HELD_BY_SAND_CREATURE) )
+	else if ( cg.snap && (cg.snap->ps.eFlags&EF_HELD_BY_SAND_CREATURE) && captor )
 	{
-		centity_t	*monster = &cg_entities[cg_entities[cg.snap->ps.clientNum].gent->activator->s.number];
-		VectorSet( cameraFocusAngles, 0, AngleNormalize180(monster->lerpAngles[YAW]+180), 0 );
+		VectorSet( cameraFocusAngles, 0, AngleNormalize180(captor->lerpAngles[YAW]+180), 0 );
 		cameraFocusAngles[PITCH] = 0.0f;//flatten it out
 	}
 	else if ( G_IsRidingVehicle( &g_entities[cg_localEntNum] ) )

@@ -413,6 +413,7 @@ const char *G_CoopEntName( const gentity_t *ent );	// how a breadcrumb names an 
 int G_CoopNumPlayers( void );
 gentity_t *G_CoopNearestPlayer( const vec3_t org, qboolean aliveOnly );
 qboolean G_CoopAnyPlayerAlive( void );
+void G_CoopReleaseHeld( gentity_t *ent );	// coop: sortir un joueur de la gueule de ce qui le tient
 gentity_t *G_CoopPlayerSlot( int i );	// connected player in that slot, or NULL
 qboolean G_CoopInAnyPlayerPVS( const vec3_t org );
 qboolean G_CoopRespawnPending( const gentity_t *ent );
