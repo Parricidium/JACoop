@@ -1008,8 +1008,20 @@ void UI_SaberScanHilts( void )
 {
 	const char	*p;
 	const char	*token;
+	static int	parmsGen = -1;
+	const int	gen = Cvar_VariableIntegerValue( "cl_coopPaksGen" );
 
 	uiHiltCount = 0;
+	// coop: un pack de manches arrive en cours de partie chez un invite. Les
+	// definitions .sab sont lues une seule fois pour toute la session : sans
+	// cela on rescanne le tampon d'avant le telechargement, et les nouveaux
+	// manches n'apparaissent jamais dans la liste - alors qu'on voit tres bien
+	// celui des autres joueurs, que l'hote resout pour nous.
+	if ( gen != parmsGen )
+	{
+		parmsGen = gen;
+		ui_saber_parms_parsed = qfalse;
+	}
 	if ( !ui_saber_parms_parsed )
 	{
 		UI_SaberLoadParms();
