@@ -1901,6 +1901,12 @@ void CG_CoopSelectWeapon_f( void )
 	{
 		return;
 	}
+	if ( wp > WP_NONE && cg.snap && !( cg.snap->ps.stats[STAT_WEAPONS] & ( 1 << wp ) ) )
+	{	// we do not own it: selecting it would leave the cgame pointing at a
+		// weapon the host will never hand over, and the usercmd would keep
+		// asking for it forever (CG_ChangeWeapon makes the same check)
+		return;
+	}
 	cg.weaponSelect = wp;
 	cg.weaponSelectTime = cg.time;
 }

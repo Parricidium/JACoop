@@ -2202,6 +2202,7 @@ void G_RunFrame( int levelTime ) {
 	G_CoopUpdateObjectives();
 	G_CoopUpdateMissionFailed();
 	G_CoopUnstickPlayers();	// coop: push overlapping players apart
+	G_CoopRememberSafeGround();	// coop: where to put a player back when a pit takes him
 	G_CoopLobbyFrame();
 	if( g_numEntities->integer )
 	{

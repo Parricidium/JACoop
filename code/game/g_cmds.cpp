@@ -1526,6 +1526,33 @@ void ClientCommand( int clientNum ) {
 		}
 		return;
 	}
+	if (Q_stricmp (cmd, "coop_pit") == 0)
+	{	// coop dev: make a player fall to his death the way a pit does (cheats),
+		// to exercise G_CoopPitRescue without a real hole and a real mouse
+		if ( !CheatsOk( ent ) ) return;
+		if ( ent->s.number != 0 ) return;
+		{
+			const int slot = ( gi.argc() > 1 ) ? atoi( gi.argv( 1 ) ) : 1;
+			gentity_t *targ = G_CoopPlayerSlot( slot );
+
+			if ( !targ || targ->health <= 0 )
+			{
+				gi.SendServerCommand( ent - g_entities, "print \"coop_pit: pas de joueur %i vivant\n\"", slot );
+				return;
+			}
+			vec3_t	air;
+
+			VectorCopy( targ->currentOrigin, air );
+			air[2] += 400;		// really in the air: the ground trace must find nothing
+			G_SetOrigin( targ, air );
+			VectorCopy( air, targ->client->ps.origin );
+			targ->client->ps.groundEntityNum = ENTITYNUM_NONE;
+			gi.linkentity( targ );
+			G_Damage( targ, NULL, NULL, NULL, NULL, 9999, DAMAGE_NO_ARMOR, MOD_FALLING );
+			gi.Printf( "coop_pit: %s pousse dans le vide\n", targ->client->pers.netname );
+		}
+		return;
+	}
 	if (Q_stricmp (cmd, "coop_stack") == 0)
 	{	// coop dev: drop every joiner on the host's spot (cheats) to check the unstick
 		if ( !CheatsOk( ent ) ) return;

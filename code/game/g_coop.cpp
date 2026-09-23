@@ -642,6 +642,94 @@ Called from player_die. Returns qtrue when the death is handled as a co-op
 respawn, in which case the caller must not start the mission-failed flow.
 ================
 */
+extern void G_AddWeaponModels( gentity_t *ent );		// g_client.cpp
+extern void G_RemoveWeaponModels( gentity_t *ent );		// g_client.cpp
+extern void WP_SaberCatch( gentity_t *self, gentity_t *saber, qboolean switchToSaber );	// wp_saber.cpp
+
+/*
+================
+G_CoopBestOwnedWeapon
+
+The weapon a player should be holding when he has none: his saber if he owns
+one, else the best gun in STAT_WEAPONS. WP_NONE when he really carries nothing.
+================
+*/
+int G_CoopBestOwnedWeapon( const playerState_t *ps )
+{
+	static const int order[] = {
+		WP_SABER, WP_DISRUPTOR, WP_REPEATER, WP_FLECHETTE, WP_ROCKET_LAUNCHER,
+		WP_BOWCASTER, WP_DEMP2, WP_BLASTER, WP_BLASTER_PISTOL, WP_BRYAR_PISTOL,
+		WP_THERMAL, WP_TRIP_MINE, WP_DET_PACK, WP_STUN_BATON
+	};
+	int i;
+
+	for ( i = 0; i < (int)( sizeof( order ) / sizeof( order[0] ) ); i++ )
+	{
+		if ( ps->stats[STAT_WEAPONS] & ( 1 << order[i] ) )
+		{
+			return order[i];
+		}
+	}
+	return WP_NONE;
+}
+
+/*
+================
+G_CoopReEquip
+
+Put a weapon back in a player's hands: after a revive (his saber may be lying
+on the floor since a Force push, or player_die may have blanked the weapon
+while he was bleeding out) and after a co-op respawn. Sends the choice to a
+joiner's own cgame, which owns its weapon selection.
+================
+*/
+void G_CoopReEquip( gentity_t *ent )
+{
+	playerState_t	*ps;
+	int				wp;
+
+	if ( !ent || !ent->client || ent->health <= 0 )
+	{
+		return;
+	}
+	ps = &ent->client->ps;
+
+	if ( ps->stats[STAT_WEAPONS] & ( 1 << WP_SABER ) )
+	{	// the hilt entity: caught back if it is on the ground or in flight,
+		// rebuilt if the death freed it (WP_SaberUpdate frees a dropped saber
+		// once its owner is dead)
+		if ( ps->saberEntityNum > 0 && ps->saberEntityNum < ENTITYNUM_WORLD )
+		{
+			gentity_t *saberent = &g_entities[ps->saberEntityNum];
+
+			if ( saberent->inuse && ( ps->saberInFlight || !( saberent->s.eFlags & EF_NODRAW ) ) )
+			{
+				WP_SaberCatch( ent, saberent, qfalse );
+			}
+		}
+		else if ( ps->saberEntityNum == ENTITYNUM_NONE )
+		{
+			WP_SaberInitBladeData( ent );
+		}
+	}
+
+	if ( ps->weapon > WP_NONE && ps->weapon < WP_NUM_WEAPONS && ( ps->stats[STAT_WEAPONS] & ( 1 << ps->weapon ) ) )
+	{
+		return;		// he is holding something he owns: leave him alone
+	}
+	wp = G_CoopBestOwnedWeapon( ps );
+	if ( wp <= WP_NONE )
+	{
+		return;
+	}
+	ps->weapon = wp;
+	ent->s.weapon = wp;
+	ps->weaponstate = WEAPON_READY;
+	G_RemoveWeaponModels( ent );
+	G_AddWeaponModels( ent );
+	G_CoopChangeWeapon( ent, wp );	// a joiner picks it in its own cgame
+}
+
 qboolean G_CoopPlayerDied( gentity_t *self )
 {
 	if ( !G_CoopIsPlayer( self ) )
@@ -657,6 +745,13 @@ qboolean G_CoopPlayerDied( gentity_t *self )
 	// reloads the checkpoint otherwise)
 	const int delay = ( G_CoopDownedActive() && g_coopRespawnDelay->integer > 0 ) ? g_coopRespawnDelay->integer * 1000 : COOP_RESPAWN_DELAY;
 	coopDeathState[self->s.number] = self->client->ps;
+	if ( coopDeathState[self->s.number].weapon <= WP_NONE )
+	{	// player_die ran first: it tossed the saber and blanked the weapon
+		// (g_combat.cpp, TossClientItems) before we got here, so the snapshot
+		// would bring the player back empty-handed. Remember what he still
+		// owns instead - the saber first, it is what he was carrying.
+		coopDeathState[self->s.number].weapon = G_CoopBestOwnedWeapon( &coopDeathState[self->s.number] );
+	}
 	coopRespawnTime[self->s.number] = level.time + delay;
 	if ( G_CoopLivingTeammate( self ) )
 	{
@@ -670,7 +765,6 @@ qboolean G_CoopPlayerDied( gentity_t *self )
 }
 
 extern qboolean G_SpawnOriginIsFree( vec3_t org );
-extern void G_AddWeaponModels( gentity_t *ent );
 extern vec3_t playerMins;
 extern vec3_t playerMaxs;
 
@@ -910,10 +1004,15 @@ static qboolean G_CoopUnstickNudge( gentity_t *ent, const vec3_t dir, float dist
 	return qtrue;
 }
 
+static qboolean G_CoopOnSolidGround( const gentity_t *ent );
+
 static qboolean G_CoopUnstickCandidate( const gentity_t *ent )
 {
-	if ( ent && ent->client && ent->client->ps.groundEntityNum == ENTITYNUM_NONE )
-	{	// in the air (a jump, a fall, a lift): let physics settle it, never push
+	if ( ent && ent->client && !G_CoopOnSolidGround( ent ) )
+	{	// in the air (a jump, a fall, a lift): let physics settle it, never push.
+		// This used to read ps.groundEntityNum, which on the host is stuck at
+		// ENTITYNUM_NONE for every joiner - so no joiner was ever unstuck, which
+		// is precisely the "two guests inside each other" JD reported.
 		return qfalse;
 	}
 	if ( !ent || !ent->client || !ent->inuse || ent->health <= 0 )
@@ -1203,6 +1302,7 @@ static void G_CoopRespawn( gentity_t *ent )
 	// come back beside a living teammate rather than at the map start
 	G_CoopPlaceBeside( ent, mate );
 	ent->health = ps->stats[STAT_HEALTH] = ps->stats[STAT_MAX_HEALTH];
+	G_CoopReEquip( ent );	// coop: never come back empty-handed
 	G_CoopAfterRespawn( ent );
 }
 
@@ -1731,6 +1831,9 @@ typedef struct coopDown_s {
 	int		reviverNum;			// who is reviving it, else ENTITYNUM_NONE
 	int		reviveStartTime;
 	int		revivingNum;		// (standing players) who I am reviving, else ENTITYNUM_NONE
+	vec3_t	safeOrigin;			// last spot where he stood on solid ground, healthy
+	int		safeTime;			// level.time of that spot, 0 = none remembered yet
+	float	safeYaw;
 } coopDown_t;
 
 static coopDown_t	coopDown[MAX_CLIENTS];
@@ -1749,6 +1852,7 @@ cvar_t	*g_coopReviveRange;
 cvar_t	*g_coopReviveHealth;
 cvar_t	*g_coopRespawnDelay;
 cvar_t	*g_coopAllDownAuto;
+cvar_t	*g_coopPitRescue;		// 1 = a fall into a pit downs you on your last safe ground
 cvar_t	*g_coopPaksGen;		// coop: the engine bumps it when a pk3 enters the search path at runtime
 extern cvar_t	*g_coopFriendlyFire;
 
@@ -1761,6 +1865,7 @@ void G_CoopInitDownedCvars( void )
 	g_coopReviveHealth = gi.cvar( "g_coopReviveHealth", "40", CVAR_ARCHIVE );
 	g_coopRespawnDelay = gi.cvar( "g_coopRespawnDelay", "10", CVAR_ARCHIVE );
 	g_coopAllDownAuto = gi.cvar( "g_coopAllDownAuto", "20", CVAR_ARCHIVE );
+	g_coopPitRescue = gi.cvar( "g_coopPitRescue", "1", CVAR_ARCHIVE );
 	g_coopPaksGen = gi.cvar( "cl_coopPaksGen", "0", CVAR_ROM );
 	// serverinfo: a joiner can read what the host decided
 	g_coopFriendlyFire = gi.cvar( "g_coopFriendlyFire", "1", CVAR_ARCHIVE|CVAR_SERVERINFO );
@@ -1940,6 +2045,108 @@ void G_CoopClearDowned( gentity_t *ent )
 
 /*
 ================
+G_CoopOnSolidGround
+
+Is this player standing on something walkable? ps.groundEntityNum cannot answer
+that for a joiner - on the host it stays ENTITYNUM_NONE the whole time, even
+while he stands still - so we look for ourselves, with a short trace under his
+feet.
+================
+*/
+static qboolean G_CoopOnSolidGround( const gentity_t *ent )
+{
+	trace_t	tr;
+	vec3_t	end;
+
+	if ( !ent || !ent->client )
+	{
+		return qfalse;
+	}
+	VectorCopy( ent->currentOrigin, end );
+	end[2] -= 24.0f;
+	gi.trace( &tr, (float *)ent->currentOrigin, (float *)ent->mins, (float *)ent->maxs, end,
+		ent->s.number, ent->clipmask, (EG2_Collision)0, 0 );
+	if ( tr.startsolid || tr.allsolid )
+	{
+		return qfalse;
+	}
+	return (qboolean)( tr.fraction < 1.0f && tr.plane.normal[2] >= 0.7f );
+}
+
+/*
+================
+G_CoopRememberSafeGround
+
+Once per server frame: where each player last stood, on the ground, alive and
+on his feet. G_CoopTryDown drops a falling player back on that spot instead of
+letting a pit kill him while his mates are still playing (JD, 23/09).
+================
+*/
+void G_CoopRememberSafeGround( void )
+{
+	for ( int i = 0; i < MAX_CLIENTS; i++ )
+	{
+		gentity_t *ent = G_CoopPlayerSlot( i );
+
+		if ( !ent || !ent->client || ent->health <= 0 || G_CoopIsDowned( ent ) )
+		{
+			continue;
+		}
+		if ( !G_CoopOnSolidGround( ent ) )
+		{
+			continue;	// in the air: not a spot to come back to
+		}
+		if ( VectorLengthSquared( ent->client->ps.velocity ) > 40.0f * 40.0f )
+		{
+			continue;	// moving fast (a jump, a slide): wait for him to settle
+		}
+		if ( ent->watertype & ( CONTENTS_LAVA | CONTENTS_SLIME ) )
+		{
+			continue;	// standing in the bad stuff: not a spot to come back to
+		}
+		if ( ent->client->ps.eFlags & EF_LOCKED_TO_WEAPON )
+		{
+			continue;	// bolted to an emplaced gun: not a spot to stand on
+		}
+		VectorCopy( ent->currentOrigin, coopDown[i].safeOrigin );
+		coopDown[i].safeYaw = ent->client->ps.viewangles[YAW];
+		coopDown[i].safeTime = level.time;
+	}
+}
+
+/*
+================
+G_CoopPitRescue
+
+Put a falling player back on the last ground he stood on, stopped and facing
+the way he was. The spot is his own, a few seconds old at most, so it is
+reachable - a teammate can walk to it and pick him up.
+================
+*/
+static void G_CoopPitRescue( gentity_t *ent, const vec3_t safeOrigin, float safeYaw )
+{
+	vec3_t	org, angles;
+
+	VectorCopy( safeOrigin, org );
+	G_CoopPlaceDropToFloor( org );
+	G_SetOrigin( ent, org );
+	VectorCopy( org, ent->client->ps.origin );
+	VectorClear( ent->client->ps.velocity );
+	VectorClear( ent->s.pos.trDelta );
+	ent->client->ps.pm_time = 0;
+	ent->client->ps.pm_flags &= ~( PMF_TIME_KNOCKBACK | PMF_TIME_NOFRICTION | PMF_SLOW_MO_FALL );
+	VectorSet( angles, 0, safeYaw, 0 );
+	SetClientViewAngle( ent, angles );
+	ent->client->ps.groundEntityNum = ENTITYNUM_WORLD;
+	gi.linkentity( ent );
+	// no fade to undo: the pit trigger only fades when the fall actually killed
+	// (g_trigger.cpp, "if ( G_CoopIsPlayer( other ) && other->health <= 0 )"),
+	// and we are turning that death into a downed state instead
+	G_CoopNote( va( "pit rescue: %s ramene a %.0f %.0f %.0f", ent->client->pers.netname, org[0], org[1], org[2] ) );
+}
+
+/*
+================
 G_CoopTryDown
 
 Called by G_Damage just before a player would die. Returns qtrue when the
@@ -1952,18 +2159,34 @@ qboolean G_CoopTryDown( gentity_t *targ, gentity_t *attacker, int mod, int dflag
 	{
 		return qfalse;
 	}
-	if ( mod == MOD_SUICIDE || mod == MOD_SNIPER || mod == MOD_CRUSH || mod == MOD_TRIGGER_HURT
+	// A pit is the one "real death" worth arguing with: the body lands out of
+	// reach, so it used to be a plain death - and a plain death in a level
+	// somebody else is still playing means a reload for everybody. Carry him
+	// back to the last ground he stood on and let him go down there instead.
+	const qboolean pit = (qboolean)( ( mod == MOD_FALLING && !G_CoopOnSolidGround( targ ) )
+		|| mod == MOD_TRIGGER_HURT
+		|| ( attacker && attacker->classname && !Q_stricmp( attacker->classname, "trigger_hurt" ) ) );
+
+	if ( mod == MOD_SUICIDE || mod == MOD_SNIPER || mod == MOD_CRUSH
 		|| mod == MOD_LAVA || mod == MOD_SLIME || mod == MOD_WATER		// no lying down in liquids
 		|| ( targ->client->ps.eFlags & EF_LOCKED_TO_WEAPON )				// dead on an emplaced gun: RunEmplacedWeapon ejects the body (D7)
 		|| ( targ->client->ps.eFlags & ( EF_FORCE_GRIPPED|EF_FORCE_DRAINED ) )	// held in the air by a gripper (D12)
 		|| targ->s.m_iVehicleNum != 0
 		|| ( targ->client->ps.eFlags & ( EF_HELD_BY_RANCOR|EF_HELD_BY_WAMPA|EF_HELD_BY_SAND_CREATURE ) )
 		|| in_camera
-		|| ( mod == MOD_FALLING && targ->client->ps.groundEntityNum == ENTITYNUM_NONE )
-		|| ( attacker && attacker->classname && !Q_stricmp( attacker->classname, "trigger_hurt" ) )
-		|| ( !attacker && ( dflags & DAMAGE_NO_PROTECTION ) ) )	// target_kill
-	{	// no way to lie on the ground there (a pit floor is out of reach for a revive): a real death
+		|| ( !attacker && ( dflags & DAMAGE_NO_PROTECTION ) && !pit ) )	// target_kill
+	{	// no way to lie on the ground there: a real death
 		return qfalse;
+	}
+	if ( pit )
+	{
+		coopDown_t *safe = &coopDown[targ->s.number];
+
+		if ( !g_coopPitRescue->integer || !safe->safeTime || !G_CoopAnyPlayerUp() )
+		{	// nobody left to come and get him, or the option is off: a real death
+			return qfalse;
+		}
+		G_CoopPitRescue( targ, safe->safeOrigin, safe->safeYaw );
 	}
 
 	playerState_t	*ps = &targ->client->ps;
@@ -2064,6 +2287,7 @@ static void G_CoopRevive( gentity_t *target, gentity_t *reviver )
 	ps->legsAnimTimer = ps->torsoAnimTimer = 0;
 	NPC_SetAnim( target, SETANIM_BOTH, ( ps->forcePowerLevel[FP_LEVITATION] > 0 ) ? Q_irand( BOTH_FORCE_GETUP_F1, BOTH_FORCE_GETUP_F2 ) : BOTH_GETUP1, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
 	ps->weaponTime = 500;
+	G_CoopReEquip( target );	// coop: back on his feet, and armed (JD, 23/09)
 	G_Sound( target, G_SoundIndex( "sound/weapons/force/heal.mp3" ) );
 	if ( reviver && reviver->client )
 	{
@@ -2083,8 +2307,52 @@ its knockdown pose; a standing one holding the revive key beside a downed
 teammate revives it.
 ================
 */
+/*
+================
+G_CoopWatchWeapon
+
+A co-op player's weapon lives on two machines: the cgame picks it and the host
+decides. Anything that changes it host-side without the cgame asking (a weapon
+taken away, a respawn, leaving an emplaced gun) leaves the two disagreeing, and
+the joiner ends up holding nothing while his usercmd asks for something he no
+longer owns - JD's "l'arme a disparu et je ne pouvais plus rien faire".
+
+So: tell the client whenever the weapon changed behind its back, and re-arm a
+living player who ends up with empty hands.
+================
+*/
+static int coopLastWeapon[MAX_CLIENTS];
+
+static void G_CoopWatchWeapon( gentity_t *ent, const usercmd_t *ucmd )
+{
+	const int	slot = ent->s.number;
+	playerState_t *ps = &ent->client->ps;
+
+	if ( slot >= MAX_CLIENTS || ent->health <= 0 || G_CoopIsDowned( ent ) || in_camera
+		|| ( ps->eFlags & EF_LOCKED_TO_WEAPON ) || ent->s.m_iVehicleNum != 0 )
+	{
+		coopLastWeapon[slot] = ps->weapon;
+		return;
+	}
+	if ( ps->weapon <= WP_NONE && G_CoopBestOwnedWeapon( ps ) > WP_NONE && ps->weaponTime <= 0 )
+	{	// empty-handed with a full inventory: the watchdog
+		G_CoopNote( va( "weapon watchdog: %s had none, re-arming", ent->client->pers.netname ) );
+		G_CoopReEquip( ent );
+	}
+	else if ( slot != 0 && ps->weapon != coopLastWeapon[slot] && ucmd && ps->weapon != ucmd->weapon )
+	{	// it moved for a reason this joiner did not ask for: tell its cgame,
+		// or its next usercmd drags the host back to the old selection
+		G_CoopChangeWeapon( ent, ps->weapon );
+	}
+	coopLastWeapon[slot] = ps->weapon;
+}
+
 void G_CoopDownedThink( gentity_t *ent, usercmd_t *ucmd )
 {
+	if ( ent && ent->client && G_CoopIsPlayer( ent ) )
+	{
+		G_CoopWatchWeapon( ent, ucmd );
+	}
 	if ( !G_CoopIsPlayer( ent ) || !ucmd )
 	{
 		return;

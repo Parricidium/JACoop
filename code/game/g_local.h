@@ -421,6 +421,7 @@ void G_CoopRunRespawns( void );
 void G_CoopRespawnPendingNow( void );
 void G_CoopPlaceBeside( gentity_t *ent, gentity_t *mate );
 void G_CoopUnstickPlayers( void );	// once per frame: never leave two players inside each other
+void G_CoopRememberSafeGround( void );	// once per frame: the last solid ground under each player
 void G_CoopGatherJoiners( qboolean all );
 void G_CoopStackPlayers( void );	// cheat/test: everybody on the host's spot, no kill box
 void G_CoopFollowHostTeleport( const vec3_t from );
@@ -509,6 +510,8 @@ int G_CoopZoomMode( const gentity_t *ent );
 void G_CoopSetZoomMode( gentity_t *ent, int mode );
 void G_CoopReadZoomMode( gentity_t *ent, usercmd_t *ucmd );
 void G_CoopChangeWeapon( gentity_t *ent, int wp );
+int G_CoopBestOwnedWeapon( const playerState_t *ps );
+void G_CoopReEquip( gentity_t *ent );
 void G_CoopUpdateTimescale( void );
 qboolean G_CoopPersonalTime( void );	// coop: >= 2 players (or a joiner): Force Speed is personal, the world clock is never scaled
 float G_CoopTimeScale( const playerState_t *ps, qboolean noMatrixCheck = qfalse );	// coop: the time scale to compensate this player for (1.0f = nothing to do)

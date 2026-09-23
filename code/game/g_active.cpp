@@ -5498,7 +5498,19 @@ extern cvar_t	*g_skippingcin;
 			// pressing attack or use is the normal respawn method
 			if ( ucmd->buttons & ( BUTTON_ATTACK ) )
 			{
-				respawn( ent );
+				// coop: respawn() reloads the last checkpoint for EVERYBODY. A
+				// joiner must never be able to do that, and neither may the host
+				// while a teammate is still on his feet or while the co-op
+				// respawn is already on its way (G_CoopRunRespawns brings the
+				// dead player back beside a mate a few seconds later).
+				if ( G_CoopIsPlayer( ent ) && ( ent->s.number != 0 || G_CoopAnyPlayerUp() || G_CoopRespawnPending( ent ) ) )
+				{
+					// nothing: the co-op flow owns this death
+				}
+				else
+				{
+					respawn( ent );
+				}
 			}
 		}
 		if ( ent
