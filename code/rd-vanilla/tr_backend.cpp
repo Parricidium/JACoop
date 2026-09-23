@@ -1004,6 +1004,7 @@ RB_SetColor
 =============
 */
 const void	*RB_SetColor( const void *data ) {
+	R_ModernFlush();	// JACoop: la scene est finie, le 2D commence
 	const setColorCommand_t	*cmd;
 
 	cmd = (const setColorCommand_t *)data;
@@ -1022,6 +1023,7 @@ RB_StretchPic
 =============
 */
 const void *RB_StretchPic ( const void *data ) {
+	R_ModernFlush();	// JACoop: idem, selon la commande qui ouvre le 2D
 	const stretchPicCommand_t	*cmd;
 	shader_t *shader;
 	int		numVerts, numIndexes;
@@ -1322,12 +1324,12 @@ const void	*RB_DrawSurfs( const void *data ) {
 
 	RB_RenderDrawSurfList( cmd->drawSurfs, cmd->numDrawSurfs );
 
-	// JACoop: le monde est peint, le 2D ne l'est pas encore - c'est ici, et
-	// nulle part ailleurs, que les passes d'image ont un sens (sinon le HUD et
-	// les menus y passeraient aussi).
+	// JACoop: on note qu'une vue 3D vient d'etre peinte. La passe d'image ne
+	// part pas ici : le moteur emet plusieurs vues par image (ciel en portail,
+	// miroirs) et elle s'appliquerait a chacune.
 	if ( !(backEnd.refdef.rdflags & RDF_NOWORLDMODEL) )
 	{
-		R_ModernPostProcess();
+		R_ModernMarkPending();
 	}
 
 	// Dynamic Glow/Flares:
@@ -1538,6 +1540,7 @@ RB_SwapBuffers
 */
 extern void RB_RenderWorldEffects( void );
 const void	*RB_SwapBuffers( const void *data ) {
+	R_ModernFlush();	// JACoop: filet, si l'image ne comporte aucun 2D
 	const swapBuffersCommand_t	*cmd;
 
 	// finish any 2D drawing if needed

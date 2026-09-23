@@ -1163,9 +1163,13 @@ extern cvar_t	*r_DynamicGlow;
 // rien et ne compile rien : le chemin de code reste celui d'origine.
 extern cvar_t	*r_modern;
 extern cvar_t	*r_modernDebug;
+extern cvar_t	*r_modernAO;
+extern cvar_t	*r_modernAOIntensity;
+extern cvar_t	*r_modernAORadius;
 void R_ModernInit( void );
 void R_ModernShutdown( void );
-void R_ModernPostProcess( void );
+void R_ModernMarkPending( void );
+void R_ModernFlush( void );
 extern cvar_t	*r_DynamicGlowPasses;
 extern cvar_t	*r_DynamicGlowDelta;
 extern cvar_t	*r_DynamicGlowIntensity;

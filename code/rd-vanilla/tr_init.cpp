@@ -1528,6 +1528,11 @@ void R_Register( void )
 	// demande.
 	r_modern = ri.Cvar_Get( "r_modern", "0", CVAR_ARCHIVE_ND );
 	r_modernDebug = ri.Cvar_Get( "r_modernDebug", "0", CVAR_TEMP );
+	// occlusion ambiante : le rayon est en unites du jeu (un joueur en fait 64
+	// de haut), l'intensite melange entre "aucune" et "pleine"
+	r_modernAO = ri.Cvar_Get( "r_modernAO", "1", CVAR_ARCHIVE_ND );
+	r_modernAOIntensity = ri.Cvar_Get( "r_modernAOIntensity", "0.8", CVAR_ARCHIVE_ND );
+	r_modernAORadius = ri.Cvar_Get( "r_modernAORadius", "28", CVAR_ARCHIVE_ND );
 	r_DynamicGlowPasses = ri.Cvar_Get( "r_DynamicGlowPasses", "5", CVAR_ARCHIVE_ND );
 	r_DynamicGlowDelta  = ri.Cvar_Get( "r_DynamicGlowDelta", "0.8f", CVAR_ARCHIVE_ND );
 	r_DynamicGlowIntensity = ri.Cvar_Get( "r_DynamicGlowIntensity", "1.13f", CVAR_ARCHIVE_ND );

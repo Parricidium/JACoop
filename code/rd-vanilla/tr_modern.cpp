@@ -25,6 +25,9 @@ machine virtuelle).
 
 cvar_t	*r_modern;
 cvar_t	*r_modernDebug;
+cvar_t	*r_modernAO;
+cvar_t	*r_modernAOIntensity;
+cvar_t	*r_modernAORadius;
 
 // ---------------------------------------------------------------- entrees GL
 // Le moteur ne connait que le GL 1.x : on va chercher nous-memes ce qu'il faut.
@@ -105,7 +108,10 @@ static int		modernWidth;
 static int		modernHeight;
 static GLuint	modernSceneTex;		// l'image finie de la scene
 static GLuint	modernDepthTex;		// sa profondeur
-static GLuint	modernPassthrough;	// programme de base (etape 0)
+static GLuint	modernComposite;	// scene + occlusion -> ecran
+static GLuint	modernAoProg;		// calcul de l'occlusion
+static GLuint	modernAoTex;		// son resultat, une seule composante
+static GLuint	modernAoFbo;
 
 /*
 ===============
@@ -228,24 +234,115 @@ static const char *vsPassthrough =
 	"	gl_Position = gl_Vertex;\n"
 	"}\n";
 
-static const char *fsPassthrough =
+// Reconstruire la position d'un pixel dans l'espace de la camera a partir de sa
+// profondeur. La matrice de projection du moteur n'a que six termes utiles, et
+// son inverse s'ecrit a la main - inutile d'inverser une matrice 4x4 :
+//
+//   [ A 0 C 0 ]              [ 1/A  0   0   C/A ]
+//   [ 0 B D 0 ]   inverse =  [  0  1/B  0   D/B ]
+//   [ 0 0 E F ]              [  0   0   0   -1  ]
+//   [ 0 0 -1 0 ]             [  0   0  1/F  E/F ]
+//
+// Partage par l'occlusion, et demain par les ombres et la volumetrique.
+static const char *glslViewPos =
+	"uniform vec2 projAB;\n"		// A, B
+	"uniform vec2 projCD;\n"		// C, D
+	"uniform vec2 projEF;\n"		// E, F
+	"uniform sampler2D sceneDepth;\n"
+	"vec3 viewPosAt( vec2 t, float d ) {\n"
+	"	vec3 n = vec3( t * 2.0 - 1.0, d * 2.0 - 1.0 );\n"
+	"	float w = n.z / projEF.y + projEF.x / projEF.y;\n"
+	"	vec3 p = vec3( ( n.x + projCD.x ) / projAB.x,\n"
+	"	               ( n.y + projCD.y ) / projAB.y,\n"
+	"	               -1.0 );\n"
+	"	return p / w;\n"
+	"}\n"
+	"vec3 viewPos( vec2 t ) { return viewPosAt( t, texture2D( sceneDepth, t ).r ); }\n";
+
+static const char *fsAo =
+	"#version 120\n"
+	"varying vec2 uv;\n"
+	"uniform vec2 texel;\n"			// 1 / taille
+	"uniform float radius;\n"		// en unites du jeu
+	"uniform float bias;\n"
+	"%s"							// viewPos
+	// La normale vient des variations de profondeur. Une difference centree
+	// deborde sur les silhouettes ; on garde donc, de chaque cote, le voisin le
+	// plus proche en profondeur - c'est celui qui appartient encore a la meme
+	// surface.
+	"vec3 normalAt( vec2 t, vec3 p ) {\n"
+	"	vec3 l = viewPos( t - vec2( texel.x, 0.0 ) ) - p;\n"
+	"	vec3 r = viewPos( t + vec2( texel.x, 0.0 ) ) - p;\n"
+	"	vec3 d = viewPos( t - vec2( 0.0, texel.y ) ) - p;\n"
+	"	vec3 u = viewPos( t + vec2( 0.0, texel.y ) ) - p;\n"
+	"	vec3 h = ( abs( l.z ) < abs( r.z ) ) ? -l : r;\n"
+	"	vec3 v = ( abs( d.z ) < abs( u.z ) ) ? -d : u;\n"
+	"	return normalize( cross( h, v ) );\n"
+	"}\n"
+	"float hash( vec2 c ) { return fract( sin( dot( c, vec2( 12.9898, 78.233 ) ) ) * 43758.5453 ); }\n"
+	"void main() {\n"
+	"	float d = texture2D( sceneDepth, uv ).r;\n"
+	"	if ( d >= 1.0 ) { gl_FragColor = vec4( 1.0 ); return; }\n"	// le ciel
+	"	vec3 p = viewPosAt( uv, d );\n"
+	"	vec3 n = normalAt( uv, p );\n"
+	"	float ang = hash( gl_FragCoord.xy ) * 6.2831853;\n"
+	"	float occ = 0.0;\n"
+	"	const int STEPS = 12;\n"
+	"	for ( int i = 0; i < STEPS; i++ ) {\n"
+	// spirale : l'angle tourne, le rayon croit - une repartition reguliere sans
+	// avoir a transporter une table d'echantillons
+	"		float f = ( float( i ) + 0.5 ) / float( STEPS );\n"
+	"		float a = ang + f * 6.2831853 * 2.4;\n"
+	"		vec3 dir = vec3( cos( a ), sin( a ), 0.0 );\n"
+	"		dir = normalize( dir + n * 0.9 );\n"				// hemisphere autour de la normale
+	"		vec3 sp = p + dir * radius * sqrt( f );\n"
+	// reprojeter l'echantillon a l'ecran
+	"		vec2 st = vec2( sp.x / -sp.z * projAB.x - projCD.x,\n"
+	"		                sp.y / -sp.z * projAB.y - projCD.y ) * 0.5 + 0.5;\n"
+	"		if ( st.x < 0.0 || st.x > 1.0 || st.y < 0.0 || st.y > 1.0 ) continue;\n"
+	"		vec3 q = viewPos( st );\n"
+	"		vec3 dv = q - p;\n"
+	"		float dist = length( dv );\n"
+	"		if ( dist < 0.0001 ) continue;\n"
+	"		float cosa = dot( n, dv / dist );\n"
+	// une surface lointaine ne doit pas occulter : sinon un mur au fond
+	// assombrit tout ce qui passe devant lui
+	"		float fall = clamp( 1.0 - ( dist - radius ) / radius, 0.0, 1.0 );\n"
+	"		occ += clamp( cosa - bias, 0.0, 1.0 ) * fall;\n"
+	"	}\n"
+	"	occ = occ / float( STEPS );\n"
+	"	gl_FragColor = vec4( clamp( 1.0 - occ, 0.0, 1.0 ) );\n"
+	"}\n";
+
+// Composition : l'occlusion est bruitee par construction (un angle aleatoire
+// par pixel), on l'adoucit ici au lieu d'y consacrer une passe de plus.
+static const char *fsComposite =
 	"#version 120\n"
 	"uniform sampler2D scene;\n"
 	"uniform sampler2D sceneDepth;\n"
+	"uniform sampler2D ao;\n"
+	"uniform vec2 texel;\n"
+	"uniform float intensity;\n"
 	"uniform int debugMode;\n"
 	"varying vec2 uv;\n"
 	"void main() {\n"
 	"	vec4 c = texture2D( scene, uv );\n"
+	"	float a = 0.0;\n"
+	"	for ( int y = -2; y <= 2; y++ )\n"
+	"		for ( int x = -2; x <= 2; x++ )\n"
+	"			a += texture2D( ao, uv + vec2( float( x ), float( y ) ) * texel ).r;\n"
+	"	a = a / 25.0;\n"
+	"	a = mix( 1.0, a, intensity );\n"
 	"	if ( debugMode == 1 ) {\n"
-	"		// la profondeur brute est ecrasee contre 1.0 : une puissance elevee\n"
-	"		// etale ce qui nous interesse, le proche\n"
 	"		float d = texture2D( sceneDepth, uv ).r;\n"
-	"		float v = pow( d, 64.0 );\n"
-	"		c = vec4( vec3( 1.0 - v ), 1.0 );\n"
+	"		gl_FragColor = vec4( vec3( 1.0 - pow( d, 64.0 ) ), 1.0 );\n"
+	"	} else if ( debugMode == 3 ) {\n"
+	"		gl_FragColor = vec4( vec3( a ), 1.0 );\n"		// l'occlusion seule
 	"	} else if ( debugMode == 2 && uv.x > 0.5 ) {\n"
-	"		c.rgb = c.rgb * vec3( 1.0, 0.45, 0.25 );\n"
+	"		gl_FragColor = vec4( c.rgb * vec3( 1.0, 0.45, 0.25 ), c.a );\n"
+	"	} else {\n"
+	"		gl_FragColor = vec4( c.rgb * a, c.a );\n"
 	"	}\n"
-	"	gl_FragColor = c;\n"
 	"}\n";
 
 /*
@@ -283,7 +380,8 @@ static qboolean R_ModernCreateTargets( int width, int height )
 	{
 		qglDeleteTextures( 1, &modernSceneTex );
 		qglDeleteTextures( 1, &modernDepthTex );
-		modernSceneTex = modernDepthTex = 0;
+		qglDeleteTextures( 1, &modernAoTex );
+		modernSceneTex = modernDepthTex = modernAoTex = 0;
 	}
 
 	qglGenTextures( 1, &modernSceneTex );
@@ -307,7 +405,30 @@ static qboolean R_ModernCreateTargets( int width, int height )
 	qglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
 	qglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
 
+	// L'occlusion vit dans sa propre cible : elle est calculee en une passe,
+	// puis adoucie a la composition.
+	qglGenTextures( 1, &modernAoTex );
+	qglBindTexture( GL_TEXTURE_2D, modernAoTex );
+	qglTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
+	qglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+	qglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+	qglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
+	qglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
 	qglBindTexture( GL_TEXTURE_2D, 0 );
+
+	if ( !modernAoFbo )
+	{
+		p_glGenFramebuffers( 1, &modernAoFbo );
+	}
+	p_glBindFramebuffer( GL_FRAMEBUFFER, modernAoFbo );
+	p_glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, modernAoTex, 0 );
+	if ( p_glCheckFramebufferStatus( GL_FRAMEBUFFER ) != GL_FRAMEBUFFER_COMPLETE )
+	{
+		ri.Printf( PRINT_ALL, "...rendu moderne : cible d'occlusion incomplete\n" );
+		p_glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+		return qfalse;
+	}
+	p_glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
 	if ( !R_ModernStep( va( "textures %ix%i", width, height ) ) )
 	{
@@ -342,8 +463,9 @@ void R_ModernInit( void )
 		modernFailed = qtrue;
 		return;
 	}
-	modernPassthrough = R_ModernCompile( vsPassthrough, fsPassthrough, "passe de base" );
-	if ( !modernPassthrough )
+	modernAoProg = R_ModernCompile( vsPassthrough, va( fsAo, glslViewPos ), "occlusion ambiante" );
+	modernComposite = R_ModernCompile( vsPassthrough, fsComposite, "composition" );
+	if ( !modernAoProg || !modernComposite )
 	{
 		modernFailed = qtrue;
 		return;
@@ -354,18 +476,41 @@ void R_ModernInit( void )
 
 void R_ModernShutdown( void )
 {
-	if ( modernPassthrough )
+	if ( modernComposite )
 	{
-		p_glDeleteProgram( modernPassthrough );
-		modernPassthrough = 0;
+		p_glDeleteProgram( modernComposite );
+		modernComposite = 0;
+	}
+	if ( modernAoProg )
+	{
+		p_glDeleteProgram( modernAoProg );
+		modernAoProg = 0;
+	}
+	if ( modernAoFbo )
+	{
+		p_glDeleteFramebuffers( 1, &modernAoFbo );
+		modernAoFbo = 0;
 	}
 	if ( modernSceneTex )
 	{
 		qglDeleteTextures( 1, &modernSceneTex );
 		qglDeleteTextures( 1, &modernDepthTex );
-		modernSceneTex = modernDepthTex = 0;
+		qglDeleteTextures( 1, &modernAoTex );
+		modernSceneTex = modernDepthTex = modernAoTex = 0;
 	}
 	modernReady = qfalse;
+}
+
+static void R_ModernPostProcess( void );
+
+static void R_ModernFullscreenQuad( void )
+{
+	qglBegin( GL_QUADS );
+		qglTexCoord2f( 0.0f, 0.0f );	qglVertex2f( -1.0f, -1.0f );
+		qglTexCoord2f( 1.0f, 0.0f );	qglVertex2f(  1.0f, -1.0f );
+		qglTexCoord2f( 1.0f, 1.0f );	qglVertex2f(  1.0f,  1.0f );
+		qglTexCoord2f( 0.0f, 1.0f );	qglVertex2f( -1.0f,  1.0f );
+	qglEnd();
 }
 
 /*
@@ -380,7 +525,24 @@ profondeur), puis on repeint l'ecran depuis cette capture. A l'etape 0 la passe
 ne fait que recopier : l'image doit etre identique a celle d'avant.
 ===============
 */
-void R_ModernPostProcess( void )
+static qboolean	modernPending;		// une vue 3D a ete dessinee, la passe lui est due
+
+void R_ModernMarkPending( void )
+{
+	modernPending = qtrue;
+}
+
+void R_ModernFlush( void )
+{
+	if ( !modernPending )
+	{
+		return;
+	}
+	modernPending = qfalse;
+	R_ModernPostProcess();
+}
+
+static void R_ModernPostProcess( void )
 {
 	const int	w = backEnd.viewParms.viewportWidth;
 	const int	h = backEnd.viewParms.viewportHeight;
@@ -412,44 +574,77 @@ void R_ModernPostProcess( void )
 		}
 	}
 
-	// --- capture
+	// --- capture de ce que le pipeline d'origine vient de peindre
+	GL_SelectTexture( 0 );
 	qglBindTexture( GL_TEXTURE_2D, modernSceneTex );
 	qglCopyTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, x, y, w, h );
 	qglBindTexture( GL_TEXTURE_2D, modernDepthTex );
 	qglCopyTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, x, y, w, h );
 
-	// --- etat minimal pour un quad plein ecran, en coordonnees normalisees
+	// --- etat commun aux passes : un quad plein ecran, rien d'autre
 	qglMatrixMode( GL_PROJECTION );
 	qglPushMatrix();
 	qglLoadIdentity();
 	qglMatrixMode( GL_MODELVIEW );
 	qglPushMatrix();
 	qglLoadIdentity();
-
 	GL_State( GLS_DEPTHTEST_DISABLE );
 	qglDisable( GL_CULL_FACE );
 
+	// Les six termes utiles de la projection du moteur : de quoi remonter de la
+	// profondeur a une position dans l'espace de la camera.
+	const float	*P = backEnd.viewParms.projectionMatrix;
+	const float	texelX = 1.0f / (float)w;
+	const float	texelY = 1.0f / (float)h;
+	const qboolean	wantAo = (qboolean)( r_modernAO->integer && r_modernAOIntensity->value > 0.0f );
+
+	// --- passe 1 : l'occlusion, dans sa propre cible
+	if ( wantAo )
+	{
+		p_glBindFramebuffer( GL_FRAMEBUFFER, modernAoFbo );
+		qglViewport( 0, 0, w, h );
+
+		GL_SelectTexture( 0 );
+		qglBindTexture( GL_TEXTURE_2D, modernDepthTex );
+
+		p_glUseProgram( modernAoProg );
+		p_glUniform1i( p_glGetUniformLocation( modernAoProg, "sceneDepth" ), 0 );
+		p_glUniform2f( p_glGetUniformLocation( modernAoProg, "projAB" ), P[0], P[5] );
+		p_glUniform2f( p_glGetUniformLocation( modernAoProg, "projCD" ), P[8], P[9] );
+		p_glUniform2f( p_glGetUniformLocation( modernAoProg, "projEF" ), P[10], P[14] );
+		p_glUniform2f( p_glGetUniformLocation( modernAoProg, "texel" ), texelX, texelY );
+		p_glUniform1f( p_glGetUniformLocation( modernAoProg, "radius" ), r_modernAORadius->value );
+		p_glUniform1f( p_glGetUniformLocation( modernAoProg, "bias" ), 0.08f );
+		R_ModernFullscreenQuad();
+
+		p_glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+		qglViewport( x, y, w, h );
+	}
+
+	// --- passe 2 : composition a l'ecran
+	GL_SelectTexture( 2 );
+	qglBindTexture( GL_TEXTURE_2D, modernAoTex );
 	GL_SelectTexture( 1 );
 	qglBindTexture( GL_TEXTURE_2D, modernDepthTex );
 	GL_SelectTexture( 0 );
 	qglBindTexture( GL_TEXTURE_2D, modernSceneTex );
 
-	p_glUseProgram( modernPassthrough );
-	p_glUniform1i( p_glGetUniformLocation( modernPassthrough, "scene" ), 0 );
-	p_glUniform1i( p_glGetUniformLocation( modernPassthrough, "sceneDepth" ), 1 );
-	p_glUniform1i( p_glGetUniformLocation( modernPassthrough, "debugMode" ), r_modernDebug->integer );
-
-	qglBegin( GL_QUADS );
-		qglTexCoord2f( 0.0f, 0.0f );	qglVertex2f( -1.0f, -1.0f );
-		qglTexCoord2f( 1.0f, 0.0f );	qglVertex2f(  1.0f, -1.0f );
-		qglTexCoord2f( 1.0f, 1.0f );	qglVertex2f(  1.0f,  1.0f );
-		qglTexCoord2f( 0.0f, 1.0f );	qglVertex2f( -1.0f,  1.0f );
-	qglEnd();
+	p_glUseProgram( modernComposite );
+	p_glUniform1i( p_glGetUniformLocation( modernComposite, "scene" ), 0 );
+	p_glUniform1i( p_glGetUniformLocation( modernComposite, "sceneDepth" ), 1 );
+	p_glUniform1i( p_glGetUniformLocation( modernComposite, "ao" ), 2 );
+	p_glUniform2f( p_glGetUniformLocation( modernComposite, "texel" ), texelX, texelY );
+	p_glUniform1f( p_glGetUniformLocation( modernComposite, "intensity" ),
+		wantAo ? r_modernAOIntensity->value : 0.0f );
+	p_glUniform1i( p_glGetUniformLocation( modernComposite, "debugMode" ), r_modernDebug->integer );
+	R_ModernFullscreenQuad();
 
 	p_glUseProgram( 0 );
 
 	// rendre les unites de texture telles qu'on les a trouvees : le pipeline
-	// d'origine ne s'attend pas a voir l'unite 1 occupee
+	// d'origine ne s'attend pas a les voir occupees
+	GL_SelectTexture( 2 );
+	qglBindTexture( GL_TEXTURE_2D, 0 );
 	GL_SelectTexture( 1 );
 	qglBindTexture( GL_TEXTURE_2D, 0 );
 	GL_SelectTexture( 0 );
