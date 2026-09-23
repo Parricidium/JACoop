@@ -391,6 +391,20 @@ void CL_ParseGamestate( msg_t *msg ) {
 
 	UI_UpdateConnectionString( "" );
 
+	// coop: un invite journalise sa session comme l'hote journalise la sienne
+	// (g_coop.cpp fait le meme geste cote serveur). Sans cela, les pannes qui
+	// n'existent qu'a plusieurs ne laissent aucune trace du cote ou elles se
+	// produisent. Mode 2 = vide a chaque ligne, donc un plantage garde les
+	// siennes.
+	if ( !com_sv_running->integer
+		&& Cvar_VariableIntegerValue( "cl_coopLog" )
+		&& !Cvar_VariableIntegerValue( "logfile" ) )
+	{
+		Cvar_Set( "logfile", "2" );
+		Com_Printf( "coop: session enregistree dans base/qconsole.log "
+			"(le fichier est ecrase au prochain lancement : le copier avant de relancer)\n" );
+	}
+
 	// co-op dual-load: a remote client that is already in a map and receives a
 	// fresh gamestate (a level transition / mission reload on the host) must tear
 	// down its renderer world and cgame before loading the new one. Otherwise the

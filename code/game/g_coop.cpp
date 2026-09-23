@@ -1264,6 +1264,41 @@ void G_CoopTeleportCommand( gentity_t *ent )
 	gi.Printf( "coop: %s teleported to %s on request\n", ent->client->pers.netname, target->client->pers.netname );
 }
 
+/*
+================
+G_CoopReleaseHeld
+
+Sortir un joueur de la gueule de ce qui le tient. Les drapeaux "tenu par"
+bloquent le mouvement (bg_pmove.cpp) et personne ne les efface : en solo la
+mort rechargeait une carte neuve, en coop on revient sur place avec l'etat tel
+quel - le joueur reste alors coince, sous le decor, sans pouvoir bouger.
+
+Appele a la reapparition, au relevement, et par le ver des sables au moment ou
+il avale un joueur (qu'il ne peut pas faire disparaitre).
+================
+*/
+void G_CoopReleaseHeld( gentity_t *ent )
+{
+	const int held = EF_HELD_BY_SAND_CREATURE | EF_HELD_BY_RANCOR | EF_HELD_BY_WAMPA;
+
+	if ( !G_CoopIsPlayer( ent ) )
+	{
+		return;
+	}
+	if ( !( ent->client->ps.eFlags & held ) && !( ent->s.eFlags & held ) && !ent->activator )
+	{
+		return;		// rien a defaire, cas courant
+	}
+	G_CoopNote( va( "releasing %s from a creature's grip", G_CoopEntName( ent ) ) );
+	ent->client->ps.eFlags &= ~held;
+	ent->s.eFlags &= ~held;
+	// le monstre avait rendu le joueur intangible pour le trainer avec lui
+	ent->contents = CONTENTS_BODY;
+	ent->clipmask = MASK_PLAYERSOLID;
+	ent->activator = NULL;
+	ent->client->ps.viewEntity = 0;
+}
+
 static void G_CoopRespawn( gentity_t *ent )
 {
 	const int		slot = ent->s.number;
@@ -1275,6 +1310,7 @@ static void G_CoopRespawn( gentity_t *ent )
 	G_CoopNote( va( "respawning %s beside %s", G_CoopEntName( ent ), G_CoopEntName( mate ) ) );
 
 	ClientSpawn( ent, eNO );
+	G_CoopReleaseHeld( ent );	// coop: ClientSpawn ne touche pas a eFlags
 
 	// bring the loadout back
 	playerState_t *ps = &ent->client->ps;
@@ -2331,6 +2367,7 @@ static void G_CoopRevive( gentity_t *target, gentity_t *reviver )
 	int				health = ps->stats[STAT_MAX_HEALTH] * pct / 100;
 
 	G_CoopClearDowned( target );
+	G_CoopReleaseHeld( target );	// coop: releve, donc plus tenu par quoi que ce soit
 	if ( health < 1 )
 	{
 		health = 1;

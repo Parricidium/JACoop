@@ -1464,6 +1464,30 @@ void ClientCommand( int clientNum ) {
 		}
 		return;
 	}
+	if (Q_stricmp (cmd, "coop_held") == 0)
+	{	// coop dev: "coop_held [slot]" met ce joueur dans la gueule d'un ver des
+		// sables, sans ver. C'est l'etat exact qui plantait l'invite avale : le
+		// code de camera lisait gent->activator, un pointeur de l'hote qui vaut
+		// NULL chez un invite. Rappeler la commande relache. (triche)
+		if ( !CheatsOk( ent ) ) return;
+		const int slot = gi.argc() >= 2 ? atoi( gi.argv( 1 ) ) : ent->s.number;
+		gentity_t *victim = G_CoopPlayerSlot( slot );
+		if ( victim )
+		{
+			if ( victim->client->ps.eFlags & EF_HELD_BY_SAND_CREATURE )
+			{
+				G_CoopReleaseHeld( victim );
+				gi.Printf( "coop_held: %s relache\n", victim->client->pers.netname );
+			}
+			else
+			{
+				victim->client->ps.eFlags |= EF_HELD_BY_SAND_CREATURE;
+				victim->s.eFlags |= EF_HELD_BY_SAND_CREATURE;
+				gi.Printf( "coop_held: %s tenu\n", victim->client->pers.netname );
+			}
+		}
+		return;
+	}
 	if (Q_stricmp (cmd, "coop_hp") == 0)
 	{	// coop dev: "coop_hp" prints, on the host console, every player's health and shield
 		// and every allied NPC's health and enemy - what a friendly fire test needs (cheats)

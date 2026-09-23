@@ -1814,6 +1814,8 @@ void CL_Init( void ) {
 #endif
 	// coop: the character/saber choices ride in the userinfo so a joiner spawns on
 	// the host with its own look (same defaults as G_InitCvars)
+	// coop: un invite enregistre sa session (voir CL_ParseGamestate)
+	Cvar_Get ("cl_coopLog", "1", CVAR_ARCHIVE );
 	Cvar_Get ("g_char_model", "jedi_tf", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART );
 	Cvar_Get ("g_char_skin_head", "head_a1", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART );
 	Cvar_Get ("g_char_skin", "", CVAR_USERINFO | CVAR_ARCHIVE | CVAR_SAVEGAME | CVAR_NORESTART );	// coop: whole-model skin
