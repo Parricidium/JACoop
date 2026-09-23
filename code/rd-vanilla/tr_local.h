@@ -1159,6 +1159,13 @@ extern cvar_t	*r_ext_texture_env_add;
 extern cvar_t	*r_ext_texture_filter_anisotropic;
 
 extern cvar_t	*r_DynamicGlow;
+// JACoop: la couche de rendu moderne (tr_modern.cpp). Eteinte, elle ne cree
+// rien et ne compile rien : le chemin de code reste celui d'origine.
+extern cvar_t	*r_modern;
+extern cvar_t	*r_modernDebug;
+void R_ModernInit( void );
+void R_ModernShutdown( void );
+void R_ModernPostProcess( void );
 extern cvar_t	*r_DynamicGlowPasses;
 extern cvar_t	*r_DynamicGlowDelta;
 extern cvar_t	*r_DynamicGlowIntensity;

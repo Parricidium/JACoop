@@ -1523,6 +1523,11 @@ void R_Register( void )
 	r_ext_texture_filter_anisotropic = ri.Cvar_Get( "r_ext_texture_filter_anisotropic", "16", CVAR_ARCHIVE_ND );
 
 	r_DynamicGlow = ri.Cvar_Get( "r_DynamicGlow", "0", CVAR_ARCHIVE_ND );
+	// JACoop: rendu moderne, 0 par defaut. Pas de LATCH : l'interrupteur doit
+	// marcher en jeu, les ressources se creent a la premiere image qui les
+	// demande.
+	r_modern = ri.Cvar_Get( "r_modern", "0", CVAR_ARCHIVE_ND );
+	r_modernDebug = ri.Cvar_Get( "r_modernDebug", "0", CVAR_TEMP );
 	r_DynamicGlowPasses = ri.Cvar_Get( "r_DynamicGlowPasses", "5", CVAR_ARCHIVE_ND );
 	r_DynamicGlowDelta  = ri.Cvar_Get( "r_DynamicGlowDelta", "0.8f", CVAR_ARCHIVE_ND );
 	r_DynamicGlowIntensity = ri.Cvar_Get( "r_DynamicGlowIntensity", "1.13f", CVAR_ARCHIVE_ND );
@@ -1787,6 +1792,7 @@ RE_Shutdown
 */
 extern void R_ShutdownWorldEffects(void);
 void RE_Shutdown( qboolean destroyWindow, qboolean restarting ) {
+	R_ModernShutdown();
 	for ( size_t i = 0; i < numCommands; i++ )
 		ri.Cmd_RemoveCommand( commands[i].cmd );
 

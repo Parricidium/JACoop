@@ -1322,6 +1322,14 @@ const void	*RB_DrawSurfs( const void *data ) {
 
 	RB_RenderDrawSurfList( cmd->drawSurfs, cmd->numDrawSurfs );
 
+	// JACoop: le monde est peint, le 2D ne l'est pas encore - c'est ici, et
+	// nulle part ailleurs, que les passes d'image ont un sens (sinon le HUD et
+	// les menus y passeraient aussi).
+	if ( !(backEnd.refdef.rdflags & RDF_NOWORLDMODEL) )
+	{
+		R_ModernPostProcess();
+	}
+
 	// Dynamic Glow/Flares:
 	/*
 		The basic idea is to render the glowing parts of the scene to an offscreen buffer, then take
