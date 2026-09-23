@@ -1887,6 +1887,57 @@ static void CG_CoopHudBar( float x, float y, float w, float h, float frac, const
 	}
 }
 
+// le style de sabre : un trait fin au-dessus de la jauge de Force, de la
+// couleur que le jeu donne au style courant
+static void CG_CoopHudSaberStyle( const centity_t *cent, float x, float y, float w, float h )
+{
+	if ( cent->currentState.weapon != WP_SABER )
+	{
+		return;
+	}
+	if ( !cg.saberAnimLevelPending && cent->gent && cent->gent->client )
+	{	// pas encore posee (chargement d'une sauvegarde, debut de carte) : la
+		// prendre dans le playerState, sinon SS_NONE se lit comme le style fort
+		cg.saberAnimLevelPending = CG_LocalPS( cent )->saberAnimLevel;
+	}
+	// un client distant ne fait pas tourner pmove : son style "en attente" est
+	// perime, mais le playerState arrive par le reseau (meme regle que
+	// CG_DrawSaberStyle)
+	const int	style = cg_remoteClient ? CG_LocalPS( cent )->saberAnimLevel : cg.saberAnimLevelPending;
+	int			index;
+
+	if ( style == SS_FAST || style == SS_TAVION )
+	{
+		index = OHB_SABERSTYLE_FAST;
+	}
+	else if ( style == SS_MEDIUM || style == SS_DUAL || style == SS_STAFF )
+	{
+		index = OHB_SABERSTYLE_MEDIUM;
+	}
+	else if ( style == SS_NONE )
+	{	// rien de connu : ne rien annoncer plutot qu'annoncer le style fort
+		return;
+	}
+	else
+	{
+		index = OHB_SABERSTYLE_STRONG;
+	}
+
+	// Dans le HUD d'origine la couleur rangee dans otherHUDBits est BLANCHE :
+	// ce sont les trois icones qui portent la teinte. On reprend donc les
+	// couleurs que le joueur associe aux styles, directement.
+	static const vec4_t styleColor[3] = {
+		{ 0.36f, 0.62f, 1.00f, 0.85f },		// rapide : bleu
+		{ 1.00f, 0.82f, 0.25f, 0.85f },		// moyen  : jaune
+		{ 0.95f, 0.33f, 0.28f, 0.85f },		// fort   : rouge
+	};
+	const int	k = ( index == OHB_SABERSTYLE_FAST ) ? 0 : ( index == OHB_SABERSTYLE_MEDIUM ? 1 : 2 );
+	vec4_t		col;
+
+	VectorCopy4( styleColor[k], col );
+	CG_CoopHudBar( x, y, w, h, 1.0f, col );
+}
+
 // la pastille ronde de l'arme, en bas a gauche au-dessus des barres
 static qhandle_t	coopHudRing = 0;
 
@@ -2013,6 +2064,13 @@ static void CG_CoopDrawHUD( const centity_t *cent )
 				0.0f, 0.0f, 1.0f, 1.0f, cgs.media.whiteShader );
 			cgi_R_SetColor( NULL );
 		}
+	}
+
+	// --- le style de sabre, au-dessus de la jauge de Force
+	if ( ps->forcePowerMax > 0 )
+	{
+		CG_CoopHudSaberStyle( cent, SCREEN_WIDTH - margin - barW, y - COOP_HUD_H - 3.0f,
+			barW, COOP_HUD_H * 0.5f );
 	}
 
 	// --- l'arme, au-dessus des barres

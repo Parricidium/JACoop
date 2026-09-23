@@ -452,6 +452,21 @@ qboolean SV_HasRemoteClients( void ) {
 	return qfalse;
 }
 
+// coop dev: combien d'invites sont ENTRES dans le monde (pas seulement connectes)
+int SV_CoopJoinersActive( void ) {
+	int n = 0;
+
+	if ( !com_sv_running || !com_sv_running->integer || !svs.clients ) {
+		return 0;
+	}
+	for ( int i = 1; i < MAX_CLIENTS; i++ ) {
+		if ( svs.clients[i].state == CS_ACTIVE ) {
+			n++;
+		}
+	}
+	return n;
+}
+
 qboolean SV_CheckPaused( void ) {
 	if ( !cl_paused->integer ) {
 		return qfalse;

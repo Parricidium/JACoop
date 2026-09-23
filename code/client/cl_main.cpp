@@ -1690,6 +1690,37 @@ void CL_CompleteCinematic( char *args, int argNum );
 CL_Init
 ====================
 */
+/*
+====================
+CL_CoopWaitJoin_f
+
+coop dev: "coop_waitjoin [n] [trames]" - retient la suite de la config tant que
+<n> invites ne sont pas ENTRES dans le monde. Un scenario a deux instances a
+sinon une course de fond : le script de l'hote compte depuis le chargement de la
+carte, l'invite arrive quand il arrive, et les marges qu'on rallonge ne font que
+rendre l'echec plus rare.
+
+Le texte est insere en TETE du tampon : "wait" y repousse tout ce qui suit, donc
+le reste de la config.
+====================
+*/
+static void CL_CoopWaitJoin_f( void ) {
+	extern int SV_CoopJoinersActive( void );
+	const int	want = ( Cmd_Argc() > 1 ) ? atoi( Cmd_Argv( 1 ) ) : 1;
+	const int	left = ( Cmd_Argc() > 2 ) ? atoi( Cmd_Argv( 2 ) ) : 7200;	// ~2 min
+	const int	have = SV_CoopJoinersActive();
+
+	if ( have >= want ) {
+		Com_Printf( "coop_waitjoin: %i invite(s) dans le monde\n", have );
+		return;
+	}
+	if ( left <= 0 ) {
+		Com_Printf( "coop_waitjoin: abandon, %i invite(s) sur %i\n", have, want );
+		return;
+	}
+	Cbuf_ExecuteText( EXEC_INSERT, va( "wait 30 ; coop_waitjoin %i %i\n", want, left - 30 ) );
+}
+
 void CL_Init( void ) {
 	Com_Printf( "----- Client Initialization -----\n" );
 
@@ -1818,6 +1849,7 @@ void CL_Init( void ) {
 	Cmd_AddCommand ("connect", CL_Connect_f);
 	Cmd_AddCommand ("coop_keys", CL_CoopKeys_f);	// coop: where do keys and mouse go right now
 	Cmd_AddCommand ("uiclose", Menus_CloseAll);		// coop dev: close every menu (uimenu stacks them)
+	Cmd_AddCommand ("coop_waitjoin", CL_CoopWaitJoin_f);	// coop dev: hold a test config until the joiners are in
 	Cmd_AddCommand ("coop_key", CL_CoopKey_f);	// coop dev: press a key by name
 	Cmd_AddCommand ("coop_mouse", CL_CoopMouse_f);	// coop dev: feed a mouse delta
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f);
@@ -1878,6 +1910,7 @@ void CL_Shutdown( void ) {
 	Cmd_RemoveCommand ("disconnect");
 	Cmd_RemoveCommand ("cinematic");
 	Cmd_RemoveCommand ("ingamecinematic");
+	Cmd_RemoveCommand ("coop_waitjoin");
 	Cmd_RemoveCommand ("uimenu");
 	Cmd_RemoveCommand ("datapad");
 	Cmd_RemoveCommand ("endscreendissolve");

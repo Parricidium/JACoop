@@ -1484,6 +1484,83 @@ static void UI_CoopHiltSelect( int index )
 }
 
 // RETOUR: the hilt the screen had when the browser opened
+/*
+================
+UI_CoopSaberInit / UI_CoopSaberType
+
+L'ecran SABRE LASER. A une vraie ouverture il part de l'equipement du joueur
+(getsabercvars) ; au retour d'un navigateur il garde ce qui vient d'etre choisi.
+
+Le type de sabre ne se resume pas a ui_saber_type : le jeu ne met une seconde
+lame en main que si g_saber2 designe un manche (G_SetSabersFromCVars), et un
+baton veut un manche de baton. L'ecran du jeu pose les trois cvars ensemble,
+on fait de meme.
+================
+*/
+static void UI_GetSaberCvars( void );
+extern saberType_t UI_SaberHiltTypeForKey( const char *key );
+
+// Un manche de baton est a deux mains : il ne peut etre ni la lame d'une paire
+// ni un sabre simple. On juge sur le TYPE lu dans le .sab, pas sur le nom, sinon
+// les manches d'un pack passent a travers.
+static qboolean UI_CoopHiltIsStaff( const char *key )
+{
+	return (qboolean)( UI_SaberHiltTypeForKey( key ) == SABER_STAFF );
+}
+
+static void UI_CoopSaberInit( void )
+{
+	if ( Cvar_VariableIntegerValue( "ui_coopSaberReturn" ) )
+	{
+		Cvar_Set( "ui_coopSaberReturn", "0" );
+	}
+	else
+	{
+		UI_GetSaberCvars();
+	}
+	UI_CoopHiltLabels();
+}
+
+static void UI_CoopSaberType( const char *type )
+{
+	if ( !type || !type[0] )
+	{
+		return;
+	}
+	Cvar_Set( "ui_saber_type", type );
+	if ( !Q_stricmp( type, "dual" ) )
+	{	// une seconde lame, sinon le type ne veut rien dire en jeu
+		char second[MAX_QPATH];
+
+		Cvar_VariableStringBuffer( "ui_saber2", second, sizeof( second ) );
+		if ( !second[0] || !Q_stricmp( second, "none" ) )
+		{
+			Cvar_Set( "ui_saber2", "single_1" );
+		}
+		if ( UI_CoopHiltIsStaff( Cvar_VariableString( "ui_saber" ) ) )
+		{	// on quitte le baton : reprendre un manche a une main
+			Cvar_Set( "ui_saber", "single_1" );
+		}
+	}
+	else if ( !Q_stricmp( type, "staff" ) )
+	{
+		if ( !UI_CoopHiltIsStaff( Cvar_VariableString( "ui_saber" ) ) )
+		{
+			Cvar_Set( "ui_saber", "dual_1" );	// le manche de baton du jeu
+		}
+		Cvar_Set( "ui_saber2", "" );
+	}
+	else
+	{
+		if ( UI_CoopHiltIsStaff( Cvar_VariableString( "ui_saber" ) ) )
+		{
+			Cvar_Set( "ui_saber", "single_1" );
+		}
+		Cvar_Set( "ui_saber2", "" );
+	}
+	UI_CoopHiltLabels();
+}
+
 // coop: fermer le navigateur et revenir d'ou l'on vient. Les deux navigateurs
 // et l'ecran SABRE LASER sont plein ecran : les empiler laisse celui du dessus
 // prendre le focus sans forcement se voir (le piege de l'ecran de Force).
@@ -1495,7 +1572,9 @@ static void UI_CoopHiltReturn( void )
 	Menus_CloseByName( "coopSaberHilts" );
 	Menus_CloseByName( "coopSaberColor" );
 	if ( !Q_stricmp( from, "pick" ) )
-	{
+	{	// on revient d'un navigateur : l'ecran ne doit PAS relire g_saber, il
+		// ecraserait le manche ou la couleur qu'on vient de choisir
+		Cvar_Set( "ui_coopSaberReturn", "1" );
 		Menus_ActivateByName( "coopSaberPick" );
 	}
 }
@@ -1944,6 +2023,21 @@ static qboolean UI_RunMenuScript ( const char **args )
 		if ( !Q_stricmp( name, "coopHiltReturn" ) )
 		{
 			UI_CoopHiltReturn();
+			return qtrue;
+		}
+		if ( !Q_stricmp( name, "coopSaberInit" ) )
+		{
+			UI_CoopSaberInit();
+			return qtrue;
+		}
+		if ( !Q_stricmp( name, "coopSaberType" ) )
+		{
+			const char *type;
+
+			if ( String_Parse( args, &type ) )
+			{
+				UI_CoopSaberType( type );
+			}
 			return qtrue;
 		}
 		if (Q_stricmp(name, "resetdefaults") == 0)

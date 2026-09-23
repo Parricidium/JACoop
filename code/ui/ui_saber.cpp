@@ -1164,6 +1164,23 @@ saberType_t UI_SaberHiltTypeAt( int i )
 	return ( i >= 0 && i < uiHiltCount ) ? uiHilts[i].type : SABER_SINGLE;
 }
 
+// The type of a hilt by its .sab key: a staff hilt is two-handed, so it cannot
+// serve as one of a pair (G_SetSabersFromCVars drops the second saber).
+saberType_t UI_SaberHiltTypeForKey( const char *key )
+{
+	if ( key && key[0] )
+	{
+		for ( int i = 0; i < UI_SaberHiltCount(); i++ )
+		{
+			if ( !Q_stricmp( uiHilts[i].key, key ) )
+			{
+				return uiHilts[i].type;
+			}
+		}
+	}
+	return SABER_SINGLE;
+}
+
 // The proper name of a hilt as the saber screen shows it (falls back to the
 // raw .sab entry name, which is what the cvar holds).
 const char *UI_SaberHiltNameForKey( const char *key )
