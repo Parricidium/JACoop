@@ -1484,6 +1484,22 @@ static void UI_CoopHiltSelect( int index )
 }
 
 // RETOUR: the hilt the screen had when the browser opened
+// coop: fermer le navigateur et revenir d'ou l'on vient. Les deux navigateurs
+// et l'ecran SABRE LASER sont plein ecran : les empiler laisse celui du dessus
+// prendre le focus sans forcement se voir (le piege de l'ecran de Force).
+static void UI_CoopHiltReturn( void )
+{
+	char from[32];
+
+	Cvar_VariableStringBuffer( "ui_coopHiltFrom", from, sizeof( from ) );
+	Menus_CloseByName( "coopSaberHilts" );
+	Menus_CloseByName( "coopSaberColor" );
+	if ( !Q_stricmp( from, "pick" ) )
+	{
+		Menus_ActivateByName( "coopSaberPick" );
+	}
+}
+
 static void UI_CoopHiltCancel( void )
 {
 	Cvar_Set( UI_CoopHiltCvar(), coopHiltSaved );
@@ -1923,6 +1939,13 @@ static qboolean UI_RunMenuScript ( const char **args )
 
 	if (String_Parse(args, &name))
 	{
+		// coop: traite ici, pas dans la chaine de else-if plus bas : elle est
+		// deja a la limite d'imbrication que le compilateur accepte
+		if ( !Q_stricmp( name, "coopHiltReturn" ) )
+		{
+			UI_CoopHiltReturn();
+			return qtrue;
+		}
 		if (Q_stricmp(name, "resetdefaults") == 0)
 		{
 			UI_ResetDefaults();

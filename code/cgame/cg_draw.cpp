@@ -1827,10 +1827,210 @@ static void CG_DrawSimpleForcePower( const centity_t *cent )
 CG_DrawHUD
 ================
 */
+/*
+==============================================================================
+Le HUD de JACoop (cg_coopHud)
+
+Barres fines a bouts arrondis, dans l'esprit de Jedi: Fallen Order : la vie a
+gauche, la Force a droite avec ses crans. Rien n'est repris du hud.menu du jeu,
+qui est un assemblage de morceaux d'images pre-decoupes ; on sort de CG_DrawHUD
+avant qu'il ne soit peint.
+
+La capsule (gfx/jacoop/hud_bar) est dessinee en trois : bout gauche, milieu
+etire, bout droit. Les bouts gardent donc leur rondeur quelle que soit la
+longueur, et l'image est blanche - la couleur vient d'ici.
+==============================================================================
+*/
+#define COOP_HUD_H			7.0f		// epaisseur d'une barre
+#define COOP_HUD_W			132.0f		// longueur d'une barre
+#define COOP_HUD_MARGIN		22.0f
+
+static qhandle_t	coopHudBar = 0;
+
+static void CG_CoopHudCapsule( float x, float y, float w, float h, const vec4_t color )
+{
+	if ( w <= 0.0f )
+	{
+		return;
+	}
+	if ( !coopHudBar )
+	{
+		coopHudBar = cgi_R_RegisterShaderNoMip( "gfx/jacoop/hud_bar" );
+	}
+	const float cap = h * 0.5f;		// le bout arrondi est un demi-cercle
+
+	cgi_R_SetColor( color );
+	if ( w <= h )
+	{	// trop court pour un milieu : on montre juste les deux bouts colles
+		cgi_R_DrawStretchPic( x, y, w * 0.5f, h, 0.0f, 0.0f, 0.3333f, 1.0f, coopHudBar );
+		cgi_R_DrawStretchPic( x + w * 0.5f, y, w * 0.5f, h, 0.6667f, 0.0f, 1.0f, 1.0f, coopHudBar );
+		cgi_R_SetColor( NULL );
+		return;
+	}
+	cgi_R_DrawStretchPic( x, y, cap, h, 0.0f, 0.0f, 0.3333f, 1.0f, coopHudBar );
+	cgi_R_DrawStretchPic( x + cap, y, w - cap * 2.0f, h, 0.3333f, 0.0f, 0.6667f, 1.0f, coopHudBar );
+	cgi_R_DrawStretchPic( x + w - cap, y, cap, h, 0.6667f, 0.0f, 1.0f, 1.0f, coopHudBar );
+	cgi_R_SetColor( NULL );
+}
+
+// une barre : le rail sombre, puis le remplissage
+static void CG_CoopHudBar( float x, float y, float w, float h, float frac, const vec4_t color )
+{
+	const vec4_t	track = { 0.0f, 0.0f, 0.0f, 0.45f };
+
+	if ( frac < 0.0f ) frac = 0.0f;
+	if ( frac > 1.0f ) frac = 1.0f;
+	CG_CoopHudCapsule( x, y, w, h, track );
+	if ( frac > 0.0f )
+	{
+		CG_CoopHudCapsule( x, y, w * frac, h, color );
+	}
+}
+
+// la pastille ronde de l'arme, en bas a gauche au-dessus des barres
+static qhandle_t	coopHudRing = 0;
+
+static void CG_CoopHudWeapon( const centity_t *cent, float x, float y, float d )
+{
+	const int	wp = cent->currentState.weapon;
+	const vec4_t	plate = { 0.0f, 0.0f, 0.0f, 0.45f };
+	const vec4_t	edge  = { 1.0f, 1.0f, 1.0f, 0.35f };
+	const vec4_t	ink   = { 1.0f, 1.0f, 1.0f, 0.90f };
+
+	if ( wp <= WP_NONE || wp >= WP_NUM_WEAPONS )
+	{
+		return;
+	}
+	if ( !coopHudRing )
+	{
+		coopHudRing = cgi_R_RegisterShaderNoMip( "gfx/jacoop/hud_ring" );
+	}
+
+	// le fond, puis l'anneau
+	cgi_R_SetColor( plate );
+	cgi_R_DrawStretchPic( x, y, d, d, 0.0f, 0.0f, 1.0f, 1.0f, coopHudRing );
+	cgi_R_SetColor( edge );
+	cgi_R_DrawStretchPic( x, y, d, d, 0.0f, 0.0f, 1.0f, 1.0f, coopHudRing );
+	cgi_R_SetColor( NULL );
+
+	// l'icone de l'arme au centre
+	const weaponInfo_t	*weapon = &cg_weapons[wp];
+	const qhandle_t		icon = weapon->weaponIcon;
+
+	if ( icon )
+	{
+		const float	pad = d * 0.22f;
+
+		cgi_R_SetColor( ink );
+		cgi_R_DrawStretchPic( x + pad, y + pad, d - pad * 2.0f, d - pad * 2.0f,
+			0.0f, 0.0f, 1.0f, 1.0f, icon );
+		cgi_R_SetColor( NULL );
+	}
+
+	// les munitions, a droite de la pastille (le sabre n'en a pas)
+	if ( wp != WP_SABER && wp != WP_STUN_BATON )
+	{
+		const int ammo = cg.snap->ps.ammo[weaponData[wp].ammoIndex];
+
+		if ( ammo >= 0 )
+		{
+			const float	tx = x + d + 7.0f;
+			vec4_t		col = { 1.0f, 1.0f, 1.0f, 0.92f };
+
+			if ( ammo == 0 )
+			{	// a sec : le meme corail que la vie basse
+				col[1] = 0.29f;
+				col[2] = 0.31f;
+			}
+			cgi_R_SetColor( col );
+			CG_DrawNumField( (int)tx, (int)( y + d * 0.30f ), 3, ammo, 6, 12, NUM_FONT_SMALL, qfalse );
+			cgi_R_SetColor( NULL );
+		}
+	}
+}
+
+static void CG_CoopDrawHUD( const centity_t *cent )
+{
+	const playerState_t	*ps = &cg.snap->ps;
+	const float			y = SCREEN_HEIGHT - COOP_HUD_MARGIN;
+	// tout le HUD dans le meme espace, sinon r_aspect2D ancre chaque morceau
+	// separement et la capsule se disloque
+	const float			margin = CG_FullWidth2DW( COOP_HUD_MARGIN );
+	const float			barW = CG_FullWidth2DW( COOP_HUD_W );
+	vec4_t				health = { 0.16f, 0.83f, 0.78f, 0.92f };		// turquoise
+	const vec4_t		shield = { 0.35f, 0.62f, 1.00f, 0.80f };
+	const vec4_t		force  = { 0.30f, 0.66f, 1.00f, 0.92f };
+	const vec4_t		notch  = { 0.0f, 0.0f, 0.0f, 0.75f };
+	const float			maxHealth = ps->stats[STAT_MAX_HEALTH] > 0 ? (float)ps->stats[STAT_MAX_HEALTH] : 100.0f;
+	const float			hFrac = (float)ps->stats[STAT_HEALTH] / maxHealth;
+
+	// La couleur glisse du turquoise vers un rouge corail a mesure que la vie
+	// descend : pas de bascule brutale, et un rouge desature qui se lit sans
+	// crier. Sous un quart de vie il respire doucement.
+	if ( hFrac < 0.6f )
+	{
+		const vec4_t	low = { 0.90f, 0.29f, 0.31f, 0.92f };	// corail
+		float			t = ( 0.6f - hFrac ) / 0.6f;
+
+		if ( t > 1.0f ) t = 1.0f;
+		health[0] += ( low[0] - health[0] ) * t;
+		health[1] += ( low[1] - health[1] ) * t;
+		health[2] += ( low[2] - health[2] ) * t;
+	}
+	if ( hFrac <= 0.25f )
+	{	// une respiration, pas un clignotement
+		const float breath = 0.88f + 0.12f * (float)sin( cg.time * 0.004f );
+
+		health[0] *= breath;
+		health[1] *= breath;
+		health[2] *= breath;
+	}
+
+	CG_FullWidth2DBegin();
+
+	// --- vie, a gauche
+	CG_CoopHudBar( margin, y, barW, COOP_HUD_H, hFrac, health );
+
+	// --- bouclier, le trait fin juste au-dessus (il n'existe que s'il en reste)
+	if ( ps->stats[STAT_ARMOR] > 0 )
+	{
+		const float aFrac = (float)ps->stats[STAT_ARMOR] / maxHealth;
+
+		CG_CoopHudBar( margin, y - COOP_HUD_H - 3.0f, barW, COOP_HUD_H * 0.5f, aFrac, shield );
+	}
+
+	// --- Force, a droite, avec ses crans
+	if ( ps->forcePowerMax > 0 )
+	{
+		const float	fx = SCREEN_WIDTH - margin - barW;
+		const float	fFrac = (float)ps->forcePower / (float)ps->forcePowerMax;
+
+		CG_CoopHudBar( fx, y, barW, COOP_HUD_H, fFrac, force );
+		for ( int i = 1; i < 4; i++ )
+		{	// trois separations : la Force se lit en quarts
+			cgi_R_SetColor( notch );
+			cgi_R_DrawStretchPic( fx + barW * 0.25f * i - 0.5f, y, 1.0f, COOP_HUD_H,
+				0.0f, 0.0f, 1.0f, 1.0f, cgs.media.whiteShader );
+			cgi_R_SetColor( NULL );
+		}
+	}
+
+	// --- l'arme, au-dessus des barres
+	CG_CoopHudWeapon( cent, margin, y - COOP_HUD_H - 8.0f - CG_FullWidth2DW( 30.0f ), CG_FullWidth2DW( 30.0f ) );
+
+	CG_FullWidth2DEnd();
+}
+
 static void CG_DrawHUD( centity_t *cent )
 {
 	int value;
 	int	sectionXPos,sectionYPos,sectionWidth,sectionHeight;
+
+	if ( cg_coopHud.integer )
+	{	// notre HUD : on ne peint pas celui du jeu du tout
+		CG_CoopDrawHUD( cent );
+		return;
+	}
 
 	if ( cg_hudFiles.integer )
 	{
