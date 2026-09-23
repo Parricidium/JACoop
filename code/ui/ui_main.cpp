@@ -1465,7 +1465,7 @@ static void UI_CoopHiltsInit( void )
 		}
 		coopHiltList[coopHiltCount++] = i;
 	}
-	Cvar_Set( "ui_coopHiltTitle", coopHiltSecond ? "SABRE GAUCHE" : ( wantStaff ? "BATON DE SABRE" : "SABRE" ) );
+	Cvar_Set( "ui_coopHiltTitle", coopHiltSecond ? "SABRE GAUCHE" : ( wantStaff ? "DOUBLE LAME" : "SABRE" ) );
 	Cvar_Set( "ui_coopHiltCount", va( "%i modeles installes", coopHiltCount ) );
 	UI_CoopSetListCursor( "hiltList", coopHiltSel );
 	UI_CoopHiltPreview();

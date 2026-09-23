@@ -2031,6 +2031,11 @@ void G_SetSabersFromCVars( gentity_t *ent )
 			ent->client->ps.saber[0].blade[n].color = color;
 		}
 	}
+	// coop: ce qui suit ne sait qu'AJOUTER une seconde lame. Sans ce temoin,
+	// repasser de DEUX SABRES a un sabre simple ou a une double lame laissait
+	// l'ancien sabre dans la main gauche (signale par JD).
+	qboolean	coopWantsSecond = qfalse;
+
 	if ( G_CoopPlayerVar( ent, "g_saber2", g_saber2 )
 		&& G_CoopPlayerVar( ent, "g_saber2", g_saber2 )[0]
 		&& Q_stricmp( "none", G_CoopPlayerVar( ent, "g_saber2", g_saber2 ) )
@@ -2054,6 +2059,7 @@ void G_SetSabersFromCVars( gentity_t *ent )
 			else
 			{
 				ent->client->ps.dualSabers = qtrue;
+				coopWantsSecond = qtrue;
 				if ( player
 					&& player->client
 					&& player->client->sess.mission_objectives[LIGHTSIDE_OBJ].status == 2
@@ -2075,6 +2081,11 @@ void G_SetSabersFromCVars( gentity_t *ent )
 				}
 			}
 		}
+	}
+
+	if ( !coopWantsSecond )
+	{	// coop: plus de seconde lame demandee - la main gauche se vide pour de bon
+		WP_RemoveSaber( ent, 1 );
 	}
 }
 
