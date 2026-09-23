@@ -354,7 +354,7 @@ void NORETURN Com_Quit_f( void ) {
 		CL_Shutdown ();
 		Com_Shutdown ();
 		FS_Shutdown();
-		FS_CoopPurgeDownloads();	// coop: the host's skins we downloaded (zip handles closed by FS_Shutdown)
+		FS_CoopPurgeDownloads();	// coop: seulement les temporaires - les packs recus restent (demande de JD)
 	}
 	Sys_Quit ();
 }

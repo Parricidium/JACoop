@@ -2735,6 +2735,8 @@ Sets fs_gamedir, adds the directory to the head of the path,
 then loads the zip headers
 ================
 */
+static qboolean FS_CoopIsDownloadName( const char *basename );	// coop: defini plus bas
+
 static void FS_AddGameDirectory( const char *path, const char *dir ) {
 	searchpath_t	*sp;
 	int				i;
@@ -2783,6 +2785,11 @@ static void FS_AddGameDirectory( const char *path, const char *dir ) {
 
 	for ( i = 0 ; i < numfiles ; i++ ) {
 		pakfile = FS_BuildOSPath( path, dir, pakfiles[i] );
+		// coop: un pack recu d'un autre joueur est garde sur le disque mais ne
+		// s'invite pas dans une partie solo - il n'est charge que lorsqu'une
+		// partie coop le reclame (FS_CoopHavePak).
+		if ( FS_CoopIsDownloadName( pakfiles[i] ) )
+			continue;
 		if ( ( pak = FS_LoadZipFile( pakfile, pakfiles[i] ) ) == 0 )
 			continue;
 		Q_strncpyz(pak->pakPathname, curpath, sizeof(pak->pakPathname));
@@ -3383,7 +3390,10 @@ from Com_Quit_f after FS_Shutdown (the zip handles must be closed first).
 ================
 */
 void FS_CoopPurgeDownloads( void ) {
-	static const char *exts[2] = { ".pk3", ".tmp" };
+	// coop: seulement les temporaires. Les .pk3 recus sont CONSERVES (demande de
+	// JD, 23/09) : ils ne seront pas retelecharges a la prochaine partie, et
+	// FS_CoopHavePak sait les retrouver par leur somme de controle.
+	static const char *exts[1] = { ".tmp" };
 	const char *roots[2];
 	int r, e, i, numfiles;
 
@@ -3400,7 +3410,7 @@ void FS_CoopPurgeDownloads( void ) {
 		}
 		Q_strncpyz( dir, FS_BuildOSPath( roots[r], BASEGAME, "" ), sizeof( dir ) );
 		dir[strlen( dir ) - 1] = '\0';
-		for ( e = 0; e < 2; e++ ) {
+		for ( e = 0; e < (int)ARRAY_LEN( exts ); e++ ) {
 			char **files = Sys_ListFiles( dir, exts[e], NULL, &numfiles, qfalse );
 
 			for ( i = 0; i < numfiles; i++ ) {
