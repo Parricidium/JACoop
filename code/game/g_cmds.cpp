@@ -687,8 +687,11 @@ void Cmd_SetViewpos_f( gentity_t *ent ) {
 		gi.SendServerCommand( ent-g_entities, va("print \"Cheats are not enabled on this server.\n\""));
 		return;
 	}
-	if ( gi.argc() != 5 ) {
-		gi.SendServerCommand( ent-g_entities, va("print \"usage: setviewpos x y z yaw\n\""));
+	// coop dev: le tangage en argument facultatif. Sans lui, impossible d'orienter
+	// la vue vers le haut depuis une config de test - donc impossible de juger
+	// quoi que ce soit qui touche au ciel (les rayons du soleil).
+	if ( gi.argc() != 5 && gi.argc() != 6 ) {
+		gi.SendServerCommand( ent-g_entities, va("print \"usage: setviewpos x y z yaw [tangage]\n\""));
 		return;
 	}
 
@@ -699,6 +702,9 @@ void Cmd_SetViewpos_f( gentity_t *ent ) {
 	origin[2] -= 25;	//acount for eye height from viewpos cmd
 
 	angles[YAW] = atof( gi.argv( 4 ) );
+	if ( gi.argc() == 6 ) {
+		angles[PITCH] = atof( gi.argv( 5 ) );	// coop dev
+	}
 
 	TeleportPlayer( ent, origin, angles );
 }

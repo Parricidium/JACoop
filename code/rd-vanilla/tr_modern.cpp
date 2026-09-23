@@ -31,6 +31,8 @@ cvar_t	*r_modernAORadius;
 cvar_t	*r_modernSun;
 cvar_t	*r_modernSunStrength;
 cvar_t	*r_modernSunLength;
+cvar_t	*r_modernRays;
+cvar_t	*r_modernRaysStrength;
 
 // ---------------------------------------------------------------- entrees GL
 // Le moteur ne connait que le GL 1.x : on va chercher nous-memes ce qu'il faut.
@@ -354,8 +356,12 @@ static const char *fsComposite =
 	"uniform vec2 texel;\n"
 	"uniform float intensity;\n"
 	"uniform float sunStrength;\n"
+	"uniform vec2 sunUV;\n"			// le soleil a l'ecran
+	"uniform float raysOn;\n"
+	"uniform vec3 raysColor;\n"
 	"uniform int debugMode;\n"
 	"varying vec2 uv;\n"
+	"float hash( vec2 c ) { return fract( sin( dot( c, vec2( 12.9898, 78.233 ) ) ) * 43758.5453 ); }\n"
 	"void main() {\n"
 	"	vec4 c = texture2D( scene, uv );\n"
 	"	float a = 0.0;\n"
@@ -369,6 +375,31 @@ static const char *fsComposite =
 	"		for ( int x = -2; x <= 2; x++ )\n"
 	"			sh += texture2D( ao, uv + vec2( float( x ), float( y ) ) * texel ).g;\n"
 	"	sh = mix( 1.0, sh / 25.0, sunStrength );\n"
+	// --- rayons crepusculaires : compter le ciel entre ce pixel et le soleil
+	"	vec3 rays = vec3( 0.0 );\n"
+	"	if ( raysOn > 0.0 ) {\n"
+	"		const int RSTEPS = 24;\n"
+	"		vec2 delta = sunUV - uv;\n"
+	"		float dist = length( delta );\n"
+	"		if ( dist > 0.0005 ) {\n"
+	"			vec2 dir = delta / dist;\n"
+	// on ne remonte pas jusqu'au soleil : au-dela d'une certaine longueur le
+	// rai perd tout sens et devient une trainee grise
+	"			float len = min( dist, 0.55 );\n"
+	"			float jit = hash( gl_FragCoord.xy );\n"
+	"			float sky = 0.0;\n"
+	"			for ( int i = 0; i < RSTEPS; i++ ) {\n"
+	"				float f = ( float( i ) + jit ) / float( RSTEPS );\n"
+	"				vec2 st = uv + dir * len * f;\n"
+	"				if ( st.x < 0.0 || st.x > 1.0 || st.y < 0.0 || st.y > 1.0 ) break;\n"
+	"				if ( texture2D( sceneDepth, st ).r >= 0.9999 ) sky += 1.0 - f;\n"
+	"			}\n"
+	"			sky /= float( RSTEPS ) * 0.5;\n"
+	// plus on est loin du soleil, plus le rai s'eteint
+	"			float att = 1.0 / ( 1.0 + dist * 3.0 );\n"
+	"			rays = raysColor * sky * att * raysOn;\n"
+	"		}\n"
+	"	}\n"
 	"	if ( debugMode == 1 ) {\n"
 	"		float d = texture2D( sceneDepth, uv ).r;\n"
 	"		gl_FragColor = vec4( vec3( 1.0 - pow( d, 64.0 ) ), 1.0 );\n"
@@ -378,8 +409,10 @@ static const char *fsComposite =
 	"		gl_FragColor = vec4( c.rgb * vec3( 1.0, 0.45, 0.25 ), c.a );\n"
 	"	} else if ( debugMode == 4 ) {\n"
 	"		gl_FragColor = vec4( vec3( sh ), 1.0 );\n"		// l'ombre seule
+	"	} else if ( debugMode == 5 ) {\n"
+	"		gl_FragColor = vec4( rays, 1.0 );\n"			// les rayons seuls
 	"	} else {\n"
-	"		gl_FragColor = vec4( c.rgb * a * sh, c.a );\n"
+	"		gl_FragColor = vec4( c.rgb * a * sh + rays, c.a );\n"
 	"	}\n"
 	"}\n";
 
@@ -640,14 +673,34 @@ static void R_ModernPostProcess( void )
 	// compte : c'est une direction, pas un point.
 	const float	*M = backEnd.viewParms.world.modelMatrix;
 	const qboolean	mapHasSun = (qboolean)( tr.sunLight[0] != 0.0f || tr.sunLight[1] != 0.0f || tr.sunLight[2] != 0.0f );
-	const qboolean	wantSun = (qboolean)( r_modernSunStrength->value > 0.0f
-		&& ( r_modernSun->integer >= 2 || ( r_modernSun->integer && mapHasSun ) ) );
+	// AUCUNE carte du jeu d'origine ne declare de soleil (verifie : q3map_sun
+	// n'apparait que dans deux shaders d'essai). Exiger une declaration revenait
+	// donc a n'avoir d'ombres nulle part. On se sert de la direction de secours
+	// du moteur, qui est faite pour ca ; r_modernSun 0 coupe tout.
+	const qboolean	wantSun = (qboolean)( r_modernSunStrength->value > 0.0f && r_modernSun->integer );
 	vec3_t		sunView;
+	vec2_t		sunScreen = { 0.0f, 0.0f };
+	qboolean	sunOnScreen = qfalse;
 
 	sunView[0] = M[0] * tr.sunDirection[0] + M[4] * tr.sunDirection[1] + M[8]  * tr.sunDirection[2];
 	sunView[1] = M[1] * tr.sunDirection[0] + M[5] * tr.sunDirection[1] + M[9]  * tr.sunDirection[2];
 	sunView[2] = M[2] * tr.sunDirection[0] + M[6] * tr.sunDirection[1] + M[10] * tr.sunDirection[2];
 	VectorNormalize( sunView );
+	// Le soleil a l'ecran : une direction vue comme un point a l'infini. En
+	// espace camera on regarde vers les z negatifs, donc un soleil derriere
+	// nous (z >= 0) n'a pas de position d'ecran.
+	if ( sunView[2] < -0.05f )
+	{
+		const float ndcX = P[0] * ( sunView[0] / -sunView[2] ) - P[8];
+		const float ndcY = P[5] * ( sunView[1] / -sunView[2] ) - P[9];
+
+		sunScreen[0] = ndcX * 0.5f + 0.5f;
+		sunScreen[1] = ndcY * 0.5f + 0.5f;
+		// on le laisse deborder un peu du cadre : un soleil juste hors champ
+		// jette encore ses rais dans l'image
+		sunOnScreen = (qboolean)( sunScreen[0] > -0.4f && sunScreen[0] < 1.4f
+			&& sunScreen[1] > -0.4f && sunScreen[1] < 1.4f );
+	}
 
 	// --- passe 1 : l'occlusion et l'ombre du soleil, dans la meme cible
 	if ( wantAo || wantSun )
@@ -693,6 +746,38 @@ static void R_ModernPostProcess( void )
 		wantAo ? r_modernAOIntensity->value : 0.0f );
 	p_glUniform1f( p_glGetUniformLocation( modernComposite, "sunStrength" ),
 		wantSun ? r_modernSunStrength->value : 0.0f );
+	{	// les rayons ne valent que si le soleil est dans le cadre
+		const qboolean	wantRays = (qboolean)( r_modernRays->integer && sunOnScreen
+			&& r_modernRaysStrength->value > 0.0f && r_modernSun->integer );
+		vec3_t			col = { 1.0f, 0.95f, 0.85f };
+
+		if ( mapHasSun )
+		{	// la teinte du soleil de la carte, ramenee a une echelle raisonnable
+			const float m = ( tr.sunLight[0] > tr.sunLight[1] ? tr.sunLight[0] : tr.sunLight[1] );
+			const float mx = ( m > tr.sunLight[2] ? m : tr.sunLight[2] );
+
+			if ( mx > 0.01f )
+			{
+				VectorScale( tr.sunLight, 1.0f / mx, col );
+			}
+		}
+		p_glUniform2f( p_glGetUniformLocation( modernComposite, "sunUV" ), sunScreen[0], sunScreen[1] );
+		p_glUniform1f( p_glGetUniformLocation( modernComposite, "raysOn" ),
+			wantRays ? r_modernRaysStrength->value : 0.0f );
+		p_glUniform3f( p_glGetUniformLocation( modernComposite, "raysColor" ), col[0], col[1], col[2] );
+		if ( r_modernDebug->integer == 5 )
+		{	// dire ce qu'on calcule plutot que de deviner pourquoi l'ecran est noir
+			static int lastSay;
+
+			if ( abs( (int)( backEnd.refdef.time - lastSay ) ) > 1000 )
+			{
+				lastSay = backEnd.refdef.time;
+				ri.Printf( PRINT_ALL, "rayons: soleil vue %.2f %.2f %.2f -> ecran %.2f %.2f, dans le cadre %i, actifs %i, carte a un soleil %i\n",
+					sunView[0], sunView[1], sunView[2], sunScreen[0], sunScreen[1],
+					(int)sunOnScreen, (int)wantRays, (int)mapHasSun );
+			}
+		}
+	}
 	p_glUniform1i( p_glGetUniformLocation( modernComposite, "debugMode" ), r_modernDebug->integer );
 	R_ModernFullscreenQuad();
 

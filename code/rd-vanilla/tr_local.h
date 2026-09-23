@@ -1169,6 +1169,8 @@ extern cvar_t	*r_modernAORadius;
 extern cvar_t	*r_modernSun;
 extern cvar_t	*r_modernSunStrength;
 extern cvar_t	*r_modernSunLength;
+extern cvar_t	*r_modernRays;
+extern cvar_t	*r_modernRaysStrength;
 void R_ModernInit( void );
 void R_ModernShutdown( void );
 void R_ModernMarkPending( void );

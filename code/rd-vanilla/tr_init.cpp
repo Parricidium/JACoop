@@ -1538,6 +1538,9 @@ void R_Register( void )
 	r_modernSun = ri.Cvar_Get( "r_modernSun", "1", CVAR_ARCHIVE_ND );
 	r_modernSunStrength = ri.Cvar_Get( "r_modernSunStrength", "0.45", CVAR_ARCHIVE_ND );
 	r_modernSunLength = ri.Cvar_Get( "r_modernSunLength", "320", CVAR_ARCHIVE_ND );
+	// rayons crepusculaires : ils demandent que le soleil soit dans le cadre
+	r_modernRays = ri.Cvar_Get( "r_modernRays", "1", CVAR_ARCHIVE_ND );
+	r_modernRaysStrength = ri.Cvar_Get( "r_modernRaysStrength", "0.35", CVAR_ARCHIVE_ND );
 	r_DynamicGlowPasses = ri.Cvar_Get( "r_DynamicGlowPasses", "5", CVAR_ARCHIVE_ND );
 	r_DynamicGlowDelta  = ri.Cvar_Get( "r_DynamicGlowDelta", "0.8f", CVAR_ARCHIVE_ND );
 	r_DynamicGlowIntensity = ri.Cvar_Get( "r_DynamicGlowIntensity", "1.13f", CVAR_ARCHIVE_ND );
