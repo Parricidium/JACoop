@@ -426,6 +426,7 @@ typedef struct {
 	const char	*soundName;					// background loop sound for menu
 
 	vec4_t		focusColor;					// focus color for items
+	vec4_t		focusBackColor;				// coop: filled behind the focused item (alpha 0 = nothing)
 	vec4_t		disableColor;				// focus color for items
 	itemDef_t	*items[MAX_MENUITEMS];		// items this menu contains
 	float		appearanceTime;				//	when next item should appear

@@ -670,6 +670,25 @@ qboolean MenuParse_bordercolor( itemDef_t *item )
 MenuParse_focuscolor
 =================
 */
+// coop: "focusBackColor r g b a" - the plate drawn behind the focused item, so
+// a dark focusColor stays readable (JACoop menus: black on white)
+qboolean MenuParse_focusbackcolor( itemDef_t *item)
+{
+	int i;
+	float f;
+	menuDef_t *menu = (menuDef_t*)item;
+
+	for (i = 0; i < 4; i++)
+	{
+		if (PC_ParseFloat(&f))
+		{
+			return qfalse;
+		}
+		menu->focusBackColor[i] = f;
+	}
+	return qtrue;
+}
+
 qboolean MenuParse_focuscolor( itemDef_t *item)
 {
 	int i;
@@ -1304,6 +1323,7 @@ keywordHash_t menuParseKeywords[] = {
 	{"fadeCycle",			MenuParse_fadeCycle,	},
 	{"fadeAmount",			MenuParse_fadeAmount,	},
 	{"focuscolor",			MenuParse_focuscolor,	},
+	{"focusbackcolor",		MenuParse_focusbackcolor,	},	// coop
 	{"font",				MenuParse_font,			},
 	{"forecolor",			MenuParse_forecolor,	},
 	{"fullscreen",			MenuParse_fullscreen,	},
@@ -8503,6 +8523,17 @@ static qboolean Item_Paint(itemDef_t *item, qboolean bDraw)
 
 	// paint the rect first..
 	Window_Paint(&item->window, parent->fadeAmount , parent->fadeClamp, parent->fadeCycle);
+
+	// coop: the plate behind the focused item. Menus that use a dark focusColor
+	// declare focusBackColor; without this only mouseEnter scripts could draw a
+	// highlight, so the item focused by setfocus or by the arrow keys stayed
+	// unreadable. Decorations never take focus, so they are not concerned.
+	if ( (item->window.flags & WINDOW_HASFOCUS) && parent->focusBackColor[3] > 0
+		&& item->type != ITEM_TYPE_OWNERDRAW && item->type != ITEM_TYPE_MODEL )
+	{
+		DC->fillRect( item->window.rect.x, item->window.rect.y,
+			item->window.rect.w, item->window.rect.h, parent->focusBackColor );
+	}
 
 	// Print a box showing the extents of the rectangle, when in debug mode
 	if (uis.debugMode)
