@@ -577,6 +577,9 @@ void CG_CoopAllDown_f( void );
 void CG_CoopFade_f( void );
 void CG_CoopFadeIn_f( void );
 void CG_CoopFadeIn( int ms );
+void CG_FullWidth2DBegin( void );	// coop: 2D anchored to a world point (no r_aspect2D squeeze)
+void CG_FullWidth2DEnd( void );
+float CG_FullWidth2DW( float w );
 void CG_CoopThirdPerson_f( void );
 void CG_CoopDrawDowned( void );
 void CG_CoopReset( void );

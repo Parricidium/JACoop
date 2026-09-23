@@ -1526,6 +1526,20 @@ void ClientCommand( int clientNum ) {
 		}
 		return;
 	}
+	if (Q_stricmp (cmd, "coop_whiteout") == 0)
+	{	// coop dev: the exact fade of scripts/t1_rail/death_fade.ibi - to an opaque
+		// white, held - to check that the watchdog lifts it (cheats)
+		if ( !CheatsOk( ent ) ) return;
+		if ( ent->s.number != 0 ) return;
+		{
+			vec4_t	src = { 0, 0, 0, 0 }, dst = { 1, 1, 1, 1 };
+
+			G_CoopFadeShared();
+			CGCam_Fade( src, dst, 1400 );
+			gi.Printf( "coop_whiteout: fondu blanc lance\n" );
+		}
+		return;
+	}
 	if (Q_stricmp (cmd, "coop_pit") == 0)
 	{	// coop dev: make a player fall to his death the way a pit does (cheats),
 		// to exercise G_CoopPitRescue without a real hole and a real mouse

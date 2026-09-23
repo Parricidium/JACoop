@@ -482,6 +482,34 @@ void SP_target_relay (gentity_t *self)
 /*QUAKED target_kill (.5 .5 .5) (-8 -8 -8) (8 8 8) FALLING ELECTRICAL
 Kills the activator.
 */
+// coop: a scripted "you should be dead here" was written for the one player of
+// the campaign. Killing only whoever tripped the trigger leaves the others
+// alive in a level state that assumes nobody is - on t1_rail that is the bomb
+// whose script fades the screen to white and expects the mission-failed screen
+// to follow. Everyone in the game takes it, as the script meant.
+static void G_CoopShareKill( gentity_t *activator, int mod, qboolean shocked )
+{
+	if ( !G_CoopIsPlayer( activator ) || G_CoopNumPlayers() < 2 )
+	{
+		return;
+	}
+	for ( int i = 0; i < MAX_CLIENTS; i++ )
+	{
+		gentity_t *ent = G_CoopPlayerSlot( i );
+
+		if ( !ent || ent == activator || ent->health <= 0 )
+		{
+			continue;
+		}
+		G_Damage( ent, NULL, NULL, NULL, NULL, 100000, DAMAGE_NO_PROTECTION, mod );
+		if ( shocked && ent->client )
+		{
+			ent->s.powerups |= ( 1 << PW_SHOCKED );
+			ent->client->ps.powerups[PW_SHOCKED] = level.time + 4000;
+		}
+	}
+}
+
 void target_kill_use( gentity_t *self, gentity_t *other, gentity_t *activator ) {
 
 	G_ActivateBehavior(self,BSET_USE);
@@ -489,6 +517,7 @@ void target_kill_use( gentity_t *self, gentity_t *other, gentity_t *activator ) 
 	if ( self->spawnflags & 1 )
 	{//falling death
 		G_Damage ( activator, NULL, NULL, NULL, NULL, 100000, DAMAGE_NO_PROTECTION, MOD_FALLING );
+		G_CoopShareKill( activator, MOD_FALLING, qfalse );
 		if ( G_CoopIsPlayer( activator ) && activator->health <= 0 )
 		{	// coop: the fade belongs to the player who fell
 			vec4_t	src = {0,0,0,0}, dst = {0,0,0,1};
@@ -504,10 +533,12 @@ void target_kill_use( gentity_t *self, gentity_t *other, gentity_t *activator ) 
 			activator->s.powerups |= ( 1 << PW_SHOCKED );
 			activator->client->ps.powerups[PW_SHOCKED] = level.time + 4000;
 		}
+		G_CoopShareKill( activator, MOD_ELECTROCUTE, qtrue );
 	}
 	else
 	{
 		G_Damage ( activator, NULL, NULL, NULL, NULL, 100000, DAMAGE_NO_PROTECTION, MOD_UNKNOWN);
+		G_CoopShareKill( activator, MOD_UNKNOWN, qfalse );
 	}
 }
 

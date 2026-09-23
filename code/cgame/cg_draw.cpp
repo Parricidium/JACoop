@@ -2254,6 +2254,10 @@ static void CG_DrawZoomMask( void )
 
 		max *= 58.0f;
 
+		// the scope ring itself is drawn 0 0 640 480, which r_aspect2D leaves alone
+		// (A2D_STRETCH): its ticks have to follow it in the same full-width space,
+		// or they drift off the ring on a wide screen
+		CG_FullWidth2DBegin();
 		for ( float i = 18.5f; i <= 18.5f + max; i+= 3 ) // going from 15 to 45 degrees, with 5 degree increments
 		{
 			cx = 320 + sin( (i+90.0f)/57.296f ) * 190;
@@ -2261,6 +2265,7 @@ static void CG_DrawZoomMask( void )
 
 			CG_DrawRotatePic2( cx, cy, 12, 24, 90 - i, cgs.media.disruptorInsertTick );
 		}
+		CG_FullWidth2DEnd();
 
 		// FIXME: doesn't know about ammo!! which is bad because it draws charge beyond what ammo you may have..
 		if ( cg_entities[cg_localEntNum].gent->client->ps.weaponstate == WEAPON_CHARGING_ALT )
@@ -2498,6 +2503,7 @@ void CG_DrawHealthBars( void )
 	float chX=0, chY=0;
 	centity_t *cent;
 	vec3_t pos;
+	CG_FullWidth2DBegin();		// above a head: a world position, not the HUD grid
 	for ( int i = 0; i < cg_numHealthBarEnts; i++ )
 	{
 		cent = &cg_entities[cg_healthBarEnts[i]];
@@ -2507,10 +2513,11 @@ void CG_DrawHealthBars( void )
 			pos[2] += cent->gent->maxs[2]+HEALTH_BAR_HEIGHT+8;
 			if ( CG_WorldCoordToScreenCoordFloat( pos, &chX, &chY ) )
 			{//on screen
-				CG_DrawHealthBar( cent, chX, chY, HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT );
+				CG_DrawHealthBar( cent, chX, chY, CG_FullWidth2DW( HEALTH_BAR_WIDTH ), HEALTH_BAR_HEIGHT );
 			}
 		}
 	}
+	CG_FullWidth2DEnd();
 }
 
 #define HEALTHBARRANGE 422
@@ -2760,14 +2767,26 @@ static void CG_DrawCrosshair( vec3_t worldPoint )
 		y = cg_crosshairY.integer;
 	}
 
+	// the reticle sits on a point of the world: no second compression (see
+	// CG_FullWidth2DBegin), otherwise it drifts toward the middle of a wide
+	// screen and stops matching where the shot goes
+	const qboolean worldAnchored = (qboolean)( worldPoint && VectorLength( worldPoint ) );
+	float	cw = w, ch = h;
+
+	if ( worldAnchored )
+	{
+		CG_FullWidth2DBegin();
+		cw = CG_FullWidth2DW( w );
+	}
+
 	if ( cg.snap->ps.viewEntity > 0 && cg.snap->ps.viewEntity < ENTITYNUM_WORLD )
 	{
 		if ( !Q_stricmp( "misc_panel_turret", g_entities[cg.snap->ps.viewEntity].classname ))
 		{
 			// draws a custom crosshair that is twice as large as normal
-			cgi_R_DrawStretchPic( x + cg.refdef.x + 320 - w,
-				y + cg.refdef.y + 240 - h,
-				w * 2, h * 2, 0, 0, 1, 1, cgs.media.turretCrossHairShader );
+			cgi_R_DrawStretchPic( x + cg.refdef.x + 320 - cw,
+				y + cg.refdef.y + 240 - ch,
+				cw * 2, ch * 2, 0, 0, 1, 1, cgs.media.turretCrossHairShader );
 
 		}
 	}
@@ -2775,9 +2794,9 @@ static void CG_DrawCrosshair( vec3_t worldPoint )
 	{
 		hShader = cgs.media.crosshairShader[ cg_drawCrosshair.integer % NUM_CROSSHAIRS ];
 
-		cgi_R_DrawStretchPic( x + cg.refdef.x + 0.5 * (640 - w),
-			y + cg.refdef.y + 0.5 * (480 - h),
-			w, h, 0, 0, 1, 1, hShader );
+		cgi_R_DrawStretchPic( x + cg.refdef.x + 0.5 * (640 - cw),
+			y + cg.refdef.y + 0.5 * (480 - ch),
+			cw, ch, 0, 0, 1, 1, hShader );
 	}
 
 	if ( cg.forceCrosshairStartTime && cg_crosshairForceHint.integer ) // drawing extra bits
@@ -2789,14 +2808,54 @@ static void CG_DrawCrosshair( vec3_t worldPoint )
 
 		w *= 2.0f;
 		h *= 2.0f;
+		cw = worldAnchored ? CG_FullWidth2DW( w ) : w;
+		ch = h;
 
-		cgi_R_DrawStretchPic( x + cg.refdef.x + 0.5f * ( 640 - w ), y + cg.refdef.y + 0.5f * ( 480 - h ),
-								w, h,
+		cgi_R_DrawStretchPic( x + cg.refdef.x + 0.5f * ( 640 - cw ), y + cg.refdef.y + 0.5f * ( 480 - ch ),
+								cw, ch,
 								0, 0, 1, 1,
 								cgs.media.forceCoronaShader );
 	}
 
+	if ( worldAnchored )
+	{
+		CG_FullWidth2DEnd();
+	}
+
 	cgi_R_SetColor( NULL );
+}
+
+/*
+=================
+CG_FullWidth2DBegin / CG_FullWidth2DEnd
+
+2D anchored to a point of the WORLD (a crosshair on its impact point, a health
+bar over a head, a lock-on reticle). CG_WorldCoordToScreenCoordFloat gives a
+position in the stretched 640x480 space - linear in real screen pixels - so
+r_aspect2D must not compress it a second time. Between these two calls the
+positions are taken as they are, and CG_FullWidth2DW() gives back the width to
+use so a round icon stays round instead of turning into an ellipse.
+=================
+*/
+void CG_FullWidth2DBegin( void )
+{
+	cgi_R_SetAspect2D( 0 );
+}
+
+void CG_FullWidth2DEnd( void )
+{
+	cgi_R_SetAspect2D( 1 );
+}
+
+float CG_FullWidth2DW( float w )
+{
+	if ( cgs.glconfig.vidHeight <= 0 || cgs.glconfig.vidWidth <= 0 )
+	{
+		return w;
+	}
+	const float a = ( (float)cgs.glconfig.vidWidth * 480.0f ) / ( (float)cgs.glconfig.vidHeight * 640.0f );
+
+	return ( a > 1.0f ) ? w / a : w;
 }
 
 /*
@@ -3283,6 +3342,9 @@ static void CG_DrawRocketLocking( int lockEntNum, int lockTime )
 
 	if ( CG_WorldCoordToScreenCoord( org, &cx, &cy ))
 	{
+		// locked onto something in the world: keep the projected position as it is
+		CG_FullWidth2DBegin();
+
 		// we care about distance from enemy to eye, so this is good enough
 		float sz = Distance( gent->currentOrigin, cg.refdef.vieworg ) / 1024.0f;
 
@@ -3364,6 +3426,8 @@ static void CG_DrawRocketLocking( int lockEntNum, int lockTime )
 
 			CG_DrawPic( cx - sz, cy - sz * 2, sz * 2, sz * 2, cgi_R_RegisterShaderNoMip( "gfx/2d/lock" ));
 		}
+
+		CG_FullWidth2DEnd();
 	}
 }
 

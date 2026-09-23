@@ -1426,10 +1426,56 @@ void G_CoopFadeShared( void )
 }
 static vec3_t coopCameraHostOrigin;					// where the host stood when the cutscene started
 
+// A held fade is a dead end: the screen stays white (or black) and nothing in
+// the co-op flow takes it away, because the stock flow counted on the player
+// dying and on the mission-failed screen covering it. Outside a cutscene, with
+// no end-of-mission panel and somebody still playing, we lift it ourselves.
+#define COOP_FADE_STUCK_MS	2500
+
+static void G_CoopFadeWatchdog( void )
+{
+	static int	fullSince = 0;
+
+	if ( in_camera || cg.missionStatusShow || G_CoopIsLobby()
+		|| client_camera.fade_color[3] < 1.0f || ( client_camera.info_state & CAMERA_FADING ) )
+	{
+		fullSince = 0;		// no fade, still moving, or a screen that owns it
+		return;
+	}
+	if ( !G_CoopAnyPlayerAlive() || !G_CoopAnyPlayerUp() )
+	{
+		fullSince = 0;		// everybody is out: the all-down panel owns the screen
+		return;
+	}
+	if ( !fullSince )
+	{
+		fullSince = level.time;
+		return;
+	}
+	if ( level.time - fullSince < COOP_FADE_STUCK_MS )
+	{
+		return;
+	}
+	fullSince = 0;
+	G_CoopNote( "fade watchdog: ecran fige sur un fondu plein, on le leve" );
+	CG_CoopFadeIn( 700 );	// the host; the joiners follow through the ET_COOPCAMERA broadcast
+	for ( int i = 1; i < MAX_CLIENTS; i++ )
+	{
+		gentity_t *ent = G_CoopPlayerSlot( i );
+
+		if ( ent )
+		{
+			G_CoopFadeInPlayer( ent, 700 );
+		}
+	}
+}
+
 void G_CoopUpdateCamera( void )
 {
 	// a fade running outside a camera is shared too, unless it is the host's own (G_CoopFadeClient)
 	const qboolean fading = (qboolean)( !coopFadeLocal && ( client_camera.fade_color[3] > 0.0f || ( client_camera.info_state & CAMERA_FADING ) != 0 ) );
+
+	G_CoopFadeWatchdog();
 
 	if ( !in_camera && !fading )
 	{
@@ -1703,6 +1749,13 @@ static void G_CoopAfterRespawn( gentity_t *ent )
 		return;
 	}
 	G_CoopFadeInPlayer( ent, 700 );
+	// missionStatusDeadTime is set when a death ends the mission and is never
+	// cleared inside a level by the stock code: left alone, the first wipe of
+	// the level disables the host's fade-in below for good.
+	if ( G_CoopAnyPlayerAlive() )
+	{
+		cg.missionStatusDeadTime = 0;
+	}
 	if ( ent->s.number == 0 )
 	{
 		cg.overrides.active &= ~CG_OVERRIDE_3RD_PERSON_CDP;
