@@ -872,6 +872,303 @@ static int UI_CoopModelCompare( const void *a, const void *b )
 	return Q_stricmp( ((const coopModelInfo_t *)a)->folder, ((const coopModelInfo_t *)b)->folder );
 }
 
+/*
+==============================================================================
+Les PNJ (ecran hote)
+
+Le module de jeu lit ext_data/npcs pour lui-meme (NPC_stats.cpp) ; l'interface
+ne peut pas l'appeler, elle relit donc les memes fichiers. On ne retient que ce
+qu'il faut ici : le nom du bloc, qui est ce que "npc spawn <nom>" attend, et le
+playerModel pour l'apercu.
+==============================================================================
+*/
+static void UI_CoopSetListCursor( const char *itemName, int pos );
+static void UI_CoopScanModels( void );
+static const char *UI_CoopModelFolder( int sel );
+
+#define COOP_MAX_NPCS	512
+
+typedef struct coopNpc_s {
+	char		name[64];	// le nom du bloc = l'argument de "npc spawn"
+	char		model[64];	// playerModel, vide pour les vehicules et les droides md3
+	qboolean	fromModel;	// pas de definition .npc : un skin, monte par coop_npcmodel
+} coopNpc_t;
+
+static coopNpc_t	coopNpcs[COOP_MAX_NPCS];
+static int			coopNpcCount = -1;
+static int			coopNpcSel;
+
+static int UI_CoopNpcCompare( const void *a, const void *b )
+{
+	return Q_stricmp( ( (const coopNpc_t *)a )->name, ( (const coopNpc_t *)b )->name );
+}
+
+// un fichier .npc : des blocs "nom\n{ ... }" colles les uns aux autres
+static void UI_CoopParseNpcFile( const char *text )
+{
+	const char	*p = text;
+
+	while ( *p && coopNpcCount < COOP_MAX_NPCS )
+	{
+		char	name[64];
+		int		n = 0;
+
+		while ( *p && ( *p == ' ' || *p == '\t' || *p == '\r' || *p == '\n' ) )
+		{
+			p++;
+		}
+		if ( *p == '/' && *( p + 1 ) == '/' )
+		{	// commentaire de ligne
+			while ( *p && *p != '\n' )
+			{
+				p++;
+			}
+			continue;
+		}
+		if ( !*p )
+		{
+			break;
+		}
+		while ( *p && *p != '{' && *p != '\n' && n < (int)sizeof( name ) - 1 )
+		{
+			if ( *p != ' ' && *p != '\t' && *p != '\r' )
+			{
+				name[n++] = *p;
+			}
+			p++;
+		}
+		name[n] = '\0';
+		while ( *p && *p != '{' )
+		{
+			p++;
+		}
+		if ( !*p )
+		{
+			break;
+		}
+		p++;	// passe le {
+
+		// le corps, jusqu'a l'accolade fermante de meme niveau
+		const char	*body = p;
+		int			depth = 1;
+
+		while ( *p && depth )
+		{
+			if ( *p == '{' ) depth++;
+			else if ( *p == '}' ) depth--;
+			p++;
+		}
+		if ( !n )
+		{
+			continue;	// un bloc sans nom : rien a lancer
+		}
+
+		coopNpc_t *e = &coopNpcs[coopNpcCount];
+		Q_strncpyz( e->name, name, sizeof( e->name ) );
+		e->model[0] = '\0';
+		e->fromModel = qfalse;
+
+		// playerModel, en sautant les lignes commentees
+		for ( const char *q = body; q < p - 1; q++ )
+		{
+			if ( *q != 'p' && *q != 'P' )
+			{
+				continue;
+			}
+			if ( Q_stricmpn( q, "playerModel", 11 ) )
+			{
+				continue;
+			}
+			const char *ls = q;
+			while ( ls > body && *( ls - 1 ) != '\n' )
+			{
+				ls--;
+			}
+			qboolean commented = qfalse;
+			for ( const char *c = ls; c < q; c++ )
+			{
+				if ( *c == '/' && *( c + 1 ) == '/' )
+				{
+					commented = qtrue;
+					break;
+				}
+			}
+			if ( commented )
+			{
+				continue;
+			}
+			const char *v = q + 11;
+			while ( *v == ' ' || *v == '\t' )
+			{
+				v++;
+			}
+			int m = 0;
+			while ( *v && *v != ' ' && *v != '\t' && *v != '\r' && *v != '\n' && m < (int)sizeof( e->model ) - 1 )
+			{
+				e->model[m++] = *v++;
+			}
+			e->model[m] = '\0';
+			break;
+		}
+		coopNpcCount++;
+	}
+}
+
+static void UI_CoopScanNpcs( void )
+{
+	char	filelist[16384];
+	char	*fileptr;
+	int		numfiles, filelen = 0;
+
+	coopNpcCount = 0;
+	numfiles = ui.FS_GetFileList( "ext_data/npcs", ".npc", filelist, sizeof( filelist ) );
+	fileptr = filelist;
+	for ( int i = 0; i < numfiles; i++, fileptr += filelen + 1 )
+	{
+		char			*buffer = NULL;
+		fileHandle_t	f = 0;
+
+		filelen = strlen( fileptr );
+		const int len = ui.FS_FOpenFile( va( "ext_data/npcs/%s", fileptr ), &f, FS_READ );
+		if ( !f )
+		{
+			continue;
+		}
+		if ( len > 0 )
+		{
+			buffer = (char *)malloc( len + 1 );
+			if ( buffer )
+			{
+				ui.FS_Read( buffer, len, f );
+				buffer[len] = '\0';
+			}
+		}
+		ui.FS_FCloseFile( f );
+		if ( buffer )
+		{
+			UI_CoopParseNpcFile( buffer );
+			free( buffer );
+		}
+	}
+	// Les modeles de joueur sans definition : un mod de skin n'apporte que
+	// models/players/<nom>/, le jeu ne sait pas en faire un PNJ tout seul. On
+	// les propose quand meme, la definition est ecrite a la volee au moment de
+	// les faire apparaitre (commande coop_npcmodel).
+	const int fromNpcFiles = coopNpcCount;
+
+	if ( coopModelCount < 0 )
+	{
+		UI_CoopScanModels();
+	}
+	for ( int m = 0; m < coopModelCount && coopNpcCount < COOP_MAX_NPCS; m++ )
+	{
+		const char	*folder = UI_CoopModelFolder( m );
+		qboolean	known = qfalse;
+
+		for ( int k = 0; k < fromNpcFiles; k++ )
+		{
+			if ( !Q_stricmp( coopNpcs[k].model, folder ) )
+			{
+				known = qtrue;
+				break;
+			}
+		}
+		if ( known )
+		{
+			continue;	// deja jouable par une vraie definition
+		}
+		coopNpc_t *e = &coopNpcs[coopNpcCount++];
+		Com_sprintf( e->name, sizeof( e->name ), "%s (skin)", folder );
+		Q_strncpyz( e->model, folder, sizeof( e->model ) );
+		e->fromModel = qtrue;
+	}
+
+	if ( coopNpcCount > 1 )
+	{
+		qsort( coopNpcs, coopNpcCount, sizeof( coopNpcs[0] ), UI_CoopNpcCompare );
+	}
+	Com_Printf( "coop: %i PNJ trouves (%i definitions, %i modeles sans definition)\n",
+		coopNpcCount, fromNpcFiles, coopNpcCount - fromNpcFiles );
+}
+
+static void UI_CoopNpcPreview( void )
+{
+	menuDef_t	*menu = Menu_GetFocused();
+	itemDef_t	*item = menu ? (itemDef_t *)Menu_FindItemByName( menu, "npcModel" ) : NULL;
+
+	if ( !item || coopNpcSel < 0 || coopNpcSel >= coopNpcCount )
+	{
+		return;
+	}
+	const coopNpc_t *e = &coopNpcs[coopNpcSel];
+
+	Cvar_Set( "ui_coopNpcName", e->name );
+	if ( !e->model[0] )
+	{	// vehicule ou droide md3 : rien a montrer en 3D
+		Cvar_Set( "ui_coopNpcInfo", "(vehicule ou droide : pas d apercu)" );
+		item->window.flags &= ~WINDOW_VISIBLE;
+		return;
+	}
+	Cvar_Set( "ui_coopNpcInfo", e->fromModel
+		? va( "skin %s - jedi cree a la volee", e->model )
+		: va( "modele : %s", e->model ) );
+	item->window.flags |= WINDOW_VISIBLE;
+	ItemParse_model_g2anim_go( item, "BOTH_STAND1" );
+	ItemParse_asset_model_go( item, va( "models/players/%s/model.glm", e->model ) );
+	ItemParse_model_g2skin_go( item, va( "models/players/%s/model_default.skin", e->model ) );
+}
+
+static void UI_CoopNpcsInit( void )
+{
+	static int coopNpcsGen = -1;
+	const int gen = Cvar_VariableIntegerValue( "cl_coopPaksGen" );
+
+	if ( coopNpcCount < 0 || gen != coopNpcsGen )
+	{
+		coopNpcsGen = gen;
+		UI_CoopScanNpcs();
+	}
+	coopNpcSel = 0;
+	Cvar_Set( "ui_coopNpcCount", va( "%i PNJ installes", coopNpcCount ) );
+	UI_CoopSetListCursor( "npcList", 0 );
+	UI_CoopNpcPreview();
+}
+
+static void UI_CoopNpcSelect( int index )
+{
+	if ( index < 0 || index >= coopNpcCount )
+	{
+		return;
+	}
+	coopNpcSel = index;
+	UI_CoopNpcPreview();
+}
+
+static void UI_CoopNpcSpawn( void )
+{
+	if ( coopNpcSel < 0 || coopNpcSel >= coopNpcCount )
+	{
+		return;
+	}
+	// "npc" est une commande a triche (g_svcmds.cpp, CMD_CHEAT) : sans elle la
+	// console repond "cheats not enabled" et il ne se passe rien
+	if ( !Cvar_VariableIntegerValue( "helpUsObi" ) )
+	{
+		Cvar_Set( "helpUsObi", "1" );
+	}
+	const coopNpc_t *e = &coopNpcs[coopNpcSel];
+
+	if ( e->fromModel )
+	{	// un skin : la definition est ecrite par le module de jeu, qui relit
+		// ses parms puis fait apparaitre le personnage
+		ui.Cmd_ExecuteText( EXEC_APPEND, va( "cmd coop_npcmodel %s\n", e->model ) );
+	}
+	else
+	{
+		ui.Cmd_ExecuteText( EXEC_APPEND, va( "npc spawn %s\n", e->name ) );
+	}
+}
+
 static void UI_CoopScanModels( void )
 {
 	static char	dirlist[65536];
@@ -1394,6 +1691,10 @@ const char *UI_FeederItemText(float feederID, int index, int column, qhandle_t *
 	else if (feederID == FEEDER_COOP_SKINS)
 	{
 		return UI_CoopSkinName( coopModelSel, index );
+	}
+	else if (feederID == FEEDER_COOP_NPCS)
+	{
+		return ( index >= 0 && index < coopNpcCount ) ? coopNpcs[index].name : "";
 	}
 	else if (feederID == FEEDER_COOP_HILTS)
 	{
@@ -2500,6 +2801,14 @@ static qboolean UI_RunMenuScript ( const char **args )
 		{
 			UI_CoopApplyModel();
 		}
+		else if ( Q_stricmp( name, "coopNpcsInit" ) == 0 )
+		{
+			UI_CoopNpcsInit();
+		}
+		else if ( Q_stricmp( name, "coopNpcSpawn" ) == 0 )
+		{
+			UI_CoopNpcSpawn();
+		}
 		else if ( Q_stricmp( name, "coopHiltsInit" ) == 0 )
 		{
 			UI_CoopHiltsInit();
@@ -2821,6 +3130,10 @@ static int UI_FeederCount(float feederID)
 	{
 		return ( coopModelSel >= 0 && coopModelSel < coopModelCount ) ? coopModels[coopModelSel].numSkins : 0;
 	}
+	else if (feederID == FEEDER_COOP_NPCS)
+	{
+		return coopNpcCount;
+	}
 	else if (feederID == FEEDER_COOP_HILTS)
 	{
 		return coopHiltCount;
@@ -2914,6 +3227,10 @@ static void UI_FeederSelection(float feederID, int index, itemDef_t *item)
 	{
 		coopSkinSel = index;
 		UI_CoopUpdatePreview();
+	}
+	else if (feederID == FEEDER_COOP_NPCS)
+	{
+		UI_CoopNpcSelect( index );
 	}
 	else if (feederID == FEEDER_COOP_HILTS)
 	{

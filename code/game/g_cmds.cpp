@@ -1526,6 +1526,74 @@ void ClientCommand( int clientNum ) {
 		}
 		return;
 	}
+	if (Q_stricmp (cmd, "coop_npcmodel") == 0)
+	{	// coop: make an NPC out of a modded player model. A skin mod only ships
+		// models/players/<name>/, and the game cannot spawn that: it wants a
+		// definition. We write one, ask the game to re-read its definitions
+		// (NPC_LoadParms runs at every level load anyway) and spawn it.
+		if ( !CheatsOk( ent ) ) return;
+		if ( ent->s.number != 0 ) return;
+		if ( gi.argc() < 2 )
+		{
+			gi.SendServerCommand( ent - g_entities, "print \"usage: coop_npcmodel <modele>\n\"" );
+			return;
+		}
+		{
+			char			model[MAX_QPATH];
+			char			npcName[MAX_QPATH];
+			fileHandle_t	f = 0;
+
+			Q_strncpyz( model, gi.argv( 1 ), sizeof( model ) );
+			Q_strlwr( model );
+			for ( char *p = model; *p; p++ )
+			{	// a name out of a menu, but it ends up in a path and in a file
+				if ( !( *p >= 'a' && *p <= 'z' ) && !( *p >= '0' && *p <= '9' ) && *p != '_' && *p != '-' )
+				{
+					*p = '_';
+				}
+			}
+			if ( !model[0] )
+			{
+				return;
+			}
+			Com_sprintf( npcName, sizeof( npcName ), "coopmodel_%s", model );
+
+			// the definition: a reborn-like jedi, which is the most useful thing
+			// to conjure up, wearing the model the host picked
+			gi.FS_FOpenFile( "ext_data/npcs/zz_coop_models.npc", &f, FS_APPEND );
+			if ( !f )
+			{
+				gi.SendServerCommand( ent - g_entities, "print \"coop_npcmodel: ecriture impossible\n\"" );
+				return;
+			}
+			const char *def = va(
+				"\n%s\n{\n"
+				"\tplayerModel\t%s\n"
+				"\tweapon\t\tWP_SABER\n"
+				"\tsaber\t\tsingle_1\n"
+				"\tsaberColor\tblue\n"
+				"\tsaberStyle\t2\n"
+				"\thealth\t\t200\n"
+				"\tFP_LEVITATION\t2\n"
+				"\tFP_SABER_DEFENSE\t2\n"
+				"\tFP_SABER_OFFENSE\t2\n"
+				"\treactions\t3\n\taim\t\t3\n\tmove\t\t4\n"
+				"\taggression\t3\n\tevasion\t\t3\n\tintelligence\t4\n"
+				"\thfov\t\t160\n\tvfov\t\t160\n"
+				"\tplayerTeam\tTEAM_ENEMY\n\tenemyTeam\tTEAM_PLAYER\n"
+				"\tclass\t\tCLASS_REBORN\n"
+				"\tyawSpeed\t120\n\twalkSpeed\t55\n\trunSpeed\t200\n"
+				"}\n", npcName, model );
+
+			gi.FS_Write( def, strlen( def ), f );
+			gi.FS_FCloseFile( f );
+
+			NPC_LoadParms();		// re-read, this definition included
+			gi.Printf( "coop: PNJ %s cree a partir du modele %s\n", npcName, model );
+			gi.SendConsoleCommand( va( "npc spawn %s\n", npcName ) );
+		}
+		return;
+	}
 	if (Q_stricmp (cmd, "coop_whiteout") == 0)
 	{	// coop dev: the exact fade of scripts/t1_rail/death_fade.ibi - to an opaque
 		// white, held - to check that the watchdog lifts it (cheats)

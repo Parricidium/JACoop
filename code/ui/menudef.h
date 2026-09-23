@@ -103,6 +103,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define FEEDER_COOP_SKINS					0x1b			// coop: model_*.skin of the selected model
 #define FEEDER_COOP_MISSIONS				0x1c			// coop: missions to vote for between two missions (CS_COOP_ENDLEVEL)
 #define FEEDER_COOP_HILTS					0x1d			// coop: the hilts of every installed .sab (saber screen)
+#define FEEDER_COOP_NPCS					0x1e			// coop: every NPC of ext_data/npcs (host screen)
 
 
 #define UI_VERSION				200

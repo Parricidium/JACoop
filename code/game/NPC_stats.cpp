@@ -4122,7 +4122,13 @@ void NPC_LoadParms( void )
 			len = COM_Compress( buffer );
 
 			if ( totallen + len >= MAX_NPC_DATA_SIZE ) {
-				G_Error( "NPC_LoadParms: ran out of space before reading %s\n(you must make the .npc files smaller)", holdChar );
+				// coop: NPC_LoadParms is called again in mid-game when the host
+				// adds a definition for a modded model (g_cmds.cpp coop_npcmodel).
+				// Dropping the session over it would be worse than missing the
+				// last file's NPCs.
+				gi.FS_FreeFile( buffer );
+				gi.Printf( S_COLOR_YELLOW "NPC_LoadParms: plus de place avant %s, les PNJ suivants sont ignores\n", holdChar );
+				break;
 			}
 			strcat( marker, buffer );
 			gi.FS_FreeFile( buffer );
