@@ -6119,6 +6119,7 @@ static void UI_DecrementCurrentForcePower ( void )
 		{
 			pState->forcePowerLevel[powerEnums[uiInfo.forcePowerUpdated].powerEnum]--;	// Decrement it
 			UI_CoopSendForce( pState );	// coop
+			Cvar_Set( "ui_coopEndForceDone", "0" );	// coop: the point is his again (see UI_AffectForcePowerLevel)
 			forcelevel = pState->forcePowerLevel[powerEnums[uiInfo.forcePowerUpdated].powerEnum];
 			// Turn off power if level is 0
 			if (pState->forcePowerLevel[powerEnums[uiInfo.forcePowerUpdated].powerEnum]<1)
@@ -6309,6 +6310,7 @@ static void UI_DecrementForcePowerLevel( void )
 	playerState_t*		pState = cl->gentity->client;
 
 	pState->forcePowerLevel[powerEnums[forcePowerI].powerEnum]--;	// Decrement it
+	Cvar_Set( "ui_coopEndForceDone", "0" );	// coop: the point goes back in his pocket
 
 }
 
@@ -6377,6 +6379,7 @@ static void UI_ResetForceLevels ( void )
 
 		// Decrement that power
 		pState->forcePowerLevel[powerEnums[uiInfo.forcePowerUpdated].powerEnum]--;
+		Cvar_Set( "ui_coopEndForceDone", "0" );	// coop: the point goes back in his pocket
 
 		menuDef_t	*menu;
 		itemDef_t	*item;

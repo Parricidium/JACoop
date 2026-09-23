@@ -207,7 +207,7 @@ PROTOCOL
 // CS_LIGHT_STYLES = CS_PLAYERS + MAX_CLIENTS renumbers every later configstring,
 // so a mismatched (stock 1-client) build must be rejected at connect rather than
 // left to silently desync.
-#define	PROTOCOL_VERSION	1048	// JACoop: distinct from stock and from jk2coop (41); 1048 = 32-bit transfer block numbers
+#define	PROTOCOL_VERSION	1049	// JACoop: distinct from stock and from jk2coop (41); 1049 = second transfer round (coopdl_again)
 
 #define	PORT_SERVER			27960
 

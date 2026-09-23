@@ -109,6 +109,8 @@ typedef struct coopDownload_s {
 	coopDownloadState_t	state;
 	int				helloTime;					// sv.time of the hello
 	int				lastAckTime;				// Sys_Milliseconds of the last coopdl_ack / need (timeout)
+	coopPakInfo_t	offer[MAX_COOP_OFFER];		// what we offered THIS client (its own snapshot: a
+	int				offerCount;					//   pack can land between two clients' hellos)
 	int				need[MAX_COOP_OFFER];		// checksums the client asked for, in order
 	int				needCount, needIndex;
 	int				totalBytes, ackedBytes;		// progress over all the files

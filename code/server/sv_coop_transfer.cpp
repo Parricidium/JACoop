@@ -64,8 +64,6 @@ cvar_t	*sv_coopTransferMaxMB;		// a bigger pk3 is not offered
 cvar_t	*sv_coopUploadMaxMB;		// accepted in all from one joiner's own mods (0 = refuse uploads)
 cvar_t	*sv_coopTransferPending;	// ROM: joiners still listed / downloading (read by the host's lobby menu)
 
-static coopPakInfo_t	sv_coopOffer[MAX_COOP_OFFER];
-static int				sv_coopOfferCount;
 
 /*
 ==================
@@ -186,6 +184,8 @@ static void SV_CoopSetState( client_t *cl, coopDownloadState_t state ) {
 	SV_CoopTransferTagUserinfo( cl );
 }
 
+static void SV_CoopOfferAgain( const client_t *source );
+
 static void SV_CoopFailClient( client_t *cl, const char *why ) {
 	Com_Printf( "coop: transfert vers %s abandonne (%s)\n", cl->name, why );
 	SV_SendServerCommand( cl, "coopdl_err %s", why );
@@ -218,24 +218,65 @@ static qboolean SV_CoopOpenNext( client_t *cl ) {
 	memset( dl->blockSize, 0, sizeof( dl->blockSize ) );
 	if ( com_developer->integer ) {
 		int i;
-		for ( i = 0; i < sv_coopOfferCount; i++ ) {
-			if ( sv_coopOffer[i].checksum == dl->fileSum ) {
-				Com_Printf( "coop: envoi de %s (%i octets) a %s\n", sv_coopOffer[i].name, size, cl->name );
+		for ( i = 0; i < dl->offerCount; i++ ) {
+			if ( dl->offer[i].checksum == dl->fileSum ) {
+				Com_Printf( "coop: envoi de %s (%i octets) a %s\n", dl->offer[i].name, size, cl->name );
 			}
 		}
 	}
 	return qtrue;
 }
 
-static const char *SV_CoopOfferName( int checksum ) {
+static const char *SV_CoopOfferName( const client_t *cl, int checksum ) {
+	const coopDownload_t *dl = &cl->coopdl;
 	int i;
 
-	for ( i = 0; i < sv_coopOfferCount; i++ ) {
-		if ( sv_coopOffer[i].checksum == checksum ) {
-			return sv_coopOffer[i].name;
+	for ( i = 0; i < dl->offerCount; i++ ) {
+		if ( dl->offer[i].checksum == checksum ) {
+			return dl->offer[i].name;
 		}
 	}
 	return "unknown.pk3";
+}
+
+/*
+==================
+SV_CoopOfferAgain
+
+A joiner's mods just landed here. The others asked for our list once, when they
+connected (CL_CoopTransferHello runs on the gamestate and refuses to run twice),
+so without this they would never learn the pack exists: each of them would only
+ever see the mods of whoever finished uploading BEFORE it joined. Tell everyone
+that is idle to ask again; the whole hello / list / need / svc_download machinery
+then runs unchanged, and the lobby keeps them out of "ready" while it does
+(G_CoopUpdateLobbyList reads coop_dl from the userinfo).
+
+'source' is the client that sent the pack: it has no use for its own file.
+==================
+*/
+static void SV_CoopOfferAgain( const client_t *source ) {
+	int i, asked = 0;
+
+	if ( !sv_coopTransfer->integer ) {
+		return;
+	}
+	for ( i = 0; i < sv_maxclients->integer; i++ ) {
+		client_t *other = &svs.clients[i];
+
+		if ( other == source || other->state != CS_ACTIVE || other->netchan.remoteAddress.type == NA_LOOPBACK ) {
+			continue;	// the host plays on the loopback: it already has the file
+		}
+		// only a settled joiner - one still listing or receiving will see the
+		// new pack at the end of its own round anyway
+		if ( other->coopdl.state != CDL_NONE && other->coopdl.state != CDL_DONE && other->coopdl.state != CDL_FAILED ) {
+			continue;
+		}
+		SV_SendServerCommand( other, "coopdl_again" );
+		asked++;
+	}
+	if ( asked ) {
+		Com_Printf( "coop: %i joueur(s) invite(s) a reprendre les mods\n", asked );
+	}
 }
 
 /*
@@ -258,8 +299,8 @@ void SV_CoopHello_f( client_t *cl ) {
 		Com_Printf( "coop: %s demande les skins, sv_coopTransfer est a 0\n", cl->name );
 		return;
 	}
-	sv_coopOfferCount = FS_CoopEnumOffered( sv_coopOffer, MAX_COOP_OFFER, sv_coopTransferMaxMB->integer * 1024 * 1024 );
-	if ( !sv_coopOfferCount ) {
+	cl->coopdl.offerCount = FS_CoopEnumOffered( cl->coopdl.offer, MAX_COOP_OFFER, sv_coopTransferMaxMB->integer * 1024 * 1024 );
+	if ( !cl->coopdl.offerCount ) {
 		SV_SendServerCommand( cl, "coopdl_list 0 0" );
 		Com_Printf( "coop: %s demande les skins, rien a offrir\n", cl->name );
 		return;
@@ -267,21 +308,22 @@ void SV_CoopHello_f( client_t *cl ) {
 
 	// "coopdl_list <chunk> <total entries> <sum>:<size>:<name>...", as many chunks as needed
 	line[0] = '\0';
-	for ( i = 0; i < sv_coopOfferCount; i++ ) {
-		const char *entry = va( " %08x:%i:%s", sv_coopOffer[i].checksum, sv_coopOffer[i].size, sv_coopOffer[i].name );
+	for ( i = 0; i < cl->coopdl.offerCount; i++ ) {
+		const coopPakInfo_t *info = &cl->coopdl.offer[i];
+		const char *entry = va( " %08x:%i:%s", info->checksum, info->size, info->name );
 
 		if ( line[0] && strlen( line ) + strlen( entry ) > COOP_DL_LIST_CHUNK ) {
-			SV_SendServerCommand( cl, "coopdl_list %i %i%s", ++chunk, sv_coopOfferCount, line );
+			SV_SendServerCommand( cl, "coopdl_list %i %i%s", ++chunk, cl->coopdl.offerCount, line );
 			line[0] = '\0';
 		}
 		Q_strcat( line, sizeof( line ), entry );
 	}
 	if ( line[0] ) {
-		SV_SendServerCommand( cl, "coopdl_list %i %i%s", ++chunk, sv_coopOfferCount, line );
+		SV_SendServerCommand( cl, "coopdl_list %i %i%s", ++chunk, cl->coopdl.offerCount, line );
 	}
 	cl->coopdl.state = CDL_LISTED;
 	SV_CoopTransferTagUserinfo( cl );
-	Com_Printf( "coop: %i pk3 offert(s) a %s\n", sv_coopOfferCount, cl->name );
+	Com_Printf( "coop: %i pk3 offert(s) a %s\n", cl->coopdl.offerCount, cl->name );
 }
 
 /*
@@ -308,17 +350,17 @@ void SV_CoopNeed_f( client_t *cl ) {
 	for ( i = 0; i < n; i++ ) {
 		unsigned int sum = (unsigned int)strtoul( Cmd_Argv( 2 + i ), NULL, 16 );
 
-		for ( j = 0; j < sv_coopOfferCount; j++ ) {
-			if ( (unsigned int)sv_coopOffer[j].checksum == sum ) {
+		for ( j = 0; j < dl->offerCount; j++ ) {
+			if ( (unsigned int)dl->offer[j].checksum == sum ) {
 				break;
 			}
 		}
-		if ( j == sv_coopOfferCount ) {
+		if ( j == dl->offerCount ) {
 			SV_CoopFailClient( cl, va( "checksum %08x inconnu", sum ) );
 			return;
 		}
 		dl->need[dl->needCount++] = (int)sum;
-		dl->totalBytes += sv_coopOffer[j].size;
+		dl->totalBytes += dl->offer[j].size;
 	}
 	dl->needIndex = 0;
 	dl->lastPct = 0;
@@ -420,7 +462,7 @@ void SV_CoopTransferWrite( client_t *cl, msg_t *msg ) {
 		size = dl->blockSize[idx];
 		need = 1 + 4 + 2 + size;
 		if ( dl->xmitBlock == 0 ) {
-			header = va( "%08x:%s", dl->fileSum, SV_CoopOfferName( dl->fileSum ) );
+			header = va( "%08x:%s", dl->fileSum, SV_CoopOfferName( cl, dl->fileSum ) );
 			need += 4 + (int)strlen( header ) + 1;
 		}
 		if ( written + need > budget ) {
@@ -515,7 +557,7 @@ void SV_CoopAck_f( client_t *cl ) {
 		if ( dl->eof && dl->clientBlock == dl->currentBlock ) {
 			// the EOF block is acknowledged: this file is complete
 			if ( com_developer->integer ) {
-				Com_Printf( "coop: %s a recu %s\n", cl->name, SV_CoopOfferName( dl->fileSum ) );
+				Com_Printf( "coop: %s a recu %s\n", cl->name, SV_CoopOfferName( cl, dl->fileSum ) );
 			}
 			SV_CoopCloseFile( cl );
 			dl->needIndex++;
@@ -1035,6 +1077,7 @@ void SV_CoopUploadRead( client_t *cl, msg_t *msg ) {
 		if ( up->wantIndex >= up->wantCount ) {
 			Com_Printf( "coop: mods de %s recus (%i fichier(s), %.1f Mo)\n", cl->name, up->receivedFiles, up->totalBytes / ( 1024.0f * 1024.0f ) );
 			SV_CoopUploadSetState( cl, CUL_DONE );
+			SV_CoopOfferAgain( cl );
 		}
 	}
 }

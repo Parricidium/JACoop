@@ -663,6 +663,19 @@ void CL_CoopTransferServerCommand( const char *s ) {
 	}
 	Com_DPrintf( "coop: commande de l'hote '%s' (etat %i)\n", argv[0], dl->state );
 
+	if ( !strcmp( argv[0], "coopdl_again" ) ) {
+		// the host got a pack from another joiner after we finished our round:
+		// start a fresh one. The whole struct has to go, not just the state -
+		// offerCount / listGot / needCount accumulate and are otherwise only
+		// cleared when the connection drops.
+		if ( dl->state == CLDL_IDLE || dl->state == CLDL_DONE || dl->state == CLDL_FAILED ) {
+			memset( dl, 0, sizeof( *dl ) );	// none of those states holds an open file
+			dl->state = CLDL_IDLE;
+			CL_CoopTransferHello();
+		}
+		return;
+	}
+
 	if ( !strcmp( argv[0], "coopdl_list" ) ) {
 		int chunk, total, i;
 
