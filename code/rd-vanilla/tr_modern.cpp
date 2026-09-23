@@ -28,6 +28,9 @@ cvar_t	*r_modernDebug;
 cvar_t	*r_modernAO;
 cvar_t	*r_modernAOIntensity;
 cvar_t	*r_modernAORadius;
+cvar_t	*r_modernSun;
+cvar_t	*r_modernSunStrength;
+cvar_t	*r_modernSunLength;
 
 // ---------------------------------------------------------------- entrees GL
 // Le moteur ne connait que le GL 1.x : on va chercher nous-memes ce qu'il faut.
@@ -265,6 +268,10 @@ static const char *fsAo =
 	"uniform vec2 texel;\n"			// 1 / taille
 	"uniform float radius;\n"		// en unites du jeu
 	"uniform float bias;\n"
+	"uniform vec3 sunDir;\n"		// vers le soleil, en espace camera
+	"uniform float sunOn;\n"
+	"uniform float sunLength;\n"	// portee de l'ombre, en unites du jeu
+	"const int SUN_STEPS = 24;\n"
 	"%s"							// viewPos
 	// La normale vient des variations de profondeur. Une difference centree
 	// deborde sur les silhouettes ; on garde donc, de chaque cote, le voisin le
@@ -311,7 +318,30 @@ static const char *fsAo =
 	"		occ += clamp( cosa - bias, 0.0, 1.0 ) * fall;\n"
 	"	}\n"
 	"	occ = occ / float( STEPS );\n"
-	"	gl_FragColor = vec4( clamp( 1.0 - occ, 0.0, 1.0 ) );\n"
+	// --- ombre du soleil, dans le meme tampon (canal vert)
+	"	float shade = 1.0;\n"
+	"	if ( sunOn > 0.5 ) {\n"
+	"		float ndl = dot( n, sunDir );\n"
+	// Une surface qui tourne le dos au soleil est deja sombre dans la carte de
+	// lumiere du jeu : la reassombrir la peindrait deux fois.
+	"		if ( ndl > 0.05 ) {\n"
+	"			float stepLen = sunLength / float( SUN_STEPS );\n"
+	"			vec3 sp = p + n * 1.5;\n"		// decoller de la surface
+	"			float jit = hash( gl_FragCoord.yx );\n"
+	"			for ( int k = 0; k < SUN_STEPS; k++ ) {\n"
+	"				sp += sunDir * stepLen * ( 0.75 + 0.5 * jit );\n"
+	"				vec2 st = vec2( sp.x / -sp.z * projAB.x - projCD.x,\n"
+	"				                sp.y / -sp.z * projAB.y - projCD.y ) * 0.5 + 0.5;\n"
+	"				if ( st.x < 0.0 || st.x > 1.0 || st.y < 0.0 || st.y > 1.0 ) break;\n"
+	"				float sceneZ = viewPos( st ).z;\n"
+	// en espace camera z est negatif vers le fond : la scene est DEVANT le
+	// point marche quand son z est plus grand
+	"				float diff = sceneZ - sp.z;\n"
+	"				if ( diff > 1.0 && diff < 120.0 ) { shade = 0.0; break; }\n"
+	"			}\n"
+	"		}\n"
+	"	}\n"
+	"	gl_FragColor = vec4( clamp( 1.0 - occ, 0.0, 1.0 ), shade, 0.0, 1.0 );\n"
 	"}\n";
 
 // Composition : l'occlusion est bruitee par construction (un angle aleatoire
@@ -323,6 +353,7 @@ static const char *fsComposite =
 	"uniform sampler2D ao;\n"
 	"uniform vec2 texel;\n"
 	"uniform float intensity;\n"
+	"uniform float sunStrength;\n"
 	"uniform int debugMode;\n"
 	"varying vec2 uv;\n"
 	"void main() {\n"
@@ -333,6 +364,11 @@ static const char *fsComposite =
 	"			a += texture2D( ao, uv + vec2( float( x ), float( y ) ) * texel ).r;\n"
 	"	a = a / 25.0;\n"
 	"	a = mix( 1.0, a, intensity );\n"
+	"	float sh = 0.0;\n"
+	"	for ( int y = -2; y <= 2; y++ )\n"
+	"		for ( int x = -2; x <= 2; x++ )\n"
+	"			sh += texture2D( ao, uv + vec2( float( x ), float( y ) ) * texel ).g;\n"
+	"	sh = mix( 1.0, sh / 25.0, sunStrength );\n"
 	"	if ( debugMode == 1 ) {\n"
 	"		float d = texture2D( sceneDepth, uv ).r;\n"
 	"		gl_FragColor = vec4( vec3( 1.0 - pow( d, 64.0 ) ), 1.0 );\n"
@@ -340,8 +376,10 @@ static const char *fsComposite =
 	"		gl_FragColor = vec4( vec3( a ), 1.0 );\n"		// l'occlusion seule
 	"	} else if ( debugMode == 2 && uv.x > 0.5 ) {\n"
 	"		gl_FragColor = vec4( c.rgb * vec3( 1.0, 0.45, 0.25 ), c.a );\n"
+	"	} else if ( debugMode == 4 ) {\n"
+	"		gl_FragColor = vec4( vec3( sh ), 1.0 );\n"		// l'ombre seule
 	"	} else {\n"
-	"		gl_FragColor = vec4( c.rgb * a, c.a );\n"
+	"		gl_FragColor = vec4( c.rgb * a * sh, c.a );\n"
 	"	}\n"
 	"}\n";
 
@@ -598,8 +636,21 @@ static void R_ModernPostProcess( void )
 	const float	texelY = 1.0f / (float)h;
 	const qboolean	wantAo = (qboolean)( r_modernAO->integer && r_modernAOIntensity->value > 0.0f );
 
-	// --- passe 1 : l'occlusion, dans sa propre cible
-	if ( wantAo )
+	// Le soleil de la carte, amene dans l'espace de la camera. Seule la rotation
+	// compte : c'est une direction, pas un point.
+	const float	*M = backEnd.viewParms.world.modelMatrix;
+	const qboolean	mapHasSun = (qboolean)( tr.sunLight[0] != 0.0f || tr.sunLight[1] != 0.0f || tr.sunLight[2] != 0.0f );
+	const qboolean	wantSun = (qboolean)( r_modernSunStrength->value > 0.0f
+		&& ( r_modernSun->integer >= 2 || ( r_modernSun->integer && mapHasSun ) ) );
+	vec3_t		sunView;
+
+	sunView[0] = M[0] * tr.sunDirection[0] + M[4] * tr.sunDirection[1] + M[8]  * tr.sunDirection[2];
+	sunView[1] = M[1] * tr.sunDirection[0] + M[5] * tr.sunDirection[1] + M[9]  * tr.sunDirection[2];
+	sunView[2] = M[2] * tr.sunDirection[0] + M[6] * tr.sunDirection[1] + M[10] * tr.sunDirection[2];
+	VectorNormalize( sunView );
+
+	// --- passe 1 : l'occlusion et l'ombre du soleil, dans la meme cible
+	if ( wantAo || wantSun )
 	{
 		p_glBindFramebuffer( GL_FRAMEBUFFER, modernAoFbo );
 		qglViewport( 0, 0, w, h );
@@ -613,8 +664,12 @@ static void R_ModernPostProcess( void )
 		p_glUniform2f( p_glGetUniformLocation( modernAoProg, "projCD" ), P[8], P[9] );
 		p_glUniform2f( p_glGetUniformLocation( modernAoProg, "projEF" ), P[10], P[14] );
 		p_glUniform2f( p_glGetUniformLocation( modernAoProg, "texel" ), texelX, texelY );
-		p_glUniform1f( p_glGetUniformLocation( modernAoProg, "radius" ), r_modernAORadius->value );
+		p_glUniform1f( p_glGetUniformLocation( modernAoProg, "radius" ),
+			wantAo ? r_modernAORadius->value : 0.0f );
 		p_glUniform1f( p_glGetUniformLocation( modernAoProg, "bias" ), 0.08f );
+		p_glUniform3f( p_glGetUniformLocation( modernAoProg, "sunDir" ), sunView[0], sunView[1], sunView[2] );
+		p_glUniform1f( p_glGetUniformLocation( modernAoProg, "sunOn" ), wantSun ? 1.0f : 0.0f );
+		p_glUniform1f( p_glGetUniformLocation( modernAoProg, "sunLength" ), r_modernSunLength->value );
 		R_ModernFullscreenQuad();
 
 		p_glBindFramebuffer( GL_FRAMEBUFFER, 0 );
@@ -636,6 +691,8 @@ static void R_ModernPostProcess( void )
 	p_glUniform2f( p_glGetUniformLocation( modernComposite, "texel" ), texelX, texelY );
 	p_glUniform1f( p_glGetUniformLocation( modernComposite, "intensity" ),
 		wantAo ? r_modernAOIntensity->value : 0.0f );
+	p_glUniform1f( p_glGetUniformLocation( modernComposite, "sunStrength" ),
+		wantSun ? r_modernSunStrength->value : 0.0f );
 	p_glUniform1i( p_glGetUniformLocation( modernComposite, "debugMode" ), r_modernDebug->integer );
 	R_ModernFullscreenQuad();
 

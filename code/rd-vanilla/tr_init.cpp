@@ -1533,6 +1533,11 @@ void R_Register( void )
 	r_modernAO = ri.Cvar_Get( "r_modernAO", "1", CVAR_ARCHIVE_ND );
 	r_modernAOIntensity = ri.Cvar_Get( "r_modernAOIntensity", "0.8", CVAR_ARCHIVE_ND );
 	r_modernAORadius = ri.Cvar_Get( "r_modernAORadius", "28", CVAR_ARCHIVE_ND );
+	// ombres du soleil : 1 = si la carte declare un soleil, 2 = de toute facon
+	// (pour juger sur une carte qui n'en declare pas)
+	r_modernSun = ri.Cvar_Get( "r_modernSun", "1", CVAR_ARCHIVE_ND );
+	r_modernSunStrength = ri.Cvar_Get( "r_modernSunStrength", "0.45", CVAR_ARCHIVE_ND );
+	r_modernSunLength = ri.Cvar_Get( "r_modernSunLength", "320", CVAR_ARCHIVE_ND );
 	r_DynamicGlowPasses = ri.Cvar_Get( "r_DynamicGlowPasses", "5", CVAR_ARCHIVE_ND );
 	r_DynamicGlowDelta  = ri.Cvar_Get( "r_DynamicGlowDelta", "0.8f", CVAR_ARCHIVE_ND );
 	r_DynamicGlowIntensity = ri.Cvar_Get( "r_DynamicGlowIntensity", "1.13f", CVAR_ARCHIVE_ND );
