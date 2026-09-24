@@ -395,6 +395,7 @@ static const char *fsComposite =
 	"uniform float rtOn;\n"
 	"uniform sampler2D rtMat;\n"		// le tampon de materiaux : normale de relief (vue), genre+brillance
 	"uniform sampler2D rtMatDepth;\n"
+	"uniform sampler2D rtMatGeo;\n"
 	"uniform vec3 sunView;\n"
 	"uniform float reliefOn;\n"
 	"%s"
@@ -488,7 +489,7 @@ static const char *fsComposite =
 	"				float mdd = texture2D( rtMatDepth, uv ).r;\n"
 	"				if ( mm.a > 0.0 && abs( floor( mm.a * 5.0 + 0.001 ) - 1.0 ) < 0.5 && abs( mdd - dd ) < 0.0004 && dd < 1.0 ) {\n"
 	"					vec3 pv = viewPosAt( uv, dd );\n"
-	"					vec3 ng = normalAt( uv, pv );\n"
+	"					vec3 ng = normalize( texture2D( rtMatGeo, uv ).xyz * 2.0 - 1.0 );\n"
 	"					vec3 nd = normalize( mm.xyz * 2.0 - 1.0 );\n"
 	"					float lit = texture2D( ao, uv ).g * sunStrength;\n"
 	"					float gl = dot( ng, sunView );\n"
@@ -1280,6 +1281,8 @@ static void R_ModernPostProcess( void )
 		qglBindTexture( GL_TEXTURE_2D, R_ModernRTMatTex() );
 		qglActiveTextureARB( 0x84C6 /* GL_TEXTURE6_ARB */ );
 		qglBindTexture( GL_TEXTURE_2D, R_ModernRTMatDepth() );
+		qglActiveTextureARB( 0x84C7 /* GL_TEXTURE7_ARB */ );
+		qglBindTexture( GL_TEXTURE_2D, R_ModernRTMatGeo() );
 		qglActiveTextureARB( GL_TEXTURE0_ARB );
 	}
 	if ( r_modernDebug->integer == 6 )
@@ -1305,6 +1308,7 @@ static void R_ModernPostProcess( void )
 	p_glUseProgram( modernComposite );
 	p_glUniform1i( p_glGetUniformLocation( modernComposite, "rtMat" ), 5 );
 	p_glUniform1i( p_glGetUniformLocation( modernComposite, "rtMatDepth" ), 6 );
+	p_glUniform1i( p_glGetUniformLocation( modernComposite, "rtMatGeo" ), 7 );
 	p_glUniform3f( p_glGetUniformLocation( modernComposite, "sunView" ), sunView[0], sunView[1], sunView[2] );
 	p_glUniform1f( p_glGetUniformLocation( modernComposite, "reliefOn" ), ( rtDone && r_modernRTNormals->integer ) ? r_modernRTNormalStrength->value : 0.0f );
 	p_glUniform2f( p_glGetUniformLocation( modernComposite, "projAB" ), P[0], P[5] );
@@ -1360,6 +1364,8 @@ static void R_ModernPostProcess( void )
 
 	if ( rtDone )
 	{
+		qglActiveTextureARB( 0x84C7 );
+		qglBindTexture( GL_TEXTURE_2D, 0 );
 		qglActiveTextureARB( 0x84C6 );
 		qglBindTexture( GL_TEXTURE_2D, 0 );
 		qglActiveTextureARB( 0x84C5 );

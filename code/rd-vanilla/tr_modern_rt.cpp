@@ -94,6 +94,7 @@ static GLuint	rtAoTexBound;		// la cible 0 qu'on a attachee (celle de tr_modern)
 static int		rtWidth, rtHeight;
 static GLuint	rtMaskFbo, rtMaskTex, rtMaskDepth;	// le tampon de materiaux : normale, genre+brillance, profondeur
 static GLuint	rtMatProg;						// le shader qui le remplit
+static GLuint	rtMaskGeo;						// ... et la normale geometrique exacte du decor (2e cible)
 static GLuint	rtLateProg;						// verre, eau, lave, apres le transparent
 static GLuint	rtLateTex;						// l'image avec le transparent, pour les reflets tardifs
 static qboolean	rtLateActive;					// la capture des surfaces tardives est ouverte
@@ -576,6 +577,7 @@ uniform sampler2D sceneDepth;
 uniform sampler2D scene;
 uniform sampler2D shineMask;
 uniform sampler2D shineDepth;
+uniform sampler2D geoNorm;
 uniform vec2 projAB;
 uniform vec2 projCD;
 uniform vec2 projEF;
@@ -691,16 +693,18 @@ void main() {
 	float d = texture( sceneDepth, uv ).r;
 	if ( d >= 1.0 ) { outAo = vec4( 1.0 ); outLight = vec4( 0.0 ); outRefl = vec4( 0.0 ); return; }
 	vec3 pv = viewPosAt( uv, d );
-	vec3 nv = normalAt( uv, pv );
+	// le tampon de materiaux : la vraie normale du triangle pour le decor (celle
+	// tiree de la profondeur est fausse sur une pente vue en rasant : les
+	// rayons d'ombre partaient dans le sol), et la normale de relief pour
+	// l'eclairage et les reflets
+	vec4 mm = texture( shineMask, uv );
+	float mdd = texture( shineDepth, uv ).r;
+	bool hasMat = ( mm.a > 0.0 && abs( mdd - d ) < 0.0004 );
+	vec3 nv = hasMat ? normalize( texture( geoNorm, uv ).xyz * 2.0 - 1.0 ) : normalAt( uv, pv );
 	vec3 p = ( invView * vec4( pv, 1.0 ) ).xyz;
 	vec3 n = normalize( mat3( invView ) * nv );
 	vec3 camPos = invView[3].xyz;
 	vec3 o = p + n * 0.75;
-	// la normale de relief du decor (tampon de materiaux), pour l'eclairage et
-	// les reflets ; les rayons d'ombre gardent la normale geometrique
-	vec4 mm = texture( shineMask, uv );
-	float mdd = texture( shineDepth, uv ).r;
-	bool hasMat = ( mm.a > 0.0 && abs( mdd - d ) < 0.0004 );
 	vec3 nd = hasMat ? normalize( mat3( invView ) * normalize( mm.xyz * 2.0 - 1.0 ) ) : n;
 	vec3 t1 = normalize( cross( n, ( abs( n.y ) < 0.9 ) ? vec3( 0.0, 1.0, 0.0 ) : vec3( 1.0, 0.0, 0.0 ) ) );
 	vec3 t2 = cross( n, t1 );
@@ -817,7 +821,8 @@ uniform float time;
 uniform mat4 invView;
 in vec3 vp;
 in vec2 uv;
-out vec4 outMat;
+layout(location = 0) out vec4 outMat;
+layout(location = 1) out vec4 outGeo;
 float lum( vec2 t ) { vec3 c = texture( diffuse, t ).rgb; return dot( c, vec3( 0.3, 0.59, 0.11 ) ); }
 void main() {
 	vec3 dp1 = dFdx( vp ), dp2 = dFdy( vp );
@@ -844,6 +849,7 @@ void main() {
 	}
 	vec3 n = normalize( N - T * g.x - B * g.y );
 	outMat = vec4( n * 0.5 + 0.5, ( kind + 1.0 + clamp( shine, 0.0, 0.9 ) ) / 5.0 );
+	outGeo = vec4( N * 0.5 + 0.5, 1.0 );
 }
 )GLSL";
 
@@ -1036,6 +1042,7 @@ static void RT_FreeTargets( void )
 	if ( rtMaskTex )	{ qglDeleteTextures( 1, &rtMaskTex ); rtMaskTex = 0; }
 	if ( rtMaskDepth )	{ qglDeleteTextures( 1, &rtMaskDepth ); rtMaskDepth = 0; }
 	if ( rtLateTex )	{ qglDeleteTextures( 1, &rtLateTex ); rtLateTex = 0; }
+	if ( rtMaskGeo )	{ qglDeleteTextures( 1, &rtMaskGeo ); rtMaskGeo = 0; }
 	rtWidth = rtHeight = 0;
 	rtAoTexBound = 0;
 }
@@ -1076,6 +1083,7 @@ static qboolean RT_Targets( int w, int h, GLuint aoTex )
 	rtMaskTex = RT_MakeTex( w, h, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE );
 	rtMaskDepth = RT_MakeTex( w, h, GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT, GL_FLOAT );
 	rtLateTex = RT_MakeTex( w, h, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE );
+	rtMaskGeo = RT_MakeTex( w, h, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE );
 
 	p_glGenFramebuffers( 1, &rtFbo );
 	p_glBindFramebuffer( GL_FRAMEBUFFER, rtFbo );
@@ -1091,7 +1099,12 @@ static qboolean RT_Targets( int w, int h, GLuint aoTex )
 	p_glGenFramebuffers( 1, &rtMaskFbo );
 	p_glBindFramebuffer( GL_FRAMEBUFFER, rtMaskFbo );
 	p_glFramebufferTexture2D( GL_FRAMEBUFFER, RT_COLOR_ATTACHMENT( 0 ), GL_TEXTURE_2D, rtMaskTex, 0 );
+	p_glFramebufferTexture2D( GL_FRAMEBUFFER, RT_COLOR_ATTACHMENT( 1 ), GL_TEXTURE_2D, rtMaskGeo, 0 );
 	p_glFramebufferTexture2D( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, rtMaskDepth, 0 );
+	{
+		const GLenum bufs2[2] = { RT_COLOR_ATTACHMENT( 0 ), RT_COLOR_ATTACHMENT( 1 ) };
+		p_glDrawBuffers( 2, bufs2 );
+	}
 	const qboolean ok2 = (qboolean)( p_glCheckFramebufferStatus( GL_FRAMEBUFFER ) == GL_FRAMEBUFFER_COMPLETE );
 	p_glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
@@ -1227,6 +1240,51 @@ static void RT_EnsureWorld( void )
 			else if ( k == 3 ) lava++;
 		}
 		if ( water ) { VectorAdd( wmin, wmax, wpos ); VectorScale( wpos, 0.5f, wpos ); }
+		{	// les shaders les plus etendus, avec le centre de leur boite
+			struct big { const shader_t *sh; int tris; vec3_t mn, mx; };
+			std::vector<big> bigs;
+
+			for ( int i = 0; i < world->numSurfaces; i++ )
+			{
+				const msurface_t *surf = &world->firstSurface[i];
+
+				if ( !surf->shader || !surf->data || ( *surf->data != SF_FACE && *surf->data != SF_TRIANGLES ) || ( surf->shader->surfaceFlags & SURF_SKY ) )
+				{
+					continue;
+				}
+				const srfSurfaceFace_t *f = ( *surf->data == SF_FACE ) ? (const srfSurfaceFace_t *)surf->data : NULL;
+				const srfTriangles_t *tr2 = ( *surf->data == SF_TRIANGLES ) ? (const srfTriangles_t *)surf->data : NULL;
+				size_t j;
+
+				for ( j = 0; j < bigs.size(); j++ ) if ( bigs[j].sh == surf->shader ) break;
+				if ( j == bigs.size() )
+				{
+					big nb;
+					nb.sh = surf->shader;
+					nb.tris = 0;
+					VectorSet( nb.mn, 1e30f, 1e30f, 1e30f );
+					VectorSet( nb.mx, -1e30f, -1e30f, -1e30f );
+					bigs.push_back( nb );
+				}
+				bigs[j].tris += f ? f->numIndices / 3 : tr2->numIndexes / 3;
+				const int nv = f ? f->numPoints : tr2->numVerts;
+				for ( int v = 0; v < nv; v++ )
+				{
+					const float *pt = f ? f->points[v] : tr2->verts[v].xyz;
+					for ( int a = 0; a < 3; a++ )
+					{
+						if ( pt[a] < bigs[j].mn[a] ) bigs[j].mn[a] = pt[a];
+						if ( pt[a] > bigs[j].mx[a] ) bigs[j].mx[a] = pt[a];
+					}
+				}
+			}
+			std::sort( bigs.begin(), bigs.end(), []( const big &x, const big &y ) { return x.tris > y.tris; } );
+			for ( size_t j = 0; j < bigs.size() && j < 8; j++ )
+			{
+				ri.Printf( PRINT_ALL, "   etendu : %s, %i tris, centre %.0f %.0f %.0f\n", bigs[j].sh->name, bigs[j].tris,
+					( bigs[j].mn[0] + bigs[j].mx[0] ) * 0.5f, ( bigs[j].mn[1] + bigs[j].mx[1] ) * 0.5f, ( bigs[j].mn[2] + bigs[j].mx[2] ) * 0.5f );
+			}
+		}
 		ri.Printf( PRINT_ALL, "   %i surfaces brillantes, %i d'eau (boite %.0f %.0f %.0f a %.0f %.0f %.0f, centre %.0f %.0f %.0f), %i de verre, %i de lave (%i nappes) dans le decor\n",
 			shiny, water, wmin[0], wmin[1], wmin[2], wmax[0], wmax[1], wmax[2], wpos[0], wpos[1], wpos[2], glass, lava, rtLavaCount );
 	}
@@ -1248,6 +1306,7 @@ GLuint R_ModernRTReflTex( void ) { return rtReflTex; }
 GLuint R_ModernRTAoTex( void ) { return rtAoTex; }
 GLuint R_ModernRTMatTex( void ) { return rtMaskTex; }
 GLuint R_ModernRTMatDepth( void ) { return rtMaskDepth; }
+GLuint R_ModernRTMatGeo( void ) { return rtMaskGeo; }
 
 void R_ModernRTShutdown( void )
 {
@@ -1693,6 +1752,9 @@ qboolean R_ModernRTPass( const modernRTParams_t *p )
 	qglBindTexture( GL_TEXTURE_2D, p->sceneTex );
 	GL_SelectTexture( 0 );
 	qglBindTexture( GL_TEXTURE_2D, p->depthTex );
+	qglActiveTextureARB( 0x84C4 /* GL_TEXTURE4_ARB */ );
+	qglBindTexture( GL_TEXTURE_2D, rtMaskGeo );
+	qglActiveTextureARB( GL_TEXTURE0_ARB );
 
 	p_glBindBufferBase( GL_SHADER_STORAGE_BUFFER, 0, rtWorldNodes );
 	p_glBindBufferBase( GL_SHADER_STORAGE_BUFFER, 1, rtWorldTris );
@@ -1705,6 +1767,7 @@ qboolean R_ModernRTPass( const modernRTParams_t *p )
 	p_glUniform1i( U( "scene" ), 1 );
 	p_glUniform1i( U( "shineMask" ), 2 );
 	p_glUniform1i( U( "shineDepth" ), 3 );
+	p_glUniform1i( U( "geoNorm" ), 4 );
 	p_glUniform2f( U( "projAB" ), P[0], P[5] );
 	p_glUniform2f( U( "projCD" ), P[8], P[9] );
 	p_glUniform2f( U( "projEF" ), P[10], P[14] );
@@ -1733,6 +1796,9 @@ qboolean R_ModernRTPass( const modernRTParams_t *p )
 	R_ModernFullscreenQuad();
 	p_glUseProgram( 0 );
 
+	qglActiveTextureARB( 0x84C4 );
+	qglBindTexture( GL_TEXTURE_2D, 0 );
+	qglActiveTextureARB( GL_TEXTURE0_ARB );
 	GL_SelectTexture( 3 );
 	qglBindTexture( GL_TEXTURE_2D, 0 );
 	GL_SelectTexture( 2 );

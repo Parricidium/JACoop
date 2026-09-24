@@ -90,3 +90,4 @@ GLuint		R_ModernRTAoTex( void );		// occlusion (r) et ombre (g), a l'echelle de 
 void		R_ModernRTLatePass( const modernRTParams_t *p );	// verre, eau, lave, apres le transparent
 GLuint		R_ModernRTMatTex( void );		// le tampon de materiaux (normale, genre+brillance)
 GLuint		R_ModernRTMatDepth( void );
+GLuint		R_ModernRTMatGeo( void );		// la normale geometrique exacte du decor

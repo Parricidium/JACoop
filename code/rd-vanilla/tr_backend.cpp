@@ -1336,7 +1336,10 @@ const void	*RB_DrawSurfs( const void *data ) {
 	// JACoop: on note qu'une vue 3D vient d'etre peinte. La passe d'image ne
 	// part pas ici : le moteur emet plusieurs vues par image (ciel en portail,
 	// miroirs) et elle s'appliquerait a chacune.
-	if ( !(backEnd.refdef.rdflags & RDF_NOWORLDMODEL) )
+	// ... et pas pour la liste de la lueur dynamique (r_DynamicGlow), qui
+	// redessine les objets brillants : la passe aurait tourne une seconde fois
+	// au premier 2D, sur l'image deja composee (cout double, ombres doublees)
+	if ( !(backEnd.refdef.rdflags & RDF_NOWORLDMODEL) && !g_bRenderGlowingObjects )
 	{
 		R_ModernMarkPending();
 	}
