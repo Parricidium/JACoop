@@ -398,6 +398,7 @@ static const char *fsComposite =
 	"uniform sampler2D rtMatGeo;\n"
 	"uniform vec3 sunView;\n"
 	"uniform float reliefOn;\n"
+	"uniform float blurStep;\n"		// 1 : voie classique ; 2 avec le trace (cibles a l echelle, peu de rayons)
 	"%s"
 	"varying vec2 uv;\n"
 	"float hash( vec2 c ) { return fract( sin( dot( c, vec2( 12.9898, 78.233 ) ) ) * 43758.5453 ); }\n"
@@ -415,13 +416,13 @@ static const char *fsComposite =
 	"	float a = 0.0;\n"
 	"	for ( int y = -2; y <= 2; y++ )\n"
 	"		for ( int x = -2; x <= 2; x++ )\n"
-	"			a += texture2D( ao, uv + vec2( float( x ), float( y ) ) * texel ).r;\n"
+	"			a += texture2D( ao, uv + vec2( float( x ), float( y ) ) * texel * blurStep ).r;\n"
 	"	a = a / 25.0;\n"
 	"	a = mix( 1.0, a, intensity );\n"
 	"	float sh = 0.0;\n"
 	"	for ( int y = -2; y <= 2; y++ )\n"
 	"		for ( int x = -2; x <= 2; x++ )\n"
-	"			sh += texture2D( ao, uv + vec2( float( x ), float( y ) ) * texel ).g;\n"
+	"			sh += texture2D( ao, uv + vec2( float( x ), float( y ) ) * texel * blurStep ).g;\n"
 	// Un pixel deja sombre n'est presque plus assombri : la carte de lumiere
 	// du jeu a deja fait son travail en interieur, et une coursive entiere
 	// virait au noir (capture de JD, 24/09).
@@ -1307,6 +1308,7 @@ static void R_ModernPostProcess( void )
 	}
 	p_glUseProgram( modernComposite );
 	p_glUniform1i( p_glGetUniformLocation( modernComposite, "rtMat" ), 5 );
+	p_glUniform1f( p_glGetUniformLocation( modernComposite, "blurStep" ), rtDone ? 2.0f : 1.0f );
 	p_glUniform1i( p_glGetUniformLocation( modernComposite, "rtMatDepth" ), 6 );
 	p_glUniform1i( p_glGetUniformLocation( modernComposite, "rtMatGeo" ), 7 );
 	p_glUniform3f( p_glGetUniformLocation( modernComposite, "sunView" ), sunView[0], sunView[1], sunView[2] );

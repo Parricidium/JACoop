@@ -1548,9 +1548,9 @@ void R_Register( void )
 	// le ray tracing : rayons par pixel dans les shaders (GL 4.3), a la place
 	// de la carte d'ombre et de l'occlusion en espace ecran
 	r_modernRT = ri.Cvar_Get( "r_modernRT", "1", CVAR_ARCHIVE_ND );
-	r_modernRTSunRays = ri.Cvar_Get( "r_modernRTSunRays", "4", CVAR_ARCHIVE_ND );
+	r_modernRTSunRays = ri.Cvar_Get( "r_modernRTSunRays", "2", CVAR_ARCHIVE_ND );
 	r_modernRTSoft = ri.Cvar_Get( "r_modernRTSoft", "1", CVAR_ARCHIVE_ND );
-	r_modernRTAORays = ri.Cvar_Get( "r_modernRTAORays", "4", CVAR_ARCHIVE_ND );
+	r_modernRTAORays = ri.Cvar_Get( "r_modernRTAORays", "2", CVAR_ARCHIVE_ND );
 	r_modernRTAORange = ri.Cvar_Get( "r_modernRTAORange", "96", CVAR_ARCHIVE_ND );
 	r_modernRTLights = ri.Cvar_Get( "r_modernRTLights", "1", CVAR_ARCHIVE_ND );
 	r_modernRTLightScale = ri.Cvar_Get( "r_modernRTLightScale", "1", CVAR_ARCHIVE_ND );

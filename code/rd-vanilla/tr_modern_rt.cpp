@@ -741,10 +741,12 @@ void main() {
 			float u2 = hash( gl_FragCoord.yx * 0.7 + vec2( 9.0, float( i ) * 3.3 ) );
 			float r = sqrt( u1 ); float a = 6.2831853 * u2;
 			vec3 dir = t1 * ( r * cos( a ) ) + t2 * ( r * sin( a ) ) + n * sqrt( max( 0.0, 1.0 - u1 ) );
-			float t = trace( o, dir, aoRange, false, 64.0 );
-			if ( t < aoRange ) occ += 1.0 - t / aoRange;
+			// premier contact et non plus "le plus proche" : le parcours s'arrete au
+			// premier triangle (mesure : l'occlusion coutait autant que tout le reste)
+			float lim = aoRange * 0.6;
+			if ( trace( o, dir, lim, true, 64.0 ) < lim ) occ += 1.0;
 		}
-		ao = 1.0 - occ / float( aoRays );
+		ao = 1.0 - 0.85 * occ / float( aoRays );
 	}
 
 	// --- les lumieres : par pixel, avec leur ombre
