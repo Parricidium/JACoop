@@ -414,6 +414,7 @@ static void CL_BuildCGameImport( game_import_t &import ) {
 	import.G2API_GetSurfaceRenderStatus = re.G2API_GetSurfaceRenderStatus;
 
 	import.G2API_SetRagDoll = re.G2API_SetRagDoll;
+	import.G2API_ResetRagDoll = re.G2API_ResetRagDoll;	// JACoop : le ragdoll des corps chez l invite
 	import.G2API_AnimateG2Models = re.G2API_AnimateG2Models;
 
 	import.G2API_RagPCJConstraint = re.G2API_RagPCJConstraint;

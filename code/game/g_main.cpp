@@ -224,6 +224,8 @@ cvar_t	*g_npcdebug;
 cvar_t	*g_navSafetyChecks;
 
 cvar_t	*g_broadsword;
+cvar_t	*g_coopRagdoll;
+cvar_t	*g_coopRagdollSync;
 
 cvar_t	*g_allowBunnyhopping;
 
@@ -723,6 +725,10 @@ void G_InitCvars( void ) {
 	g_saberDarkSideSaberColor = gi.cvar( "g_saberDarkSideSaberColor", "0", CVAR_ARCHIVE );	//when you turn evil, it turns your saber red!
 
 	g_broadsword = gi.cvar( "broadsword", "1", 0);
+	// JACoop : ragdoll des PNJ morts (0 non, 1 pousses/en vol/coinces, 2 des la mort),
+	// et envoi de la pose aux invites (20 Hz, ~250 octets par corps)
+	g_coopRagdoll = gi.cvar( "g_coopRagdoll", "1", CVAR_ARCHIVE );
+	g_coopRagdollSync = gi.cvar( "g_coopRagdollSync", "1", CVAR_ARCHIVE );
 
 	g_allowBunnyhopping = gi.cvar( "g_allowBunnyhopping", "0", 0 );
 
@@ -1985,6 +1991,149 @@ qboolean G_RagDoll(gentity_t *ent, vec3_t forcedAngles)
 	}
 
 	return qfalse;
+}
+
+/*
+===============
+JACoop : le ragdoll des corps
+
+Le pilote ci-dessus (porte du multi) n'etait appele par personne en solo. La
+pensee des cadavres de PNJ l'appelle ; au repos (au sol, immobile ~1 s) on
+coupe le ragdoll et on joue l'animation allongee qui correspond a la
+position du corps. Les invites recoivent "ragon" / "ragoff", et, si l'hote
+le veut, la position des effecteurs a 20 Hz ("rag") pour suivre la meme
+pose.
+===============
+*/
+static const char *g_coopRagEffectors[] =
+{
+	"rhand", "lhand", "rtibia", "ltibia", "rtalus", "ltalus", "rradiusX", "lradiusX", "rfemurX", "lfemurX",
+	"rhumerusX", "lhumerusX", "thoracic", "ceyebrow", "pelvis", NULL
+};
+static int	g_coopRagSettle[MAX_GENTITIES];		// depuis quand le corps est immobile (0 : il bouge)
+static int	g_coopRagNextSend[MAX_GENTITIES];
+
+static void G_CoopRagdollEnd( gentity_t *ent )
+{
+	const int ragAnim = G_RagAnimForPositioning( ent );
+
+	gi.G2API_ResetRagDoll( ent->ghoul2 );
+	ent->client->isRagging = qfalse;
+	ent->client->noRagTime = -1;		// plus de ragdoll... jusqu'a la prochaine poussee (voir le rearmement)
+	ent->client->overridingBones = 0;
+	// l'animation de la position ou il s'est pose, tenue
+	PM_SetAnimFinal( &ent->client->ps.torsoAnim, &ent->client->ps.legsAnim, SETANIM_BOTH, ragAnim,
+		SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD, &ent->client->ps.torsoAnimTimer, &ent->client->ps.legsAnimTimer, ent, 300 );
+	PM_SetLegsAnimTimer( ent, &ent->client->ps.legsAnimTimer, -1 );
+	PM_SetTorsoAnimTimer( ent, &ent->client->ps.torsoAnimTimer, -1 );
+	gi.SendServerCommand( -1, "ragoff %i", ent->s.number );
+	if ( g_developer->integer )
+	{
+		gi.Printf( "coop: rag off ent %i anim %i\n", ent->s.number, ragAnim );
+	}
+}
+
+void G_CoopRagdollThink( gentity_t *ent )
+{
+	if ( !g_coopRagdoll || !g_coopRagdoll->integer || !ent->client || !ent->NPC || ent->health > 0 )
+	{
+		return;
+	}
+	{	// le pilote lit "broadsword" : 1 = pousse/en vol/coince, 2 = des la mort
+		const int want = g_coopRagdoll->integer >= 2 ? 2 : 1;
+
+		if ( g_broadsword->integer != want )
+		{
+			gi.cvar_set( "broadsword", va( "%i", want ) );
+		}
+	}
+	const qboolean	was = ent->client->isRagging;
+	const int		n = ent->s.number;
+	vec3_t			ang;
+
+	if ( !was && ent->client->noRagTime == -1 )
+	{	// pose : on ne le relance que s'il est de nouveau bouscule
+		if ( VectorLength( ent->client->ps.velocity ) > 120.0f || ent->client->ps.groundEntityNum == ENTITYNUM_NONE
+			|| ent->client->ps.heldByClient <= ENTITYNUM_WORLD )
+		{
+			ent->client->noRagTime = 0;
+		}
+		else
+		{
+			return;
+		}
+	}
+	if ( g_developer->integer && !g_coopRagNextSend[n] && !was )
+	{
+		g_coopRagNextSend[n] = 1;
+		gi.Printf( "coop: cadavre ent %i (%s) vel %.0f sol %i noRag %i broadsword %i humanoide %i\n", n, ent->NPC_type ? ent->NPC_type : "?",
+			VectorLength( ent->client->ps.velocity ), ent->client->ps.groundEntityNum != ENTITYNUM_NONE, ent->client->noRagTime, g_broadsword->integer,
+			( ent->playerModel >= 0 && ent->ghoul2.size() ) ? (int)G_RagWantsHumanoidsOnly( &ent->ghoul2[ent->playerModel] ) : -1 );
+	}
+	VectorSet( ang, 0, ent->client->ps.viewangles[YAW], 0 );
+	G_RagDoll( ent, ang );
+	if ( !was && ent->client->isRagging )
+	{
+		g_coopRagSettle[n] = 0;
+		g_coopRagNextSend[n] = 0;
+		gi.SendServerCommand( -1, "ragon %i", n );
+		if ( g_developer->integer )
+		{
+			gi.Printf( "coop: rag on ent %i vel %.0f\n", n, VectorLength( ent->client->ps.velocity ) );
+		}
+	}
+	if ( !ent->client->isRagging )
+	{
+		return;
+	}
+	const qboolean still = (qboolean)( ent->client->ps.groundEntityNum != ENTITYNUM_NONE
+		&& VectorLength( ent->client->ps.velocity ) < 8.0f
+		&& ent->client->ps.heldByClient > ENTITYNUM_WORLD );
+
+	if ( !still )
+	{
+		g_coopRagSettle[n] = 0;
+	}
+	else if ( !g_coopRagSettle[n] )
+	{
+		g_coopRagSettle[n] = level.time;
+	}
+	if ( still && level.time - g_coopRagSettle[n] > 900 )
+	{
+		G_CoopRagdollEnd( ent );
+		return;
+	}
+	if ( g_coopRagdollSync->integer && level.time >= g_coopRagNextSend[n] )
+	{	// la pose : la position de chaque effecteur, en entiers
+		char	msg[512];
+
+		g_coopRagNextSend[n] = level.time + 50;
+		Com_sprintf( msg, sizeof( msg ), "rag %i", n );
+		for ( int i = 0; g_coopRagEffectors[i]; i++ )
+		{	// G2API_GetRagBonePos est un bouchon en solo : un bolt sur l'os
+			mdxaBone_t	m;
+			vec3_t		pos;
+			const int	bolt = gi.G2API_AddBolt( &ent->ghoul2[ent->playerModel], g_coopRagEffectors[i] );
+
+			if ( bolt < 0 )
+			{
+				break;
+			}
+			gi.G2API_GetBoltMatrix( ent->ghoul2, ent->playerModel, bolt, &m, ang, ent->client->ps.origin, ( cg.time ? cg.time : level.time ), NULL, ent->s.modelScale );
+			gi.G2API_GiveMeVectorFromMatrix( m, ORIGIN, pos );
+			Q_strcat( msg, sizeof( msg ), va( " %i %i %i", (int)pos[0], (int)pos[1], (int)pos[2] ) );
+		}
+		gi.SendServerCommand( -1, "%s", msg );
+		if ( g_developer->integer )
+		{
+			static int said;
+
+			if ( said++ < 3 )
+			{
+				gi.Printf( "coop: rag paquet %i octets : %s\n", (int)strlen( msg ), msg );
+			}
+		}
+	}
 }
 //rww - RAGDOLL_END
 

@@ -359,6 +359,7 @@ typedef struct {
 	qboolean	(*G2API_SetLodBias)(CGhoul2Info *ghlInfo, int lodBias);
 	qboolean	(*G2API_SetNewOrigin)(CGhoul2Info *ghlInfo, const int boltIndex);
 	void		(*G2API_SetRagDoll)(CGhoul2Info_v &ghoul2, CRagDollParams *parms);
+	void		(*G2API_ResetRagDoll)(CGhoul2Info_v &ghoul2);	// JACoop
 	qboolean	(*G2API_SetRootSurface)(CGhoul2Info_v &ghlInfo, const int modelIndex, const char *surfaceName);
 	qboolean	(*G2API_SetShader)(CGhoul2Info *ghlInfo, qhandle_t customShader);
 	qboolean	(*G2API_SetSkin)(CGhoul2Info *ghlInfo, qhandle_t customSkin, qhandle_t renderSkin);

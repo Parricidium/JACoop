@@ -342,6 +342,7 @@ Ghoul2 Insert Start
 
 	//rww - RAGDOLL_BEGIN
 	void		(*G2API_SetRagDoll)(CGhoul2Info_v &ghoul2,CRagDollParams *parms);
+	void		(*G2API_ResetRagDoll)(CGhoul2Info_v &ghoul2);	// JACoop : couper le ragdoll
 	void		(*G2API_AnimateG2Models)(CGhoul2Info_v &ghoul2, int AcurrentTime,CRagDollUpdateParams *params);
 
 	qboolean	(*G2API_RagPCJConstraint)(CGhoul2Info_v &ghoul2, const char *boneName, vec3_t min, vec3_t max);

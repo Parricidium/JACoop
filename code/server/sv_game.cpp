@@ -752,6 +752,11 @@ static qboolean SV_G2API_SetNewOrigin( CGhoul2Info *ghlInfo, const int boltIndex
 	return re.G2API_SetNewOrigin( ghlInfo, boltIndex );
 }
 
+static void  SV_G2API_ResetRagDoll( CGhoul2Info_v &ghoul2 )
+{
+	re.G2API_ResetRagDoll( ghoul2 );
+}
+
 static void  SV_G2API_SetRagDoll( CGhoul2Info_v &ghoul2, CRagDollParams *parms )
 {
 	return re.G2API_SetRagDoll( ghoul2, parms );
@@ -1019,6 +1024,7 @@ void SV_InitGameProgs (void) {
 	import.G2API_GetSurfaceRenderStatus = SV_G2API_GetSurfaceRenderStatus;
 
 	import.G2API_SetRagDoll = SV_G2API_SetRagDoll;
+	import.G2API_ResetRagDoll = SV_G2API_ResetRagDoll;
 	import.G2API_AnimateG2Models = SV_G2API_AnimateG2Models;
 
 	import.G2API_RagPCJConstraint = SV_G2API_RagPCJConstraint;

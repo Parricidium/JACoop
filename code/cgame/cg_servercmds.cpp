@@ -225,6 +225,9 @@ static int svcmdcmp( const void *a, const void *b ) {
 extern void CG_CoopSelectWeapon_f( void );	// cg_coop.cpp
 extern void CG_CoopZoom_f( void );			// cg_coop.cpp
 extern void CG_CoopLimb_f( void );			// cg_coop.cpp
+extern void CG_CoopRagOn_f( void );			// cg_coop.cpp : ragdoll d'un corps
+extern void CG_CoopRagOff_f( void );
+extern void CG_CoopRag_f( void );
 extern void CG_CoopVideo_f( void );			// cg_coop.cpp
 extern void CG_CoopFade_f( void );			// cg_coop.cpp
 extern void CG_CoopSkip_f( void );			// cg_coop.cpp
@@ -249,6 +252,9 @@ static serverCommand_t	commands[] = {
 	{ "lt",					CG_LCARSText_f },
 	{ "mf",					CG_CoopMissionFailed_f },	// coop: host raised the mission-failed screen
 	{ "print",				CG_Print_f },
+	{ "rag",				CG_CoopRag_f },				// coop: pose du ragdoll d'un corps (effecteurs)
+	{ "ragoff",				CG_CoopRagOff_f },			// coop: le corps s'est pose
+	{ "ragon",				CG_CoopRagOn_f },			// coop: un corps entre en ragdoll
 	{ "skip",				CG_CoopSkip_f },			// coop: host toggled the cinematic skip
 	{ "snd",				CG_CoopSound_f },	// coop: host-side sound forwarded to remote clients
 	{ "st",					CG_ScrollText_f },

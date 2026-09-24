@@ -1405,6 +1405,45 @@ qboolean G2API_StopBoneAngles(CGhoul2Info *ghlInfo, const char *boneName)
 //rww - RAGDOLL_BEGIN
 class CRagDollParams;
 void G2_SetRagDoll(CGhoul2Info_v &ghoul2V,CRagDollParams *parms);
+#ifndef GHOUL2_RAG_PENDING
+#define GHOUL2_RAG_PENDING	0x0100	// comme dans G2_bones.cpp
+#define GHOUL2_RAG_DONE		0x0200
+#endif
+// JACoop : couper le ragdoll (le solo n'exportait que la mise en place ;
+// SetRagDoll(NULL) n'y fait rien). Pas G2_ResetRagDoll : il vide toute la
+// liste d'os, or le jeu solo garde des indices d'os de son cote (rootBone,
+// motionBone, lumbar...) qui pointeraient ensuite n'importe ou. On ne touche
+// qu'aux os du ragdoll : leurs drapeaux, et l'animation reprend la main.
+void G2API_ResetRagDoll(CGhoul2Info_v &ghoul2V)
+{
+	for (int model = 0; model < ghoul2V.size(); model++)
+	{
+		CGhoul2Info &ghoul2 = ghoul2V[model];
+
+		if (ghoul2.mModelindex == -1 || !(ghoul2.mFlags & GHOUL2_RAG_STARTED))
+		{
+			continue;
+		}
+		boneInfo_v &blist = ghoul2.mBlist;
+
+		for (size_t i = 0; i < blist.size(); i++)
+		{
+			boneInfo_t &bone = blist[i];
+
+			if (bone.boneNumber != -1 && (bone.flags & BONE_ANGLES_RAGDOLL))
+			{
+				bone.flags &= ~BONE_ANGLES_RAGDOLL;
+				bone.flags &= ~BONE_ANGLES_IK;
+				bone.RagFlags = 0;
+				bone.lastTimeUpdated = 0;
+				VectorClear(bone.currentAngles);
+				bone.ragStartTime = 0;
+			}
+		}
+		ghoul2.mFlags &= ~(GHOUL2_RAG_PENDING | GHOUL2_RAG_DONE | GHOUL2_RAG_STARTED);
+	}
+}
+
 void G2API_SetRagDoll(CGhoul2Info_v &ghoul2,CRagDollParams *parms)
 {
 	G2_SetRagDoll(ghoul2,parms);

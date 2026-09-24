@@ -202,12 +202,15 @@ qboolean G_OkayToRemoveCorpse( gentity_t *self )
 	return qtrue;
 }
 
+extern void G_CoopRagdollThink( gentity_t *ent );
+
 void NPC_RemoveBody( gentity_t *self )
 {
 	self->nextthink = level.time + FRAMETIME/2;
 
 	//run physics at 20fps
 	CorpsePhysics( self );
+	G_CoopRagdollThink( self );	// JACoop : le ragdoll du corps
 
 	if ( self->NPC->nextBStateThink <= level.time )
 	{//run logic at 10 fps
@@ -893,6 +896,7 @@ static void DeadThink ( void )
 	}
 
 	CorpsePhysics( NPC );
+	G_CoopRagdollThink( NPC );	// JACoop : le ragdoll du corps, des la mort (NPC_RemoveBody ne vient qu apres le delai de retrait)
 }
 
 /*

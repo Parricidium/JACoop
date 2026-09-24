@@ -39,6 +39,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "../game/anims.h"
 #include "../game/wp_saber.h"
 #include "../game/g_vehicles.h"
+#include "../ghoul2/ghoul2_gore.h"		// CRagDollParams, CRagDollUpdateParams (le ragdoll des corps)
 
 extern qboolean ValidAnimFileIndex( int index );
 extern void G_SetG2PlayerModel( gentity_t * const ent, const char *modelName, const char *customSkin, const char *surfOff, const char *surfOn );
@@ -111,8 +112,21 @@ Forget the ghoul2 we built for this slot (entity freed on the host, or the
 slot now holds something else).
 ================
 */
+// --- l'etat du ragdoll des corps (voir plus bas)
+#define COOP_RAG_MAX_GOALS	16
+typedef struct coopRag_s {
+	qboolean	on;
+	qboolean	started;	// SetRagDoll fait sur notre squelette
+	int			goalTime;	// derniers effecteurs recus (0 : aucun)
+	int			nGoals;
+	vec3_t		goals[COOP_RAG_MAX_GOALS];
+} coopRag_t;
+
+static coopRag_t	coopRag[MAX_GENTITIES];
+
 static void CG_CoopTearDown( centity_t *cent )
 {
+	memset( &coopRag[cent->currentState.number], 0, sizeof( coopRag[0] ) );	// le ragdoll suit le squelette
 	gentity_t *gent = cent->gent;
 
 	if ( cg_developer.integer )
@@ -847,6 +861,193 @@ already playing exactly this anim. A one-shot anim the host restarted shows
 up as its timer jumping back up, which we turn into SETANIM_FLAG_RESTART.
 ================
 */
+/*
+===============
+JACoop : le ragdoll des corps chez l'invite
+
+L'hote dit quand un corps entre en ragdoll ("ragon") et quand il se pose
+("ragoff") ; entre les deux, l'invite simule le meme ragdoll sur son
+squelette local (memes parametres que le pilote du jeu), et, si l'hote
+envoie la position des effecteurs ("rag", g_coopRagdollSync), les suit :
+la pose finit par etre la meme partout.
+===============
+*/
+static const char	*coopRagEffectors[] =
+{
+	"rhand", "lhand", "rtibia", "ltibia", "rtalus", "ltalus", "rradiusX", "lradiusX", "rfemurX", "lfemurX",
+	"rhumerusX", "lhumerusX", "thoracic", "ceyebrow", "pelvis", NULL
+};
+
+class CCoopRagUpdateParams : public CRagDollUpdateParams
+{
+	void EffectorCollision( const SRagDollEffectorCollision &data ) {}
+	void RagDollBegin() {}
+	virtual void RagDollSettled() {}
+	void Collision() {}
+#ifdef _DEBUG
+	void DebugLine( vec3_t p1, vec3_t p2, int color, bool bbox ) {}
+#endif
+};
+
+void CG_CoopRagOn_f( void )
+{
+	const int n = atoi( CG_Argv( 1 ) );
+
+	if ( !cg_remoteClient || n <= 0 || n >= MAX_GENTITIES )
+	{
+		return;
+	}
+	coopRag[n].on = qtrue;
+	coopRag[n].started = qfalse;
+	coopRag[n].goalTime = 0;
+	coopRag[n].nGoals = 0;
+	cgi_Cvar_Set( "broadsword", "1" );		// le moteur refuse SetRagDoll sinon
+	if ( gi.Cvar_VariableIntegerValue( "developer" ) ) Com_Printf( "coop: rag on ent %i (invite)\n", n );
+}
+
+void CG_CoopRagOff_f( void )
+{
+	const int n = atoi( CG_Argv( 1 ) );
+
+	if ( !cg_remoteClient || n <= 0 || n >= MAX_GENTITIES )
+	{
+		return;
+	}
+	if ( coopRag[n].started && cg_entities[n].gent && gi.G2API_HaveWeGhoul2Models( cg_entities[n].gent->ghoul2 ) )
+	{
+		gi.G2API_ResetRagDoll( cg_entities[n].gent->ghoul2 );
+	}
+	if ( gi.Cvar_VariableIntegerValue( "developer" ) ) Com_Printf( "coop: rag off ent %i (invite), demarre %i, effecteurs recus %i\n", n, (int)coopRag[n].started, coopRag[n].nGoals );
+	memset( &coopRag[n], 0, sizeof( coopRag[n] ) );
+}
+
+void CG_CoopRag_f( void )
+{
+	const int n = atoi( CG_Argv( 1 ) );
+	const int argc = cgi_Argc();
+
+	if ( !cg_remoteClient || n <= 0 || n >= MAX_GENTITIES || !coopRag[n].on )
+	{
+		return;
+	}
+	coopRag_t *r = &coopRag[n];
+
+	r->nGoals = ( argc - 2 ) / 3;
+	if ( r->nGoals > COOP_RAG_MAX_GOALS ) r->nGoals = COOP_RAG_MAX_GOALS;
+	for ( int i = 0; i < r->nGoals; i++ )
+	{
+		r->goals[i][0] = (float)atoi( CG_Argv( 2 + i * 3 ) );
+		r->goals[i][1] = (float)atoi( CG_Argv( 3 + i * 3 ) );
+		r->goals[i][2] = (float)atoi( CG_Argv( 4 + i * 3 ) );
+	}
+	r->goalTime = cg.time;
+	{
+		static int said;
+
+		if ( said++ < 3 )
+		{
+			if ( gi.Cvar_VariableIntegerValue( "developer" ) ) Com_Printf( "coop: rag paquet recu ent %i, %i effecteurs (invite)\n", n, r->nGoals );
+		}
+	}
+}
+
+// qtrue : le ragdoll pilote les os, l'animation normale ne doit pas y toucher
+static qboolean CG_CoopRagdollDrive( centity_t *cent )
+{
+	const int	n = cent->currentState.number;
+	coopRag_t	*r = &coopRag[n];
+	gentity_t	*gent = cent->gent;
+
+	if ( !r->on || !gent || !gent->client || gent->playerModel < 0 || gent->playerModel >= gent->ghoul2.size() )
+	{
+		return qfalse;
+	}
+	const int afi = gent->client->clientInfo.animFileIndex;
+
+	if ( !ValidAnimFileIndex( afi ) )
+	{
+		return qfalse;
+	}
+	int anim = cent->currentState.legsAnim;
+
+	if ( anim < 0 || anim >= MAX_ANIMATIONS || level.knownAnimFileSets[afi].animations[anim].numFrames <= 0 )
+	{
+		anim = BOTH_DEATH1;
+	}
+	const animation_t	*a = &level.knownAnimFileSets[afi].animations[anim];
+	vec3_t				ang;
+
+	VectorSet( ang, 0, cent->lerpAngles[YAW], 0 );
+	if ( !r->started )
+	{
+		CRagDollParams	tParms;
+		float			currentFrame;
+		int				startFrame, endFrame, flags;
+		float			animSpeed;
+
+		tParms.startFrame = a->firstFrame;
+		tParms.endFrame = a->firstFrame + a->numFrames;
+		if ( gi.G2API_GetBoneAnim( &gent->ghoul2[0], "model_root", cg.time, &currentFrame, &startFrame, &endFrame, &flags, &animSpeed, NULL ) )
+		{	// figer l'anim sur son image, comme le pilote du jeu
+			gi.G2API_SetBoneAnim( &gent->ghoul2[0], "lower_lumbar", currentFrame, currentFrame + 1, flags, animSpeed, cg.time, currentFrame, 500 );
+			gi.G2API_SetBoneAnim( &gent->ghoul2[0], "model_root", currentFrame, currentFrame + 1, flags, animSpeed, cg.time, currentFrame, 500 );
+			gi.G2API_SetBoneAnim( &gent->ghoul2[0], "Motion", currentFrame, currentFrame + 1, flags, animSpeed, cg.time, currentFrame, 500 );
+		}
+		gi.G2API_SetBoneAngles( &gent->ghoul2[gent->playerModel], "upper_lumbar", vec3_origin, BONE_ANGLES_POSTMULT, POSITIVE_X, NEGATIVE_Y, NEGATIVE_Z, NULL, 100, cg.time );
+		gi.G2API_SetBoneAngles( &gent->ghoul2[gent->playerModel], "lower_lumbar", vec3_origin, BONE_ANGLES_POSTMULT, POSITIVE_X, NEGATIVE_Y, NEGATIVE_Z, NULL, 100, cg.time );
+		gi.G2API_SetBoneAngles( &gent->ghoul2[gent->playerModel], "thoracic", vec3_origin, BONE_ANGLES_POSTMULT, POSITIVE_X, NEGATIVE_Y, NEGATIVE_Z, NULL, 100, cg.time );
+		gi.G2API_SetBoneAngles( &gent->ghoul2[gent->playerModel], "cervical", vec3_origin, BONE_ANGLES_POSTMULT, POSITIVE_X, NEGATIVE_Y, NEGATIVE_Z, NULL, 100, cg.time );
+		VectorCopy( ang, tParms.angles );
+		VectorCopy( cent->lerpOrigin, tParms.position );
+		VectorCopy( gent->s.modelScale, tParms.scale );
+		tParms.me = n;
+		tParms.groundEnt = cent->currentState.groundEntityNum;
+		tParms.collisionType = 1;
+		tParms.RagPhase = CRagDollParams::RP_DEATH_COLLISION;
+		tParms.fShotStrength = 4;
+		gi.G2API_SetRagDoll( gent->ghoul2, &tParms );
+		r->started = qtrue;
+		if ( gi.Cvar_VariableIntegerValue( "developer" ) ) Com_Printf( "coop: rag demarre ent %i anim %i frames %i-%i (invite)\n", n, anim, tParms.startFrame, tParms.endFrame );
+	}
+
+	CCoopRagUpdateParams tu;
+
+	VectorCopy( ang, tu.angles );
+	VectorCopy( cent->lerpOrigin, tu.position );
+	VectorCopy( gent->s.modelScale, tu.scale );
+	tu.me = n;
+	tu.settleFrame = a->firstFrame + a->numFrames - 1;
+	tu.groundEnt = cent->currentState.groundEntityNum;
+	if ( tu.groundEnt != ENTITYNUM_NONE )
+	{
+		VectorClear( tu.velocity );
+	}
+	else
+	{
+		VectorScale( cent->currentState.pos.trDelta, 0.4f, tu.velocity );
+	}
+	gi.G2API_AnimateG2Models( gent->ghoul2, cg.time, &tu );
+
+	if ( r->goalTime && cg.time - r->goalTime < 400 )
+	{	// la pose de l'hote
+		for ( int i = 0; i < r->nGoals && coopRagEffectors[i]; i++ )
+		{
+			gi.G2API_RagEffectorGoal( gent->ghoul2, coopRagEffectors[i], r->goals[i] );
+		}
+		gi.G2API_RagForceSolve( gent->ghoul2, qtrue );
+	}
+	else if ( r->goalTime )
+	{	// plus rien depuis un moment : la simulation locale reprend seule
+		for ( int i = 0; coopRagEffectors[i]; i++ )
+		{
+			gi.G2API_RagEffectorGoal( gent->ghoul2, coopRagEffectors[i], NULL );
+		}
+		gi.G2API_RagForceSolve( gent->ghoul2, qfalse );
+		r->goalTime = 0;
+	}
+	return qtrue;
+}
+
 static void CG_CoopDriveAnim( centity_t *cent )
 {
 	gentity_t		*gent = cent->gent;
@@ -856,6 +1057,10 @@ static void CG_CoopDriveAnim( centity_t *cent )
 
 	if ( !ValidAnimFileIndex( gent->client->clientInfo.animFileIndex ) || !gi.G2API_HaveWeGhoul2Models( gent->ghoul2 ) )
 	{
+		return;
+	}
+	if ( CG_CoopRagdollDrive( cent ) )
+	{	// le ragdoll tient les os
 		return;
 	}
 	if ( gent->playerModel < 0 || gent->playerModel >= gent->ghoul2.size() || !strstr( gent->ghoul2[gent->playerModel].mFileName, "models/players/" ) )
