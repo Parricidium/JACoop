@@ -1513,6 +1513,16 @@ void ClientCommand( int clientNum ) {
 			gi.Printf( "coop_hp:      takedamage %i contents %i saber %i invincible %i\n", p->takedamage,
 				p->contents, p->client->ps.SaberActive() ? 1 : 0,
 				p->client->ps.powerups[PW_INVINCIBLE] > level.time ? 1 : 0 );
+			{	// coop: l'entite du sabre (un invite "perdait son sabre" pousse arme en main)
+				const int		sen = p->client->ps.saberEntityNum;
+				const gentity_t	*se = ( sen > 0 && sen < ENTITYNUM_WORLD ) ? &g_entities[sen] : NULL;
+
+				gi.Printf( "coop_hp:      s.weapon %i modeles %i %i sabreEnt %i vol %i etat %i%s\n", p->s.weapon, p->weaponModel[0], p->weaponModel[1],
+					sen, p->client->ps.saberInFlight, p->client->ps.saberEntityState,
+					se ? va( " (inuse %i classe %s pos %i %i %i trType %i contents 0x%x svFlags 0x%x owner %i)", se->inuse, se->classname ? se->classname : "?",
+						(int)se->currentOrigin[0], (int)se->currentOrigin[1], (int)se->currentOrigin[2], se->s.pos.trType, se->contents, se->svFlags,
+						se->owner ? se->owner->s.number : -1 ) : "" );
+			}
 			// coop: la longueur de lame, parce qu'un sabre "devenu petit" ne se
 			// lit nulle part ailleurs (signale par JD le 23/09)
 			for ( int sn = 0; sn < MAX_SABERS; sn++ )

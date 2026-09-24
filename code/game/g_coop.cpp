@@ -755,11 +755,11 @@ qboolean G_CoopPlayerDied( gentity_t *self )
 	coopRespawnTime[self->s.number] = level.time + delay;
 	if ( G_CoopLivingTeammate( self ) )
 	{
-		gi.SendServerCommand( -1, "print \"%s ^3est tombe, retour dans %i s...\n\"", self->client->pers.netname, delay / 1000 );
+		G_CoopPrintTr( -1, "print", "%s ^3est tombe, retour dans %i s...\n", "%s ^3fell, back in %i s...\n", self->client->pers.netname, delay / 1000 );
 	}
 	else
 	{	// nobody is up: the all-down screen says what happens next
-		gi.SendServerCommand( -1, "print \"%s ^3est tombe.\n\"", self->client->pers.netname );
+		G_CoopPrintTr( -1, "print", "%s ^3est tombe.\n", "%s ^3fell.\n", self->client->pers.netname );
 	}
 	return qtrue;
 }
@@ -1343,6 +1343,75 @@ static void G_CoopRespawn( gentity_t *ent )
 }
 
 // run once per server frame
+/*
+================
+G_CoopSaberWatch
+
+Every frame, for every player: did the saber go away (inventory, saber
+definition, hilt model while the saber is in hand)? Printed once per change,
+with what was happening - a report from a real game ("pushed with a blaster in
+hand, the saber is gone") that two local instances did not reproduce.
+================
+*/
+static int	coopSaberSeen[MAX_CLIENTS];		// bit 0 in inventory, bit 1 has a definition, bit 2 hilt drawn in hand
+static int	coopSaberHandSince[MAX_CLIENTS];
+
+void G_CoopSaberWatch( void )
+{
+	extern qboolean PM_InKnockDown( playerState_t *ps );
+
+	for ( int i = 0; i < MAX_CLIENTS; i++ )
+	{
+		gentity_t *p = G_CoopPlayerSlot( i );
+
+		if ( !p || !p->client || p->health <= 0 )
+		{
+			coopSaberSeen[i] = 0;
+			coopSaberHandSince[i] = 0;
+			continue;
+		}
+		playerState_t	*ps = &p->client->ps;
+		int				now = 0;
+
+		if ( ps->stats[STAT_WEAPONS] & ( 1 << WP_SABER ) )
+		{
+			now |= 1;
+		}
+		if ( ps->saber[0].name && ps->saber[0].name[0] )
+		{
+			now |= 2;
+		}
+		if ( ps->weapon == WP_SABER && !ps->saberInFlight )
+		{
+			if ( !coopSaberHandSince[i] )
+			{
+				coopSaberHandSince[i] = level.time;
+			}
+			if ( p->weaponModel[0] >= 0 || level.time - coopSaberHandSince[i] < 1000 )
+			{	// a second to draw it after a switch
+				now |= 4;
+			}
+		}
+		else
+		{
+			coopSaberHandSince[i] = 0;
+			now |= 4;
+		}
+		if ( coopSaberSeen[i] && ( coopSaberSeen[i] & ~now ) )
+		{
+			gi.Printf( "coop: SABRE PERDU joueur %i (%s) : %s%s%s arme %i sabre '%s' vol %i etat %i ent %i modeles %i %i, pousse %i renverse %i anim %i/%i\n",
+				i, p->client->pers.netname,
+				( coopSaberSeen[i] & ~now & 1 ) ? "[inventaire] " : "",
+				( coopSaberSeen[i] & ~now & 2 ) ? "[definition] " : "",
+				( coopSaberSeen[i] & ~now & 4 ) ? "[modele en main] " : "",
+				ps->weapon, ps->saber[0].name ? ps->saber[0].name : "", ps->saberInFlight, ps->saberEntityState, ps->saberEntityNum,
+				p->weaponModel[0], p->weaponModel[1], p->forcePushTime > level.time ? 1 : 0, PM_InKnockDown( ps ) ? 1 : 0,
+				ps->legsAnim, ps->torsoAnim );
+		}
+		coopSaberSeen[i] = now;
+	}
+}
+
 void G_CoopRunRespawns( void )
 {
 	for ( int slot = 0; slot < MAX_CLIENTS; slot++ )
@@ -1360,7 +1429,7 @@ void G_CoopRunRespawns( void )
 		if ( ent->inuse && ent->client && ent->client->pers.connected == CON_CONNECTED && ent->health <= 0 )
 		{
 			G_CoopRespawn( ent );
-			gi.SendServerCommand( -1, "print \"^2%s ^7est de retour\n\"", ent->client->pers.netname );
+			G_CoopPrintTr( -1, "print", "^2%s ^7est de retour\n", "^2%s ^7is back\n", ent->client->pers.netname );
 		}
 	}
 }
@@ -2016,11 +2085,11 @@ void G_CoopAnnounceKill( const gentity_t *victim, const gentity_t *attacker, qbo
 	}
 	if ( downed )
 	{
-		gi.SendServerCommand( -1, "print \"^1%s ^7a mis a terre ^1%s\n\"", attacker->client->pers.netname, victim->client->pers.netname );
+		G_CoopPrintTr( -1, "print", "^1%s ^7a mis a terre ^1%s\n", "^1%s ^7downed ^1%s\n", attacker->client->pers.netname, victim->client->pers.netname );
 	}
 	else
 	{
-		gi.SendServerCommand( -1, "print \"^1%s ^7a tue ^1%s\n\"", attacker->client->pers.netname, victim->client->pers.netname );
+		G_CoopPrintTr( -1, "print", "^1%s ^7a tue ^1%s\n", "^1%s ^7killed ^1%s\n", attacker->client->pers.netname, victim->client->pers.netname );
 	}
 	gi.Printf( "coop: team kill - %s %s %s\n", attacker->client->pers.netname, downed ? "downed" : "killed", victim->client->pers.netname );
 }
@@ -2351,7 +2420,7 @@ qboolean G_CoopTryDown( gentity_t *targ, gentity_t *attacker, int mod, int dflag
 	}
 	else
 	{
-		gi.SendServerCommand( -1, "print \"^1%s ^7est a terre !\n\"", targ->client->pers.netname );
+		G_CoopPrintTr( -1, "print", "^1%s ^7est a terre !\n", "^1%s ^7is down!\n", targ->client->pers.netname );
 	}
 	gi.Printf( "coop: %s downed (mod %i), bleeds out in %i s\n", targ->client->pers.netname, mod, bleed / 1000 );
 	return qtrue;
@@ -2388,7 +2457,7 @@ static void G_CoopRevive( gentity_t *target, gentity_t *reviver )
 	{
 		reviver->client->ps.legsAnimTimer = reviver->client->ps.torsoAnimTimer = 0;
 		NPC_SetAnim( reviver, SETANIM_BOTH, BOTH_FORCEHEAL_STOP, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
-		gi.SendServerCommand( -1, "print \"^2%s ^7a releve ^2%s\n\"", reviver->client->pers.netname, target->client->pers.netname );
+		G_CoopPrintTr( -1, "print", "^2%s ^7a releve ^2%s\n", "^2%s ^7revived ^2%s\n", reviver->client->pers.netname, target->client->pers.netname );
 		gi.Printf( "coop: %s revived by %s (%i hp)\n", target->client->pers.netname, reviver->client->pers.netname, health );
 	}
 }
@@ -2622,7 +2691,7 @@ void G_CoopDownedFrame( void )
 			if ( coopReloadTries == 1 )
 			{
 				gi.Printf( "coop: the checkpoint did not load, loading the level start instead\n" );
-				gi.SendServerCommand( -1, "print \"^3Pas de point de controle : retour au debut du niveau...\n\"" );
+				G_CoopPrintTr( -1, "print", "^3Pas de point de controle : retour au debut du niveau...\n", "^3No checkpoint: back to the start of the level...\n" );
 				gi.SendConsoleCommand( "load current\n" );
 			}
 			else
@@ -2650,7 +2719,7 @@ void G_CoopDownedFrame( void )
 	{
 		coopAllDownTime = level.time;
 		coopAllDownLastSec = -1;
-		gi.SendServerCommand( -1, "print \"^1Tous les joueurs sont a terre.\n\"" );
+		G_CoopPrintTr( -1, "print", "^1Tous les joueurs sont a terre.\n", "^1All players are down.\n" );
 		gi.Printf( "coop: everyone is down\n" );
 		for ( int i = 0; i < MAX_CLIENTS; i++ )
 		{
@@ -2692,7 +2761,7 @@ qboolean G_CoopDeferAutosave( void )
 	if ( !coopPendingAutosave )
 	{
 		coopPendingAutosave = qtrue;
-		gi.SendServerCommand( -1, "print \"^3Point de controle en attente : l'hote est a terre\n\"" );
+		G_CoopPrintTr( -1, "print", "^3Point de controle en attente : l'hote est a terre\n", "^3Checkpoint on hold: the host is down\n" );
 		gi.Printf( "coop: autosave deferred, the host is down\n" );
 	}
 	return qtrue;
@@ -2723,7 +2792,7 @@ void G_CoopReloadCheckpoint( void )
 	}
 	coopAllDownTime = -1;
 	coopReloadTime = level.time;
-	gi.SendServerCommand( -1, "print \"^3Retour au dernier point de controle...\n\"" );
+	G_CoopPrintTr( -1, "print", "^3Retour au dernier point de controle...\n", "^3Back to the last checkpoint...\n" );
 	gi.Printf( "coop: reloading the last checkpoint\n" );
 	gi.SendConsoleCommand( "load *respawn\n" );
 }
@@ -3073,6 +3142,60 @@ void G_CoopReadZoomMode( gentity_t *ent, usercmd_t *ucmd )
 	if ( mode != coopZoomMode[ent->s.number] && level.time >= coopZoomHold[ent->s.number] )
 	{
 		coopZoomMode[ent->s.number] = mode;
+	}
+}
+
+/*
+================
+G_CoopTr / G_CoopPrintTr
+
+The mod's texts in two languages: French for a game in French, English for any
+other language (JD, 24/09). G_CoopTr answers for this machine (the host's game,
+or a joiner's cgame). What the host sends goes out in the language of each
+receiver: se_language is in the userinfo.
+================
+*/
+static qboolean G_CoopLangFrench( const char *lang )
+{
+	return (qboolean)!Q_stricmp( lang, "french" );
+}
+
+const char *G_CoopTr( const char *fr, const char *en )
+{
+	char lang[32];
+
+	gi.Cvar_VariableStringBuffer( "se_language", lang, sizeof( lang ) );
+	return G_CoopLangFrench( lang ) ? fr : en;
+}
+
+static qboolean G_CoopClientFrench( int clientNum )
+{
+	char info[MAX_INFO_STRING];
+
+	if ( clientNum == 0 )
+	{	// the host: its own game
+		return (qboolean)( G_CoopTr( "f", "e" )[0] == 'f' );
+	}
+	gi.GetUserinfo( clientNum, info, sizeof( info ) );
+	return G_CoopLangFrench( Info_ValueForKey( info, "se_language" ) );
+}
+
+// "cmd" is print or cp; to = a client slot, or -1 for every player
+void G_CoopPrintTr( int to, const char *cmd, const char *fr, const char *en, ... )
+{
+	for ( int i = 0; i < MAX_CLIENTS; i++ )
+	{
+		if ( ( to >= 0 && i != to ) || !g_entities[i].client || g_entities[i].client->pers.connected == CON_DISCONNECTED )
+		{
+			continue;
+		}
+		char	text[1024];
+		va_list	ap;
+
+		va_start( ap, en );
+		Q_vsnprintf( text, sizeof( text ), G_CoopClientFrench( i ) ? fr : en, ap );
+		va_end( ap );
+		gi.SendServerCommand( i, "%s \"%s\"", cmd, text );
 	}
 }
 

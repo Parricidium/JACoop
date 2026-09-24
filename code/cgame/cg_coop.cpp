@@ -1471,6 +1471,18 @@ void CG_CoopSyncLocalPlayer( void )
 	{
 		return;
 	}
+	{	// the joiner's side of G_CoopSaberWatch: inventory and saber definition as the host sends them
+		static int seen = -1;
+		const playerState_t *ps = &cg.snap->ps;
+		const int now = ( ( ps->stats[STAT_WEAPONS] & ( 1 << WP_SABER ) ) ? 1 : 0 ) | ( ( ps->saber[0].name && ps->saber[0].name[0] ) ? 2 : 0 );
+
+		if ( seen > 0 && ( seen & ~now ) && ps->stats[STAT_HEALTH] > 0 )
+		{
+			Com_Printf( "coop: SABRE PERDU (invite) : %s%s arme %i sabre '%s'\n", ( seen & ~now & 1 ) ? "[inventaire] " : "",
+				( seen & ~now & 2 ) ? "[definition] " : "", ps->weapon, ps->saber[0].name ? ps->saber[0].name : "" );
+		}
+		seen = now;
+	}
 	// shared code compares against level.time; there is no server clock here, use ours
 	level.time = cg.time;
 
@@ -2278,11 +2290,11 @@ void CG_CoopAllDown_f( void )
 	coopAllDownShown = qtrue;
 	if ( left < 0 )
 	{
-		cgi_Cvar_Set( "ui_coopAllDownText", "L'hote choisit comment continuer..." );
+		cgi_Cvar_Set( "ui_coopAllDownText", G_CoopTr( "L'hote choisit comment continuer...", "The host is choosing how to continue..." ) );
 	}
 	else
 	{
-		cgi_Cvar_Set( "ui_coopAllDownText", va( "Retour au dernier point de controle dans %i s", left ) );
+		cgi_Cvar_Set( "ui_coopAllDownText", va( G_CoopTr( "Retour au dernier point de controle dans %i s", "Back to the last checkpoint in %i s" ), left ) );
 	}
 }
 
@@ -2306,7 +2318,7 @@ static const char *CG_CoopReviveKeyName( void )
 		}
 		if ( !coopReviveKey[0] )
 		{
-			Q_strncpyz( coopReviveKey, "(touche non liee)", sizeof( coopReviveKey ) );
+			Q_strncpyz( coopReviveKey, G_CoopTr( "(touche non liee)", "(key not bound)" ), sizeof( coopReviveKey ) );
 		}
 		else
 		{
@@ -2344,7 +2356,7 @@ void CG_CoopDrawDowned( void )
 
 	if ( cg.snap && cg_remoteClient && coopHostVideo )
 	{	// the world is held while the host watches its video (CG_CoopVideo_f)
-		CG_CoopDrawCentered( 440, "L'hote regarde une video...", dim, cgs.media.qhFontSmall, 1.0f );
+		CG_CoopDrawCentered( 440, G_CoopTr( "L'hote regarde une video...", "The host is watching a video..." ), dim, cgs.media.qhFontSmall, 1.0f );
 	}
 	if ( !cg.snap || in_camera || cg.missionStatusShow || coopAllDownShown )
 	{
@@ -2385,7 +2397,7 @@ void CG_CoopDrawDowned( void )
 		org[2] += 40;
 		if ( CG_WorldCoordToScreenCoordFloat( org, &x, &y ) )
 		{
-			const char *label = va( "A TERRE  %i m", (int)( dist / 32 ) );
+			const char *label = va( G_CoopTr( "A TERRE  %i m", "DOWN  %i m" ), (int)( dist / 32 ) );
 			const int	w = cgi_R_Font_StrLenPixels( label, small, 0.9f );
 			CG_DrawPic( x - 12, y - 28, 24, 24, coopDownedIcon );
 			cgi_R_Font_DrawString( x - w / 2, y - 2, label, red, small, -1, 0.9f );
@@ -2414,16 +2426,16 @@ void CG_CoopDrawDowned( void )
 			CG_FillRect( t, 0, 8, 480, shade );
 			CG_FillRect( 632 - t, 0, 8, 480, shade );
 		}
-		CG_CoopDrawCentered( 96, "A TERRE", red, font, 1.4f );
+		CG_CoopDrawCentered( 96, G_CoopTr( "A TERRE", "DOWN" ), red, font, 1.4f );
 		if ( ps->stats[STAT_COOP_REVIVE] > 0 )
 		{
-			CG_CoopDrawCentered( 300, va( "Reanimation...  %i%%", ps->stats[STAT_COOP_REVIVE] ), green, font, 1.0f );
+			CG_CoopDrawCentered( 300, va( G_CoopTr( "Reanimation...  %i%%", "Reviving...  %i%%" ), ps->stats[STAT_COOP_REVIVE] ), green, font, 1.0f );
 			CG_CoopDrawBar( 220, 326, 200, 12, ps->stats[STAT_COOP_REVIVE] / 100.0f, greenFill );
 		}
 		else
 		{
-			CG_CoopDrawCentered( 132, va( "Un coequipier peut te relever (touche %s pres de toi)", CG_CoopReviveKeyName() ), dim, small, 1.0f );
-			CG_CoopDrawCentered( 300, va( "Saignement : %i s", ( left + 999 ) / 1000 ), white, font, 1.0f );
+			CG_CoopDrawCentered( 132, va( G_CoopTr( "Un coequipier peut te relever (touche %s pres de toi)", "A teammate can revive you (%s key next to you)" ), CG_CoopReviveKeyName() ), dim, small, 1.0f );
+			CG_CoopDrawCentered( 300, va( G_CoopTr( "Saignement : %i s", "Bleeding out: %i s" ), ( left + 999 ) / 1000 ), white, font, 1.0f );
 			CG_CoopDrawBar( 220, 326, 200, 12, coopDownMax > 0 ? (float)left / coopDownMax : 0, redFill );
 		}
 		return;
@@ -2436,12 +2448,12 @@ void CG_CoopDrawDowned( void )
 
 	if ( ps->stats[STAT_COOP_REVIVE] > 0 )
 	{	// I am reviving someone
-		CG_CoopDrawCentered( 300, va( "Vous relevez un coequipier...  %i%%", ps->stats[STAT_COOP_REVIVE] ), green, font, 1.0f );
+		CG_CoopDrawCentered( 300, va( G_CoopTr( "Vous relevez un coequipier...  %i%%", "Reviving a teammate...  %i%%" ), ps->stats[STAT_COOP_REVIVE] ), green, font, 1.0f );
 		CG_CoopDrawBar( 220, 326, 200, 12, ps->stats[STAT_COOP_REVIVE] / 100.0f, greenFill );
 	}
 	else if ( nearestBody >= 0 && nearestBody <= CG_CoopReviveRange() && ps->stats[STAT_HEALTH] > 0 )
 	{	// beside someone on the ground (same measure as the host: player origin to body, g_coopReviveRange)
-		CG_CoopDrawCentered( 300, va( "Maintenir %s pour relever", CG_CoopReviveKeyName() ), white, font, 1.0f );
+		CG_CoopDrawCentered( 300, va( G_CoopTr( "Maintenir %s pour relever", "Hold %s to revive" ), CG_CoopReviveKeyName() ), white, font, 1.0f );
 	}
 }
 
