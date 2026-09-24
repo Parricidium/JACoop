@@ -1176,6 +1176,7 @@ extern cvar_t	*r_modernSunMapRange;
 void R_ModernInit( void );
 void R_ModernShutdown( void );
 void R_ModernMarkPending( void );
+void R_ModernOpaqueDone( void );
 void R_ModernFlush( void );
 extern cvar_t	*r_DynamicGlowPasses;
 extern cvar_t	*r_DynamicGlowDelta;

@@ -757,6 +757,14 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 			if (oldShader != NULL) {
 				RB_EndSurface();
 
+				// JACoop: l'opaque (et les decalques) est fini, le transparent
+				// commence : la couche de rendu moderne s'applique maintenant,
+				// avant les lames de sabre et les lueurs
+				if ( !g_bRenderGlowingObjects && shader && oldShader->sort <= SS_DECAL && shader->sort > SS_DECAL )
+				{
+					R_ModernOpaqueDone();
+				}
+
 				if (!didShadowPass && shader && shader->sort > SS_BANNER)
 				{
 					RB_ShadowFinish();

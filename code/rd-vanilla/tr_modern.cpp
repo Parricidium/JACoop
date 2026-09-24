@@ -429,7 +429,11 @@ static const char *fsComposite =
 	"	for ( int y = -2; y <= 2; y++ )\n"
 	"		for ( int x = -2; x <= 2; x++ )\n"
 	"			sh += texture2D( ao, uv + vec2( float( x ), float( y ) ) * texel ).g;\n"
-	"	sh = mix( 1.0, sh / 25.0, sunStrength );\n"
+	// Un pixel deja sombre n'est presque plus assombri : la carte de lumiere
+	// du jeu a deja fait son travail en interieur, et une coursive entiere
+	// virait au noir (capture de JD, 24/09).
+	"	float lum = dot( c.rgb, vec3( 0.3, 0.59, 0.11 ) );\n"
+	"	sh = mix( 1.0, sh / 25.0, sunStrength * smoothstep( 0.06, 0.30, lum ) );\n"
 	// --- rayons crepusculaires : compter le ciel entre ce pixel et le soleil
 	"	vec3 rays = vec3( 0.0 );\n"
 	"	if ( raysOn > 0.0 ) {\n"
@@ -986,9 +990,39 @@ ne fait que recopier : l'image doit etre identique a celle d'avant.
 ===============
 */
 static qboolean	modernPending;		// une vue 3D a ete dessinee, la passe lui est due
+static qboolean	modernOpaqueDone;	// ... ou la passe a deja eu lieu au milieu de cette vue
+
+// La frontiere opaque -> transparent de la vue principale : le decor et les
+// personnages sont peints, les lames de sabre, lueurs, sprites et effets
+// additifs ne le sont pas encore. C'est ICI que la passe doit s'appliquer,
+// pour que l'ombre et l'occlusion ne touchent pas ce qui brille (JD : la lame
+// du sabre s'eteignait dans l'ombre). La profondeur n'a alors que l'opaque.
+void R_ModernOpaqueDone( void )
+{
+	if ( !r_modern || !r_modern->integer || modernFailed )
+	{
+		return;
+	}
+	if ( ( backEnd.refdef.rdflags & ( RDF_NOWORLDMODEL | RDF_SKYBOXPORTAL ) ) || backEnd.viewParms.isPortal )
+	{
+		return;		// pas le ciel en portail, pas un miroir : seulement la vue principale
+	}
+	modernOpaqueDone = qtrue;
+	modernPending = qfalse;		// une vue precedente (ciel en portail) n'a plus rien a reclamer
+	if ( r_modernDebug->integer == 6 )
+	{
+		ri.Printf( PRINT_ALL, "passe a la frontiere opaque -> transparent (vue %ix%i)\n", backEnd.viewParms.viewportWidth, backEnd.viewParms.viewportHeight );
+	}
+	R_ModernPostProcess();
+}
 
 void R_ModernMarkPending( void )
 {
+	if ( modernOpaqueDone )
+	{	// deja fait pour cette vue ; rien a rattraper au passage en 2D
+		modernOpaqueDone = qfalse;
+		return;
+	}
 	modernPending = qtrue;
 }
 
@@ -1224,6 +1258,11 @@ static void R_ModernPostProcess( void )
 	GL_SelectTexture( 1 );
 	qglBindTexture( GL_TEXTURE_2D, 0 );
 	GL_SelectTexture( 0 );
+	qglBindTexture( GL_TEXTURE_2D, 0 );
+	// le cache de liaisons du moteur ne sait rien de tout ca : l'invalider,
+	// sinon son prochain GL_Bind de la meme image serait saute (on tourne
+	// maintenant AU MILIEU de la liste des surfaces, plus en fin d'image)
+	glState.currenttextures[0] = glState.currenttextures[1] = -1;
 
 	qglMatrixMode( GL_PROJECTION );
 	qglPopMatrix();
