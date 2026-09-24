@@ -100,6 +100,8 @@ if(BuildSPRdVanilla OR BuildJK2SPRdVanilla)
 		"${SPDir}/rd-vanilla/qgl.h"
 		"${SPDir}/rd-vanilla/tr_arb.cpp"
 		"${SPDir}/rd-vanilla/tr_modern.cpp"
+		"${SPDir}/rd-vanilla/tr_modern.h"
+		"${SPDir}/rd-vanilla/tr_modern_rt.cpp"
 		"${SPDir}/rd-vanilla/tr_backend.cpp"
 		"${SPDir}/rd-vanilla/tr_bsp.cpp"
 		"${SPDir}/rd-vanilla/tr_cmds.cpp"

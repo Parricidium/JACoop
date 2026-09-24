@@ -529,6 +529,7 @@ static void RB_BeginDrawingView (void) {
 	{
 		qglClear( clearBits );
 	}
+	R_ModernRTViewBegin();	// JACoop: la vue commence, le trace repart de zero
 
 	if ( ( backEnd.refdef.rdflags & RDF_HYPERSPACE ) )
 	{

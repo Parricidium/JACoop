@@ -1545,6 +1545,20 @@ void R_Register( void )
 	// occulteurs hors champ projettent aussi (portee en unites du jeu)
 	r_modernSunMap = ri.Cvar_Get( "r_modernSunMap", "1", CVAR_ARCHIVE_ND );
 	r_modernSunMapRange = ri.Cvar_Get( "r_modernSunMapRange", "1200", CVAR_ARCHIVE_ND );
+	// le ray tracing : rayons par pixel dans les shaders (GL 4.3), a la place
+	// de la carte d'ombre et de l'occlusion en espace ecran
+	r_modernRT = ri.Cvar_Get( "r_modernRT", "1", CVAR_ARCHIVE_ND );
+	r_modernRTSunRays = ri.Cvar_Get( "r_modernRTSunRays", "4", CVAR_ARCHIVE_ND );
+	r_modernRTSoft = ri.Cvar_Get( "r_modernRTSoft", "1", CVAR_ARCHIVE_ND );
+	r_modernRTAORays = ri.Cvar_Get( "r_modernRTAORays", "8", CVAR_ARCHIVE_ND );
+	r_modernRTAORange = ri.Cvar_Get( "r_modernRTAORange", "96", CVAR_ARCHIVE_ND );
+	r_modernRTLights = ri.Cvar_Get( "r_modernRTLights", "1", CVAR_ARCHIVE_ND );
+	r_modernRTLightScale = ri.Cvar_Get( "r_modernRTLightScale", "1", CVAR_ARCHIVE_ND );
+	r_modernRTReflect = ri.Cvar_Get( "r_modernRTReflect", "1", CVAR_ARCHIVE_ND );
+	r_modernRTDynamic = ri.Cvar_Get( "r_modernRTDynamic", "1", CVAR_ARCHIVE_ND );
+	// la passe tracee a une fraction de la resolution (0.5 = 4x moins de rayons)
+	r_modernRTScale = ri.Cvar_Get( "r_modernRTScale", "0.5", CVAR_ARCHIVE_ND );
+	r_modernRTReflectStrength = ri.Cvar_Get( "r_modernRTReflectStrength", "1", CVAR_ARCHIVE_ND );
 	r_DynamicGlowPasses = ri.Cvar_Get( "r_DynamicGlowPasses", "5", CVAR_ARCHIVE_ND );
 	r_DynamicGlowDelta  = ri.Cvar_Get( "r_DynamicGlowDelta", "0.8f", CVAR_ARCHIVE_ND );
 	r_DynamicGlowIntensity = ri.Cvar_Get( "r_DynamicGlowIntensity", "1.13f", CVAR_ARCHIVE_ND );

@@ -2137,7 +2137,10 @@ void RB_StageIteratorGeneric( void )
 		}
 		else
 		{
-			ProjectDlightTexture();
+			if ( !R_ModernRTLightsActive() )	// JACoop: le trace eclaire lui-meme
+			{
+				ProjectDlightTexture();
+			}
 		}
 	}
 
@@ -2269,6 +2272,7 @@ void RB_EndSurface( void ) {
 	// call off to shader specific tess end function
 	//
 	tess.currentStageIteratorFunc();
+	R_ModernRTAfterSurface();	// JACoop: le trace capture ce qui vient d'etre dessine
 
 	//
 	// draw debugging stuff

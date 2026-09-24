@@ -22,6 +22,7 @@ machine virtuelle).
 */
 
 #include "tr_local.h"
+#include "tr_modern.h"
 
 cvar_t	*r_modern;
 cvar_t	*r_modernDebug;
@@ -41,57 +42,32 @@ cvar_t	*r_modernSunMapRange;
 // Les pilotes de bureau donnent deja un contexte de compatibilite recent, donc
 // il n'y a en general rien a demander a SDL - on verifie, c'est tout.
 
-typedef void	(APIENTRY *PFN_glGenFramebuffers)( GLsizei, GLuint * );
-typedef void	(APIENTRY *PFN_glDeleteFramebuffers)( GLsizei, const GLuint * );
-typedef void	(APIENTRY *PFN_glBindFramebuffer)( GLenum, GLuint );
-typedef void	(APIENTRY *PFN_glFramebufferTexture2D)( GLenum, GLenum, GLenum, GLuint, GLint );
-typedef GLenum	(APIENTRY *PFN_glCheckFramebufferStatus)( GLenum );
-typedef GLuint	(APIENTRY *PFN_glCreateShader)( GLenum );
-typedef void	(APIENTRY *PFN_glShaderSource)( GLuint, GLsizei, const GLchar *const *, const GLint * );
-typedef void	(APIENTRY *PFN_glCompileShader)( GLuint );
-typedef void	(APIENTRY *PFN_glGetShaderiv)( GLuint, GLenum, GLint * );
-typedef void	(APIENTRY *PFN_glGetShaderInfoLog)( GLuint, GLsizei, GLsizei *, GLchar * );
-typedef void	(APIENTRY *PFN_glDeleteShader)( GLuint );
-typedef GLuint	(APIENTRY *PFN_glCreateProgram)( void );
-typedef void	(APIENTRY *PFN_glAttachShader)( GLuint, GLuint );
-typedef void	(APIENTRY *PFN_glLinkProgram)( GLuint );
-typedef void	(APIENTRY *PFN_glGetProgramiv)( GLuint, GLenum, GLint * );
-typedef void	(APIENTRY *PFN_glGetProgramInfoLog)( GLuint, GLsizei, GLsizei *, GLchar * );
-typedef void	(APIENTRY *PFN_glDeleteProgram)( GLuint );
-typedef void	(APIENTRY *PFN_glUseProgram)( GLuint );
-typedef GLint	(APIENTRY *PFN_glGetUniformLocation)( GLuint, const GLchar * );
-typedef void	(APIENTRY *PFN_glUniform1i)( GLint, GLint );
-typedef void	(APIENTRY *PFN_glUniform1f)( GLint, GLfloat );
-typedef void	(APIENTRY *PFN_glUniform2f)( GLint, GLfloat, GLfloat );
-typedef void	(APIENTRY *PFN_glUniform3f)( GLint, GLfloat, GLfloat, GLfloat );
-typedef void	(APIENTRY *PFN_glUniform4f)( GLint, GLfloat, GLfloat, GLfloat, GLfloat );
-typedef void	(APIENTRY *PFN_glUniformMatrix4fv)( GLint, GLsizei, GLboolean, const GLfloat * );
 
-static PFN_glGenFramebuffers		p_glGenFramebuffers;
-static PFN_glDeleteFramebuffers		p_glDeleteFramebuffers;
-static PFN_glBindFramebuffer		p_glBindFramebuffer;
-static PFN_glFramebufferTexture2D	p_glFramebufferTexture2D;
-static PFN_glCheckFramebufferStatus	p_glCheckFramebufferStatus;
-static PFN_glCreateShader			p_glCreateShader;
-static PFN_glShaderSource			p_glShaderSource;
-static PFN_glCompileShader			p_glCompileShader;
-static PFN_glGetShaderiv			p_glGetShaderiv;
-static PFN_glGetShaderInfoLog		p_glGetShaderInfoLog;
-static PFN_glDeleteShader			p_glDeleteShader;
-static PFN_glCreateProgram			p_glCreateProgram;
-static PFN_glAttachShader			p_glAttachShader;
-static PFN_glLinkProgram			p_glLinkProgram;
-static PFN_glGetProgramiv			p_glGetProgramiv;
-static PFN_glGetProgramInfoLog		p_glGetProgramInfoLog;
-static PFN_glDeleteProgram			p_glDeleteProgram;
-static PFN_glUseProgram				p_glUseProgram;
-static PFN_glGetUniformLocation		p_glGetUniformLocation;
-static PFN_glUniform1i				p_glUniform1i;
-static PFN_glUniform1f				p_glUniform1f;
-static PFN_glUniform2f				p_glUniform2f;
-static PFN_glUniform3f				p_glUniform3f;
-static PFN_glUniform4f				p_glUniform4f;
-static PFN_glUniformMatrix4fv		p_glUniformMatrix4fv;
+PFN_glGenFramebuffers		p_glGenFramebuffers;
+PFN_glDeleteFramebuffers		p_glDeleteFramebuffers;
+PFN_glBindFramebuffer		p_glBindFramebuffer;
+PFN_glFramebufferTexture2D	p_glFramebufferTexture2D;
+PFN_glCheckFramebufferStatus	p_glCheckFramebufferStatus;
+PFN_glCreateShader			p_glCreateShader;
+PFN_glShaderSource			p_glShaderSource;
+PFN_glCompileShader			p_glCompileShader;
+PFN_glGetShaderiv			p_glGetShaderiv;
+PFN_glGetShaderInfoLog		p_glGetShaderInfoLog;
+PFN_glDeleteShader			p_glDeleteShader;
+PFN_glCreateProgram			p_glCreateProgram;
+PFN_glAttachShader			p_glAttachShader;
+PFN_glLinkProgram			p_glLinkProgram;
+PFN_glGetProgramiv			p_glGetProgramiv;
+PFN_glGetProgramInfoLog		p_glGetProgramInfoLog;
+PFN_glDeleteProgram			p_glDeleteProgram;
+PFN_glUseProgram				p_glUseProgram;
+PFN_glGetUniformLocation		p_glGetUniformLocation;
+PFN_glUniform1i				p_glUniform1i;
+PFN_glUniform1f				p_glUniform1f;
+PFN_glUniform2f				p_glUniform2f;
+PFN_glUniform3f				p_glUniform3f;
+PFN_glUniform4f				p_glUniform4f;
+PFN_glUniformMatrix4fv		p_glUniformMatrix4fv;
 
 #ifndef GL_FRAMEBUFFER
 #define GL_FRAMEBUFFER			0x8D40
@@ -206,7 +182,7 @@ static GLuint R_ModernCompileStage( GLenum type, const char *src, const char *wh
 	return obj;
 }
 
-static GLuint R_ModernCompile( const char *vertex, const char *fragment, const char *what )
+GLuint R_ModernCompile( const char *vertex, const char *fragment, const char *what )
 {
 	const GLuint	vs = R_ModernCompileStage( GL_VERTEX_SHADER, vertex, va( "%s (sommets)", what ) );
 	const GLuint	fs = vs ? R_ModernCompileStage( GL_FRAGMENT_SHADER, fragment, va( "%s (pixels)", what ) ) : 0;
@@ -415,6 +391,9 @@ static const char *fsComposite =
 	"uniform float raysOn;\n"
 	"uniform vec3 raysColor;\n"
 	"uniform int debugMode;\n"
+	"uniform sampler2D rtLight;\n"		// le ray tracing : lumiere ajoutee
+	"uniform sampler2D rtRefl;\n"		// ... et reflet (rgb) avec sa force (a)
+	"uniform float rtOn;\n"
 	"varying vec2 uv;\n"
 	"float hash( vec2 c ) { return fract( sin( dot( c, vec2( 12.9898, 78.233 ) ) ) * 43758.5453 ); }\n"
 	"void main() {\n"
@@ -468,12 +447,26 @@ static const char *fsComposite =
 	"		gl_FragColor = vec4( c.rgb * vec3( 1.0, 0.45, 0.25 ), c.a );\n"
 	"	} else if ( debugMode == 4 ) {\n"
 	"		gl_FragColor = vec4( vec3( sh ), 1.0 );\n"		// l'ombre seule
-	"	} else if ( debugMode >= 7 ) {\n"
+	"	} else if ( debugMode >= 7 && debugMode <= 9 ) {\n"
 	"		gl_FragColor = vec4( texture2D( ao, uv ).rgb, 1.0 );\n"
+	"	} else if ( debugMode == 10 ) {\n"
+	"		gl_FragColor = vec4( texture2D( rtLight, uv ).rgb, 1.0 );\n"	// la lumiere tracee seule
+	"	} else if ( debugMode == 12 ) {\n"
+	"		gl_FragColor = vec4( texture2D( ao, uv ).rgb, 1.0 );\n"	// la cible d occlusion brute
+	"	} else if ( debugMode == 11 ) {\n"
+	"		vec4 R = texture2D( rtRefl, uv );\n"
+	"		gl_FragColor = vec4( R.rgb * R.a, 1.0 );\n"			// le reflet seul
 	"	} else if ( debugMode == 5 ) {\n"
 	"		gl_FragColor = vec4( rays, 1.0 );\n"			// les rayons seuls
 	"	} else {\n"
-	"		gl_FragColor = vec4( c.rgb * a * sh + rays, c.a );\n"
+	"		vec3 col = c.rgb * a * sh;\n"
+	"		if ( rtOn > 0.5 ) {\n"
+	"			vec4 L = texture2D( rtLight, uv );\n"
+	"			vec4 R = texture2D( rtRefl, uv );\n"
+	"			col += L.rgb * ( c.rgb * 0.7 + 0.15 );\n"
+	"			col = mix( col, R.rgb, R.a );\n"
+	"		}\n"
+	"		gl_FragColor = vec4( col + rays, c.a );\n"
 	"	}\n"
 	"}\n";
 
@@ -488,12 +481,12 @@ GL_ARB_texture_non_power_of_two est acquis partout ou GLSL l'est.
 // Vide le drapeau d'erreur : on s'initialise au milieu d'une image, ce qui
 // traine peut etre deja une erreur venue du rendu d'origine, et elle n'est pas
 // la notre.
-static void R_ModernDrainErrors( void )
+void R_ModernDrainErrors( void )
 {
 	for ( int i = 0; i < 16 && qglGetError() != GL_NO_ERROR; i++ ) {}
 }
 
-static qboolean R_ModernStep( const char *what )
+qboolean R_ModernStep( const char *what )
 {
 	const GLenum err = qglGetError();
 
@@ -608,6 +601,7 @@ void R_ModernInit( void )
 
 void R_ModernShutdown( void )
 {
+	R_ModernRTShutdown();
 	if ( modernComposite )
 	{
 		p_glDeleteProgram( modernComposite );
@@ -967,7 +961,7 @@ static void R_ModernBuildSunMap( const vec3_t sunWorld, const vec3_t center, flo
 
 static void R_ModernPostProcess( void );
 
-static void R_ModernFullscreenQuad( void )
+void R_ModernFullscreenQuad( void )
 {
 	qglBegin( GL_QUADS );
 		qglTexCoord2f( 0.0f, 0.0f );	qglVertex2f( -1.0f, -1.0f );
@@ -1128,7 +1122,33 @@ static void R_ModernPostProcess( void )
 	// --- la carte d'ombre : le decor et le soleil sont fixes, on ne la refait
 	// que lorsque le joueur s'est eloigne du centre autour duquel elle a ete
 	// construite (ou qu'on change sa portee).
-	const qboolean	wantMap = (qboolean)( wantSun && r_modernSunMap->integer && tr.world != NULL );
+	// Le ray tracing prend la place de la carte d'ombre et de l'occlusion en
+	// espace ecran quand il est actif et qu'il a pu se mettre en place.
+	qboolean		rtDone = qfalse;
+
+	if ( R_ModernRTActive() )
+	{
+		modernRTParams_t	prm;
+
+		prm.w = w;
+		prm.h = h;
+		prm.depthTex = modernDepthTex;
+		prm.sceneTex = modernSceneTex;
+		prm.aoTex = modernAoTex;
+		prm.proj = P;
+		prm.view = backEnd.viewParms.world.modelMatrix;
+		R_ModernInvertView( backEnd.viewParms.world.modelMatrix, prm.invView );
+		VectorCopy( tr.sunDirection, prm.sunDir );
+		VectorNormalize( prm.sunDir );
+		prm.wantSun = wantSun;
+		prm.wantAo = wantAo;
+		rtDone = R_ModernRTPass( &prm );
+		qglViewport( x, y, w, h );
+		qglScissor( x, y, w, h );
+		modernSunValid = qfalse;
+	}
+
+	const qboolean	wantMap = (qboolean)( !rtDone && wantSun && r_modernSunMap->integer && tr.world != NULL );
 
 	if ( wantMap )
 	{
@@ -1150,7 +1170,7 @@ static void R_ModernPostProcess( void )
 	}
 
 	// --- passe 1 : l'occlusion et l'ombre du soleil, dans la meme cible
-	if ( wantAo || wantSun )
+	if ( !rtDone && ( wantAo || wantSun ) )
 	{
 		p_glBindFramebuffer( GL_FRAMEBUFFER, modernAoFbo );
 		qglViewport( 0, 0, w, h );
@@ -1199,13 +1219,25 @@ static void R_ModernPostProcess( void )
 
 	// --- passe 2 : composition a l'ecran
 	GL_SelectTexture( 2 );
-	qglBindTexture( GL_TEXTURE_2D, modernAoTex );
+	qglBindTexture( GL_TEXTURE_2D, rtDone ? R_ModernRTAoTex() : modernAoTex );
 	GL_SelectTexture( 1 );
 	qglBindTexture( GL_TEXTURE_2D, modernDepthTex );
 	GL_SelectTexture( 0 );
 	qglBindTexture( GL_TEXTURE_2D, modernSceneTex );
 
+	if ( rtDone )
+	{	// les unites 3 et 4 ne sont pas suivies par le moteur : en direct, et
+		// on revient sur la 0 qu'il croit active
+		qglActiveTextureARB( GL_TEXTURE3_ARB );
+		qglBindTexture( GL_TEXTURE_2D, R_ModernRTLightTex() );
+		qglActiveTextureARB( 0x84C4 /* GL_TEXTURE4_ARB */ );
+		qglBindTexture( GL_TEXTURE_2D, R_ModernRTReflTex() );
+		qglActiveTextureARB( GL_TEXTURE0_ARB );
+	}
 	p_glUseProgram( modernComposite );
+	p_glUniform1i( p_glGetUniformLocation( modernComposite, "rtLight" ), 3 );
+	p_glUniform1i( p_glGetUniformLocation( modernComposite, "rtRefl" ), 4 );
+	p_glUniform1f( p_glGetUniformLocation( modernComposite, "rtOn" ), rtDone ? 1.0f : 0.0f );
 	p_glUniform1i( p_glGetUniformLocation( modernComposite, "scene" ), 0 );
 	p_glUniform1i( p_glGetUniformLocation( modernComposite, "sceneDepth" ), 1 );
 	p_glUniform1i( p_glGetUniformLocation( modernComposite, "ao" ), 2 );
@@ -1250,6 +1282,15 @@ static void R_ModernPostProcess( void )
 	R_ModernFullscreenQuad();
 
 	p_glUseProgram( 0 );
+
+	if ( rtDone )
+	{
+		qglActiveTextureARB( 0x84C4 /* GL_TEXTURE4_ARB */ );
+		qglBindTexture( GL_TEXTURE_2D, 0 );
+		qglActiveTextureARB( GL_TEXTURE3_ARB );
+		qglBindTexture( GL_TEXTURE_2D, 0 );
+		qglActiveTextureARB( GL_TEXTURE0_ARB );
+	}
 
 	// rendre les unites de texture telles qu'on les a trouvees : le pipeline
 	// d'origine ne s'attend pas a les voir occupees

@@ -1173,10 +1173,27 @@ extern cvar_t	*r_modernRays;
 extern cvar_t	*r_modernRaysStrength;
 extern cvar_t	*r_modernSunMap;
 extern cvar_t	*r_modernSunMapRange;
+extern cvar_t	*r_modernRT;
+extern cvar_t	*r_modernRTSunRays;
+extern cvar_t	*r_modernRTSoft;
+extern cvar_t	*r_modernRTAORays;
+extern cvar_t	*r_modernRTAORange;
+extern cvar_t	*r_modernRTLights;
+extern cvar_t	*r_modernRTLightScale;
+extern cvar_t	*r_modernRTReflect;
+extern cvar_t	*r_modernRTDynamic;
+extern cvar_t	*r_modernRTScale;
+extern cvar_t	*r_modernRTReflectStrength;
 void R_ModernInit( void );
 void R_ModernShutdown( void );
 void R_ModernMarkPending( void );
 void R_ModernOpaqueDone( void );
+// le ray tracing (tr_modern_rt.cpp)
+qboolean R_ModernRTActive( void );		// r_modernRT et la carte le permet
+qboolean R_ModernRTLightsActive( void );	// ... et il eclaire lui-meme : les dlights du moteur se taisent
+void R_ModernRTViewBegin( void );
+void R_ModernRTAfterSurface( void );
+void R_ModernRTShutdown( void );
 void R_ModernFlush( void );
 extern cvar_t	*r_DynamicGlowPasses;
 extern cvar_t	*r_DynamicGlowDelta;
