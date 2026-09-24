@@ -14180,18 +14180,38 @@ extern void ForceRage( gentity_t *self );
 extern void ForceProtect( gentity_t *self );
 extern void ForceAbsorb( gentity_t *self );
 extern void ForceSeeing( gentity_t *self );
+// coop: quel pouvoir CE joueur a selectionne. cg.forcepowerSelect est la
+// selection de l'HOTE : pour un invite il faut lire celle que son cgame a
+// glissee dans les bits 12-15 du champ boutons, sinon il declenche le pouvoir
+// du voisin - ou rien, s'il ne le possede pas (signale par JD, 23/09).
+static int PM_CoopForceSelect( const gentity_t *ent, const usercmd_t *ucmd )
+{
+	if ( ent && ucmd && ent->s.number > 0 && ent->s.number < MAX_CLIENTS )
+	{
+		const int sel = ( ucmd->buttons >> BUTTON_COOP_FORCE_SHIFT ) & 15;
+
+		if ( sel >= 0 && sel < MAX_SHOWPOWERS )
+		{
+			return sel;
+		}
+	}
+	return cg.forcepowerSelect;
+}
+
 void PM_CheckForceUseButton( gentity_t *ent, usercmd_t *ucmd  )
 {
 	if ( !ent )
 	{
 		return;
 	}
+	const int coopSel = PM_CoopForceSelect( ent, ucmd );
+
 	if ( ucmd->buttons & BUTTON_USE_FORCE )
 	{
 		if (!(ent->client->ps.pm_flags & PMF_USEFORCE_HELD))
 		{
 			//impulse one shot
-			switch ( showPowers[cg.forcepowerSelect] )
+			switch ( showPowers[coopSel] )
 			{
 			case FP_HEAL:
 				ForceHeal( ent );
@@ -14225,7 +14245,7 @@ void PM_CheckForceUseButton( gentity_t *ent, usercmd_t *ucmd  )
 			}
 		}
 		//these stay are okay to call every frame button is down
-		switch ( showPowers[cg.forcepowerSelect] )
+		switch ( showPowers[coopSel] )
 		{
 		case FP_LEVITATION:
 			ucmd->upmove = 127;
@@ -14241,7 +14261,7 @@ void PM_CheckForceUseButton( gentity_t *ent, usercmd_t *ucmd  )
 			ucmd->buttons |= BUTTON_FORCE_DRAIN;
 			break;
 //		default:
-//			Com_Printf( "Use Force: Unhandled force: %d\n", showPowers[cg.forcepowerSelect]);
+//			Com_Printf( "Use Force: Unhandled force: %d\n", showPowers[coopSel]);
 //			break;
 		}
 		ent->client->ps.pm_flags |= PMF_USEFORCE_HELD;

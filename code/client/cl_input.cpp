@@ -649,6 +649,11 @@ void CL_FinishMove( usercmd_t *cmd ) {
 	cmd->weapon = cl.cgameUserCmdValue & 0xff;
 	// coop: the cgame's zoom mode (binoculars/scope/goggles) in bits 10-11, the host keeps it per player
 	cmd->buttons = ( cmd->buttons & ~BUTTON_COOP_ZOOM_MASK ) | ( ( ( cl.cgameUserCmdValue >> 8 ) & 3 ) << BUTTON_COOP_ZOOM_SHIFT );
+	// coop: et le pouvoir de Force choisi, bits 12-15. Sans lui, l'hote
+	// declenche SON pouvoir selectionne quand un invite appuie sur "utiliser la
+	// Force" (bg_pmove.cpp lit cg.forcepowerSelect, qui est celui de l'hote).
+	cmd->buttons = ( cmd->buttons & ~BUTTON_COOP_FORCE_MASK )
+		| ( ( ( cl.cgameUserCmdValue >> 10 ) & 15 ) << BUTTON_COOP_FORCE_SHIFT );
 
 	if (cl.gcmdSendValue)
 	{
