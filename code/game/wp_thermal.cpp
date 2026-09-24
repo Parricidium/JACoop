@@ -59,6 +59,10 @@ void thermalDetonatorExplode( gentity_t *ent )
 
 		ent->takedamage = qfalse; // don't allow double deaths!
 
+		if ( g_developer->integer )
+		{
+			gi.Printf( "coop: grenade %i explose en %.0f %.0f %.0f\n", ent->s.number, ent->currentOrigin[0], ent->currentOrigin[1], ent->currentOrigin[2] );
+		}
 		G_RadiusDamage( ent->currentOrigin, ent->owner, weaponData[WP_THERMAL].splashDamage, weaponData[WP_THERMAL].splashRadius, NULL, MOD_EXPLOSIVE_SPLASH );
 
 		G_PlayEffect( "thermal/explosion", ent->currentOrigin );
@@ -448,6 +452,11 @@ gentity_t *WP_FireThermalDetonator( gentity_t *ent, qboolean alt_fire )
 
 	VectorCopy( start, bolt->pos2 );
 
+	if ( g_developer->integer && G_CoopIsPlayer( ent ) )
+	{
+		gi.Printf( "coop: grenade %i lancee par %i depuis %.0f %.0f %.0f vitesse %.0f %.0f %.0f charge %.2f alt %i\n", bolt->s.number, ent->s.number,
+			start[0], start[1], start[2], bolt->s.pos.trDelta[0], bolt->s.pos.trDelta[1], bolt->s.pos.trDelta[2], chargeAmount, alt_fire );
+	}
 	return bolt;
 }
 

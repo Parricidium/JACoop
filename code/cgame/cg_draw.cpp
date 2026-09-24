@@ -3408,6 +3408,19 @@ static void CG_ScanForCrosshairEntity( qboolean scanAll )
 			//FIXME: increase this?  Increase when zoom in?
 			VectorMA( start, 4096, d_f, end );//was 8192
 		}
+		else if ( cg_dynamicCrosshair.integer && cg_remoteClient && !cg.snap->ps.viewEntity )
+		{	// coop: the joiner's shot leaves the host from G_CoopShotStart; the reticle sits where that line lands
+			extern qboolean G_CoopShotStart( const playerState_t *ps, int weapon, vec3_t eye, vec3_t muzzle );
+			vec3_t d_f, eye;
+
+			if ( !G_CoopShotStart( &cg.predicted_player_state, cg.predicted_player_state.weapon, eye, start ) )
+			{	// saber, melee: from the eyes, as the host's own player
+				VectorCopy( cg.predicted_player_state.origin, start );
+				start[2] += cg.predicted_player_state.viewheight;
+			}
+			AngleVectors( cg.predicted_player_state.viewangles, d_f, NULL, NULL );
+			VectorMA( start, 4096, d_f, end );
+		}
 		else
 		{//old way
 			VectorCopy( cg.refdef.vieworg, start );
@@ -3444,6 +3457,10 @@ static void CG_ScanForCrosshairEntity( qboolean scanAll )
 */
 	//draw crosshair at endpoint
 	CG_DrawCrosshair( trace.endpos );
+	{	// coop: for coop_ents (where the reticle sits in the world)
+		extern vec3_t cg_coopCrosshairPos;
+		VectorCopy( trace.endpos, cg_coopCrosshairPos );
+	}
 
 	g_crosshairEntNum = trace.entityNum;
 	g_crosshairEntDist = 4096*trace.fraction;

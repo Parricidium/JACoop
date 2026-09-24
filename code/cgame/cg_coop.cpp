@@ -794,6 +794,7 @@ and we do not.
 ================
 */
 float coopLastMouseSpeed = -1.0f, coopLastMouseFov = -1.0f, coopLastMouseTs = -1.0f;
+vec3_t cg_coopCrosshairPos;	// cg_draw.cpp : where the reticle sits in the world
 extern bool in_camera;
 
 void CG_CoopEnts_f( void )
@@ -815,6 +816,8 @@ void CG_CoopEnts_f( void )
 		Com_Printf( "coop: ps weapon %i weapons 0x%x force %i/%i known 0x%x levels [%s] styles 0x%x stance %i active 0x%x speedDur %i drainEnt %i view %.0f %.0f\n",
 			ps->weapon, ps->stats[STAT_WEAPONS], ps->forcePower, ps->forcePowerMax, ps->forcePowersKnown, levels, ps->saberStylesKnown, ps->saberAnimLevel,
 			ps->forcePowersActive, ps->forcePowerDuration[FP_SPEED], ps->forceDrainEntityNum, ps->viewangles[PITCH], ps->viewangles[YAW] );
+		Com_Printf( "coop: reticule en %.0f %.0f %.0f (3e personne %i), joueur en %.0f %.0f %.0f\n", cg_coopCrosshairPos[0], cg_coopCrosshairPos[1], cg_coopCrosshairPos[2], cg.renderingThirdPerson,
+			ps->origin[0], ps->origin[1], ps->origin[2] );
 	}
 	for ( int i = 0; i < cg.snap->numEntities; i++ )
 	{

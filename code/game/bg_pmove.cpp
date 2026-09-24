@@ -8922,6 +8922,15 @@ static void PM_BeginWeaponChange( int weapon ) {
 			cg.zoomTime = cg.time;
 		}
 	}
+	else if ( pm->gent && pm->ps->clientNum > 0 && pm->ps->clientNum < MAX_CLIENTS && weapon != WP_NONE )
+	{	// coop: a joiner's zoom is its own (G_CoopZoomMode) - same rule, its cgame follows through "zoom 0"
+		const int zoom = G_CoopZoomMode( pm->gent );
+
+		if ( zoom > 0 && zoom < 3 )
+		{
+			G_CoopSetZoomMode( pm->gent, 0 );
+		}
+	}
 
 	if ( pm->gent
 		&& pm->gent->client
@@ -13965,7 +13974,7 @@ static void PM_Weapon( void )
 	}
 	else
 	{
-		if ( pm->ps->clientNum //NPC
+		if ( pm->ps->clientNum >= MAX_CLIENTS //NPC (coop: not a joiner, whose clientNum is not 0 either - its grenade vanished here)
 			&& !PM_ControlledByPlayer() //not under player control
 			&& pm->ps->weapon == WP_THERMAL //using thermals
 			&& pm->ps->torsoAnim != BOTH_ATTACK10 )//not in the throw anim

@@ -569,6 +569,48 @@ vec3_t WP_MuzzlePoint[WP_NUM_WEAPONS] =
 	{12,	6,		-6	},	// WP_BRYAR_PISTOL,
 };
 
+// coop: where a player's shot leaves from, seen from ITS view: the eyes
+// (origin + view height + lean) and the muzzle offset of the weapon along the
+// view angles. The host's render of a joiner's model (renderInfo) is not its
+// view: the head bone turns with the animation and the model may not even be
+// drawn. Shared with the joiner's cgame (same DLL) so its reticle follows the
+// very same line. qfalse: no gun muzzle for that weapon.
+qboolean G_CoopShotStart( const playerState_t *ps, int weapon, vec3_t eye, vec3_t muzzle )
+{
+	vec3_t f, r, u;
+
+	switch ( weapon )
+	{
+	case WP_BLASTER_PISTOL:
+	case WP_BRYAR_PISTOL:
+	case WP_BLASTER:
+	case WP_DISRUPTOR:
+	case WP_BOWCASTER:
+	case WP_REPEATER:
+	case WP_DEMP2:
+	case WP_FLECHETTE:
+	case WP_ROCKET_LAUNCHER:
+	case WP_THERMAL:
+	case WP_TRIP_MINE:
+	case WP_DET_PACK:
+	case WP_CONCUSSION:
+		break;
+	default:
+		return qfalse;
+	}
+	AngleVectors( ps->viewangles, f, r, u );
+	VectorCopy( ps->origin, eye );
+	eye[2] += ps->viewheight;
+	if ( ps->leanofs )
+	{
+		VectorMA( eye, (float)ps->leanofs, r, eye );
+	}
+	VectorMA( eye, WP_MuzzlePoint[weapon][0], f, muzzle );
+	VectorMA( muzzle, WP_MuzzlePoint[weapon][1], r, muzzle );
+	VectorMA( muzzle, WP_MuzzlePoint[weapon][2], u, muzzle );
+	return qtrue;
+}
+
 void WP_RocketLock( gentity_t *ent, float lockDist )
 {
 	// Not really a charge weapon, but we still want to delay fire until the button comes up so that we can
@@ -1362,6 +1404,31 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 		else
 		{
 			AngleVectors( ent->client->ps.viewangles, forwardVec, vrightVec, up );
+		}
+	}
+
+	if ( !pVeh && G_CoopIsPlayer( ent ) && ent->s.number != 0 )
+	{	// coop: a joiner fires from its own view (see G_CoopShotStart), not from the host's render of its model
+		vec3_t eye, mz;
+
+		if ( G_CoopShotStart( &ent->client->ps, ent->s.weapon, eye, mz ) )
+		{
+			AngleVectors( ent->client->ps.viewangles, forwardVec, vrightVec, up );
+			VectorCopy( eye, ent->client->renderInfo.eyePoint );			// the disruptor's scope shot
+			VectorCopy( ent->client->ps.viewangles, ent->client->renderInfo.eyeAngles );
+			VectorCopy( mz, ent->client->renderInfo.muzzlePoint );			// CalcMuzzlePoint takes it as is
+			VectorCopy( forwardVec, ent->client->renderInfo.muzzleDir );
+			ent->client->renderInfo.mPCalcTime = level.time;
+			if ( g_developer->integer )
+			{
+				trace_t	tr;
+				vec3_t	end;
+
+				VectorMA( mz, 4096, forwardVec, end );
+				gi.trace( &tr, mz, vec3_origin, vec3_origin, end, ent->s.number, MASK_SHOT, (EG2_Collision)0, 0 );
+				gi.Printf( "coop: tir de %i arme %i depart %.0f %.0f %.0f impact %.0f %.0f %.0f\n", ent->s.number, ent->s.weapon,
+					mz[0], mz[1], mz[2], tr.endpos[0], tr.endpos[1], tr.endpos[2] );
+			}
 		}
 	}
 

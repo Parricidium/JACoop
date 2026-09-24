@@ -9497,6 +9497,7 @@ void ForceThrow( gentity_t *self, qboolean pull, qboolean fake )
 							&& push_list[x]->s.weapon != WP_MELEE
 							&& push_list[x]->s.weapon != WP_THERMAL
 							&& push_list[x]->s.weapon != WP_CONCUSSION	// so rax can't drop his
+							&& !( G_CoopIsPlayer( self ) && G_CoopIsPlayer( push_list[x] ) )	// coop: a teammate's pull does not disarm
 							)
 						{//yank the weapon - NOTE: level 1 just knocks them down, not take weapon
 							//FIXME: weapon yank anim if not a knockdown?
