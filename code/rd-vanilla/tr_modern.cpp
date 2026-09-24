@@ -33,6 +33,8 @@ cvar_t	*r_modernSunStrength;
 cvar_t	*r_modernSunLength;
 cvar_t	*r_modernRays;
 cvar_t	*r_modernRaysStrength;
+cvar_t	*r_modernSunMap;
+cvar_t	*r_modernSunMapRange;
 
 // ---------------------------------------------------------------- entrees GL
 // Le moteur ne connait que le GL 1.x : on va chercher nous-memes ce qu'il faut.
@@ -117,6 +119,14 @@ static GLuint	modernComposite;	// scene + occlusion -> ecran
 static GLuint	modernAoProg;		// calcul de l'occlusion
 static GLuint	modernAoTex;		// son resultat, une seule composante
 static GLuint	modernAoFbo;
+// --- la carte d'ombre du soleil (profondeur du monde vue depuis le soleil)
+static GLuint	modernSunTex;
+static GLuint	modernSunFbo;
+static int		modernSunSize = 2048;
+static vec3_t	modernSunCenter;	// autour de quoi elle a ete construite
+static float	modernSunRange;
+static qboolean	modernSunValid;
+static float	modernSunMatrix[16];	// monde -> carte d'ombre (0..1)
 
 /*
 ===============
@@ -273,7 +283,9 @@ static const char *fsAo =
 	"uniform vec3 sunDir;\n"		// vers le soleil, en espace camera
 	"uniform float sunOn;\n"
 	"uniform float sunLength;\n"	// portee de l'ombre, en unites du jeu
+	"uniform int dbg;\n"
 	"const int SUN_STEPS = 24;\n"
+	"%s"
 	"%s"							// viewPos
 	// La normale vient des variations de profondeur. Une difference centree
 	// deborde sur les silhouettes ; on garde donc, de chaque cote, le voisin le
@@ -324,6 +336,13 @@ static const char *fsAo =
 	"	float shade = 1.0;\n"
 	"	if ( sunOn > 0.5 ) {\n"
 	"		float ndl = dot( n, sunDir );\n"
+	// La carte d'ombre d'abord : elle voit aussi ce qui est hors du cadre, donc
+	// l'ombre ne change plus quand on tourne la tete. Elle rend -1 la ou elle
+	// n'a rien a dire, et on retombe alors sur la marche en espace ecran.
+	"		float fromMap = sunShadowAt( p, ndl );\n"
+	"		if ( fromMap >= 0.0 ) {\n"
+	"			shade = ( ndl > 0.05 ) ? fromMap : 1.0;\n"
+	"		} else\n"
 	// Une surface qui tourne le dos au soleil est deja sombre dans la carte de
 	// lumiere du jeu : la reassombrir la peindrait deux fois.
 	"		if ( ndl > 0.05 ) {\n"
@@ -343,11 +362,47 @@ static const char *fsAo =
 	"			}\n"
 	"		}\n"
 	"	}\n"
+	"	if ( dbg == 7 ) {\n"
+	"		float ndl = dot( n, sunDir );\n"
+	"		float fm = sunShadowAt( p, ndl );\n"
+	"		gl_FragColor = vec4( fm < 0.0 ? 1.0 : 0.0, fm < 0.0 ? 0.0 : fm, ndl > 0.05 ? 1.0 : 0.0, 1.0 );\n"
+	"		return;\n"
+	"	}\n"
+	"	if ( dbg == 8 || dbg == 9 ) {\n"
+	"		vec4 lp = viewToSun * vec4( p, 1.0 );\n"
+	"		float dm = texture2D( sunMap, lp.xy ).r;\n"
+	"		gl_FragColor = ( dbg == 8 ) ? vec4( lp.xyz, 1.0 ) : vec4( lp.z, dm, abs( lp.z - dm ) * 20.0, 1.0 );\n"
+	"		return;\n"
+	"	}\n"
 	"	gl_FragColor = vec4( clamp( 1.0 - occ, 0.0, 1.0 ), shade, 0.0, 1.0 );\n"
 	"}\n";
 
 // Composition : l'occlusion est bruitee par construction (un angle aleatoire
 // par pixel), on l'adoucit ici au lieu d'y consacrer une passe de plus.
+// Lecture de la carte d'ombre. On remonte du pixel a sa position dans le
+// MONDE (la matrice fournie contient deja l'inverse de la vue), puis on
+// regarde ce que le soleil voyait la-bas.
+static const char *glslSunMap =
+	"uniform sampler2D sunMap;\n"
+	"uniform mat4 viewToSun;\n"
+	"uniform float sunMapOn;\n"
+	"uniform float sunTexel;\n"
+	"float sunShadowAt( vec3 viewP, float ndl ) {\n"
+	"	if ( sunMapOn < 0.5 ) return -1.0;\n"
+	"	vec4 lp = viewToSun * vec4( viewP, 1.0 );\n"
+	"	if ( lp.x < 0.01 || lp.x > 0.99 || lp.y < 0.01 || lp.y > 0.99 || lp.z > 1.0 ) return -1.0;\n"
+	// Le biais suit l'inclinaison : une surface rasante demande plus de marge,
+	// sinon elle s'ombre elle-meme en bandes.
+	"	float bias = 0.0012 + 0.006 * ( 1.0 - clamp( ndl, 0.0, 1.0 ) );\n"
+	"	float lit = 0.0;\n"
+	"	for ( int y = -1; y <= 1; y++ )\n"
+	"		for ( int x = -1; x <= 1; x++ ) {\n"
+	"			float d = texture2D( sunMap, lp.xy + vec2( float( x ), float( y ) ) * sunTexel ).r;\n"
+	"			lit += ( lp.z - bias <= d ) ? 1.0 : 0.0;\n"
+	"		}\n"
+	"	return lit / 9.0;\n"
+	"}\n";
+
 static const char *fsComposite =
 	"#version 120\n"
 	"uniform sampler2D scene;\n"
@@ -409,6 +464,8 @@ static const char *fsComposite =
 	"		gl_FragColor = vec4( c.rgb * vec3( 1.0, 0.45, 0.25 ), c.a );\n"
 	"	} else if ( debugMode == 4 ) {\n"
 	"		gl_FragColor = vec4( vec3( sh ), 1.0 );\n"		// l'ombre seule
+	"	} else if ( debugMode >= 7 ) {\n"
+	"		gl_FragColor = vec4( texture2D( ao, uv ).rgb, 1.0 );\n"
 	"	} else if ( debugMode == 5 ) {\n"
 	"		gl_FragColor = vec4( rays, 1.0 );\n"			// les rayons seuls
 	"	} else {\n"
@@ -534,7 +591,7 @@ void R_ModernInit( void )
 		modernFailed = qtrue;
 		return;
 	}
-	modernAoProg = R_ModernCompile( vsPassthrough, va( fsAo, glslViewPos ), "occlusion ambiante" );
+	modernAoProg = R_ModernCompile( vsPassthrough, va( fsAo, glslViewPos, glslSunMap ), "occlusion ambiante" );
 	modernComposite = R_ModernCompile( vsPassthrough, fsComposite, "composition" );
 	if ( !modernAoProg || !modernComposite )
 	{
@@ -562,6 +619,17 @@ void R_ModernShutdown( void )
 		p_glDeleteFramebuffers( 1, &modernAoFbo );
 		modernAoFbo = 0;
 	}
+	if ( modernSunFbo )
+	{
+		p_glDeleteFramebuffers( 1, &modernSunFbo );
+		modernSunFbo = 0;
+	}
+	if ( modernSunTex )
+	{
+		qglDeleteTextures( 1, &modernSunTex );
+		modernSunTex = 0;
+	}
+	modernSunValid = qfalse;
 	if ( modernSceneTex )
 	{
 		qglDeleteTextures( 1, &modernSceneTex );
@@ -570,6 +638,327 @@ void R_ModernShutdown( void )
 		modernSceneTex = modernDepthTex = modernAoTex = 0;
 	}
 	modernReady = qfalse;
+}
+
+
+/*
+===============
+La carte d'ombre du soleil
+
+Le decor ne bouge pas et le soleil non plus : la carte n'est refaite que quand
+le joueur s'est assez eloigne du centre autour duquel elle a ete construite.
+On la remplit en parcourant nous-memes les surfaces du BSP - c'est ce qui permet
+de ne rien changer a la facon dont le moteur dessine.
+===============
+*/
+static void R_ModernMulMat( const float *a, const float *b, float *out )
+{	// out = a * b, colonnes majeures comme OpenGL
+	for ( int c = 0; c < 4; c++ )
+	{
+		for ( int r = 0; r < 4; r++ )
+		{
+			out[c * 4 + r] = a[0 * 4 + r] * b[c * 4 + 0]
+				+ a[1 * 4 + r] * b[c * 4 + 1]
+				+ a[2 * 4 + r] * b[c * 4 + 2]
+				+ a[3 * 4 + r] * b[c * 4 + 3];
+		}
+	}
+}
+
+// L'inverse d'une matrice de vue (rotation + translation) : la rotation se
+// transpose, la translation se ramene dans le nouveau repere.
+static void R_ModernInvertView( const float *m, float *out )
+{
+	for ( int r = 0; r < 3; r++ )
+	{
+		for ( int c = 0; c < 3; c++ )
+		{
+			out[c * 4 + r] = m[r * 4 + c];
+		}
+	}
+	for ( int r = 0; r < 3; r++ )
+	{
+		// la translation se ramene par la rotation TRANSPOSEE : c'est m[r*4+k]
+		// qu'il faut lire, pas m[k*4+r] - l'inverse rendait sinon un point qui
+		// n'avait rien a voir avec la camera (mesure : 1093 -2634 -1522 au lieu
+		// de 952 -3081 211)
+		out[12 + r] = -( m[12] * m[r * 4 + 0] + m[13] * m[r * 4 + 1] + m[14] * m[r * 4 + 2] );
+	}
+	out[3] = out[7] = out[11] = 0.0f;
+	out[15] = 1.0f;
+}
+
+static qboolean R_ModernSunTargets( void )
+{
+	if ( modernSunTex )
+	{
+		return qtrue;
+	}
+	R_ModernDrainErrors();
+	qglGenTextures( 1, &modernSunTex );
+	qglBindTexture( GL_TEXTURE_2D, modernSunTex );
+	qglTexImage2D( GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, modernSunSize, modernSunSize, 0,
+		GL_DEPTH_COMPONENT, GL_FLOAT, NULL );
+	qglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+	qglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+	// hors de la carte, la profondeur maximale = "rien ne bouche le soleil"
+	qglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
+	qglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
+	qglBindTexture( GL_TEXTURE_2D, 0 );
+
+	p_glGenFramebuffers( 1, &modernSunFbo );
+	p_glBindFramebuffer( GL_FRAMEBUFFER, modernSunFbo );
+	p_glFramebufferTexture2D( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, modernSunTex, 0 );
+	qglDrawBuffer( GL_NONE );
+	qglReadBuffer( GL_NONE );
+	const qboolean ok = (qboolean)( p_glCheckFramebufferStatus( GL_FRAMEBUFFER ) == GL_FRAMEBUFFER_COMPLETE );
+	p_glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+	if ( !ok )
+	{
+		ri.Printf( PRINT_ALL, "...rendu moderne : carte d'ombre incomplete\n" );
+		return qfalse;
+	}
+	return R_ModernStep( "carte d'ombre" );
+}
+
+// Une surface du BSP, en profondeur seule. Pas de texture, pas de couleur : on
+// ne veut que la distance au soleil.
+static void R_ModernDrawWorldSurface( const msurface_t *surf )
+{
+	if ( !surf->data || !surf->shader )
+	{
+		return;
+	}
+	if ( surf->shader->sort > SS_OPAQUE || ( surf->shader->surfaceFlags & ( SURF_NODRAW | SURF_SKY ) ) )
+	{
+		return;		// le ciel ne fait pas d'ombre, le transparent non plus
+	}
+	if ( *surf->data == SF_FACE )
+	{
+		const srfSurfaceFace_t *face = (const srfSurfaceFace_t *)surf->data;
+
+		if ( face->numPoints < 3 || face->numIndices < 3 )
+		{
+			return;
+		}
+		qglVertexPointer( 3, GL_FLOAT, VERTEXSIZE * sizeof( float ), face->points[0] );
+		qglDrawElements( GL_TRIANGLES, face->numIndices, GL_UNSIGNED_INT,
+			( (const byte *)face ) + face->ofsIndices );
+	}
+	else if ( *surf->data == SF_TRIANGLES )
+	{
+		const srfTriangles_t *tri = (const srfTriangles_t *)surf->data;
+
+		if ( tri->numVerts < 3 || tri->numIndexes < 3 )
+		{
+			return;
+		}
+		qglVertexPointer( 3, GL_FLOAT, sizeof( drawVert_t ), tri->verts->xyz );
+		qglDrawElements( GL_TRIANGLES, tri->numIndexes, GL_UNSIGNED_INT, tri->indexes );
+	}
+	else if ( *surf->data == SF_GRID )
+	{	// une surface courbe : une grille de sommets sans indices tout prets,
+		// on les fabrique (deux triangles par case)
+		static unsigned int	*gridIdx;
+		static int			gridIdxSize;
+		const srfGridMesh_t	*grid = (const srfGridMesh_t *)surf->data;
+		const int			w = grid->width, h = grid->height;
+		const int			need = ( w - 1 ) * ( h - 1 ) * 6;
+
+		if ( w < 2 || h < 2 )
+		{
+			return;
+		}
+		if ( need > gridIdxSize )
+		{
+			free( gridIdx );
+			gridIdx = (unsigned int *)malloc( (size_t)need * sizeof( unsigned int ) );
+			gridIdxSize = gridIdx ? need : 0;
+		}
+		if ( !gridIdx )
+		{
+			return;
+		}
+		unsigned int *o = gridIdx;
+		for ( int r = 0; r < h - 1; r++ )
+		{
+			for ( int c = 0; c < w - 1; c++ )
+			{
+				const unsigned int a = r * w + c;
+
+				*o++ = a;		*o++ = a + 1;		*o++ = a + w;
+				*o++ = a + 1;	*o++ = a + w + 1;	*o++ = a + w;
+			}
+		}
+		qglVertexPointer( 3, GL_FLOAT, sizeof( drawVert_t ), grid->verts->xyz );
+		qglDrawElements( GL_TRIANGLES, need, GL_UNSIGNED_INT, gridIdx );
+	}
+}
+
+static void R_ModernBuildSunMap( const vec3_t sunWorld, const vec3_t center, float range )
+{
+	vec3_t	dir, right, up, eye;
+	float	view[16], proj[16], lightMat[16], bias[16];
+
+	if ( !tr.world || !R_ModernSunTargets() )
+	{
+		modernSunValid = qfalse;
+		return;
+	}
+
+	// un repere autour de la direction du soleil
+	VectorCopy( sunWorld, dir );
+	VectorNormalize( dir );
+	// un repere orthonorme construit a la main : la fonction du jeu n'est pas
+	// declaree cote renderer
+	vec3_t	seed;
+	VectorSet( seed, 0.0f, 0.0f, 1.0f );
+	if ( fabs( dir[2] ) > 0.9f )
+	{
+		VectorSet( seed, 1.0f, 0.0f, 0.0f );
+	}
+	CrossProduct( seed, dir, right );
+	VectorNormalize( right );
+	CrossProduct( dir, right, up );
+	VectorNormalize( up );
+	VectorMA( center, range * 2.0f, dir, eye );		// on recule "vers le soleil"
+
+	// matrice de vue depuis le soleil : on regarde vers -dir
+	view[0] = right[0];	view[4] = right[1];	view[8]  = right[2];	view[12] = -DotProduct( right, eye );
+	view[1] = up[0];	view[5] = up[1];	view[9]  = up[2];		view[13] = -DotProduct( up, eye );
+	view[2] = dir[0];	view[6] = dir[1];	view[10] = dir[2];		view[14] = -DotProduct( dir, eye );
+	view[3] = 0;		view[7] = 0;		view[11] = 0;			view[15] = 1;
+
+	// projection orthographique : le soleil est infiniment loin
+	const float zNear = 1.0f;
+	const float zFar = range * 6.0f;
+	memset( proj, 0, sizeof( proj ) );
+	proj[0]  = 1.0f / range;
+	proj[5]  = 1.0f / range;
+	proj[10] = -2.0f / ( zFar - zNear );
+	proj[14] = -( zFar + zNear ) / ( zFar - zNear );
+	proj[15] = 1.0f;
+
+	R_ModernMulMat( proj, view, lightMat );
+
+	// de l'espace de coupe (-1..1) aux coordonnees de texture (0..1)
+	memset( bias, 0, sizeof( bias ) );
+	bias[0] = bias[5] = bias[10] = 0.5f;
+	bias[12] = bias[13] = bias[14] = 0.5f;
+	bias[15] = 1.0f;
+	R_ModernMulMat( bias, lightMat, modernSunMatrix );
+
+	// --- la passe de profondeur
+	p_glBindFramebuffer( GL_FRAMEBUFFER, modernSunFbo );
+	qglViewport( 0, 0, modernSunSize, modernSunSize );
+	qglScissor( 0, 0, modernSunSize, modernSunSize );
+	// Poser TOUT l'etat de profondeur : le moteur laisse le sien derriere lui et
+	// on ne sait pas lequel. Mesure a l'appui : la carte sortait entierement a
+	// 0.0000, parce qu'elle etait effacee avec 0 au lieu de 1 - rien ne peut
+	// alors etre plus proche, donc aucune ombre.
+	qglEnable( GL_DEPTH_TEST );
+	qglDepthMask( GL_TRUE );
+	qglDepthFunc( GL_LEQUAL );
+	qglClearDepth( 1.0 );
+	qglClear( GL_DEPTH_BUFFER_BIT );
+
+	qglMatrixMode( GL_PROJECTION );
+	qglPushMatrix();
+	qglLoadMatrixf( proj );
+	qglMatrixMode( GL_MODELVIEW );
+	qglPushMatrix();
+	qglLoadMatrixf( view );
+
+	GL_State( GLS_DEFAULT );
+	qglColorMask( GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE );
+	qglDisable( GL_TEXTURE_2D );
+	// Aucun culling : les murs du BSP n'ont qu'une face (l'autre donne sur le
+	// vide), elle doit ecrire sa profondeur quel que soit son sens. Le biais
+	// de lecture absorbe l'acne. GL_Cull, et non glCullFace : le moteur suit
+	// cet etat dans glState et ne le reemet que s'il croit qu'il a change.
+	GL_Cull( CT_TWO_SIDED );
+	// GL_VERTEX_ARRAY reste ACTIF : le moteur ne l'active qu'a l'initialisation
+	// et dessine tout par glDrawElements ; le couper ici figeait toute l'image.
+	qglEnableClientState( GL_VERTEX_ARRAY );
+	qglDisableClientState( GL_TEXTURE_COORD_ARRAY );
+	qglDisableClientState( GL_COLOR_ARRAY );
+
+	const float	lo[3] = { center[0] - range * 1.5f, center[1] - range * 1.5f, center[2] - range * 1.5f };
+	const float	hi[3] = { center[0] + range * 1.5f, center[1] + range * 1.5f, center[2] + range * 1.5f };
+	int			drawn = 0;
+
+	// Le monde seulement (bmodels[0]) : les sous-modeles - portes, ascenseurs,
+	// le train de t1_rail - sont dans le meme tableau mais a leur position
+	// d'origine, ils projetteraient une ombre la ou ils ne sont plus.
+	const bmodel_t	*world = &tr.world->bmodels[0];
+
+	for ( int i = 0; i < world->numSurfaces; i++ )
+	{
+		const msurface_t *surf = &world->firstSurface[i];
+
+		if ( *surf->data == SF_TRIANGLES )
+		{	// ces surfaces portent leurs limites : on peut ecarter de loin
+			const srfTriangles_t *tri = (const srfTriangles_t *)surf->data;
+
+			if ( tri->bounds[1][0] < lo[0] || tri->bounds[0][0] > hi[0]
+				|| tri->bounds[1][1] < lo[1] || tri->bounds[0][1] > hi[1]
+				|| tri->bounds[1][2] < lo[2] || tri->bounds[0][2] > hi[2] )
+			{
+				continue;
+			}
+		}
+		R_ModernDrawWorldSurface( surf );
+		drawn++;
+	}
+
+	qglEnable( GL_TEXTURE_2D );
+	qglColorMask( GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE );
+	qglMatrixMode( GL_PROJECTION );
+	qglPopMatrix();
+	qglMatrixMode( GL_MODELVIEW );
+	qglPopMatrix();
+	p_glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+
+	VectorCopy( center, modernSunCenter );
+	modernSunRange = range;
+	modernSunValid = qtrue;
+	if ( r_modernDebug->integer == 6 )
+	{
+		// Relire la carte : un compte de surfaces ne dit pas si quelque chose a
+		// vraiment ete ecrit dans la profondeur.
+		static float	*peek;
+		const int		side = modernSunSize;
+		float			mn = 1.0f, mx = 0.0f;
+		int				written = -1;
+
+		if ( !peek )
+		{
+			peek = (float *)malloc( (size_t)side * side * sizeof( float ) );
+		}
+		if ( peek )
+		{
+			qglBindTexture( GL_TEXTURE_2D, modernSunTex );
+			qglGetTexImage( GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, GL_FLOAT, peek );
+			qglBindTexture( GL_TEXTURE_2D, 0 );
+			written = 0;
+			for ( int k = 0; k < side * side; k += 37 )
+			{
+				if ( peek[k] < mn ) mn = peek[k];
+				if ( peek[k] > mx ) mx = peek[k];
+				if ( peek[k] < 0.999f ) written++;
+			}
+			written = (int)( written * 3700.0 / ( (double)side * side ) );
+		}
+		// Ou le centre lui-meme tombe-t-il dans la carte ? On l'attend vers
+		// (0.5, 0.5) : sinon la matrice est fausse et la lecture ne trouvera
+		// jamais rien.
+		const float cx = modernSunMatrix[0] * center[0] + modernSunMatrix[4] * center[1] + modernSunMatrix[8]  * center[2] + modernSunMatrix[12];
+		const float cy = modernSunMatrix[1] * center[0] + modernSunMatrix[5] * center[1] + modernSunMatrix[9]  * center[2] + modernSunMatrix[13];
+		const float cz = modernSunMatrix[2] * center[0] + modernSunMatrix[6] * center[1] + modernSunMatrix[10] * center[2] + modernSunMatrix[14];
+
+		ri.Printf( PRINT_ALL, "carte d'ombre: %.0f %.0f %.0f, %i surfaces, profondeur %.4f..%.4f, %i%% ecrit, centre -> %.3f %.3f %.3f\n",
+			center[0], center[1], center[2], drawn, mn, mx, written, cx, cy, cz );
+	}
 }
 
 static void R_ModernPostProcess( void );
@@ -660,7 +1049,7 @@ static void R_ModernPostProcess( void )
 	qglPushMatrix();
 	qglLoadIdentity();
 	GL_State( GLS_DEPTHTEST_DISABLE );
-	qglDisable( GL_CULL_FACE );
+	GL_Cull( CT_TWO_SIDED );	// suivi par le moteur : il reactivera lui-meme
 
 	// Les six termes utiles de la projection du moteur : de quoi remonter de la
 	// profondeur a une position dans l'espace de la camera.
@@ -702,6 +1091,30 @@ static void R_ModernPostProcess( void )
 			&& sunScreen[1] > -0.4f && sunScreen[1] < 1.4f );
 	}
 
+	// --- la carte d'ombre : le decor et le soleil sont fixes, on ne la refait
+	// que lorsque le joueur s'est eloigne du centre autour duquel elle a ete
+	// construite (ou qu'on change sa portee).
+	const qboolean	wantMap = (qboolean)( wantSun && r_modernSunMap->integer && tr.world != NULL );
+
+	if ( wantMap )
+	{
+		const float	range = r_modernSunMapRange->value > 64.0f ? r_modernSunMapRange->value : 64.0f;
+		const float	*org = backEnd.viewParms.ori.origin;
+		vec3_t		away;
+
+		VectorSubtract( org, modernSunCenter, away );
+		if ( !modernSunValid || modernSunRange != range || VectorLength( away ) > range * 0.35f )
+		{
+			R_ModernBuildSunMap( tr.sunDirection, org, range );
+			qglViewport( x, y, w, h );
+			qglScissor( x, y, w, h );
+		}
+	}
+	else
+	{
+		modernSunValid = qfalse;
+	}
+
 	// --- passe 1 : l'occlusion et l'ombre du soleil, dans la meme cible
 	if ( wantAo || wantSun )
 	{
@@ -722,8 +1135,29 @@ static void R_ModernPostProcess( void )
 		p_glUniform1f( p_glGetUniformLocation( modernAoProg, "bias" ), 0.08f );
 		p_glUniform3f( p_glGetUniformLocation( modernAoProg, "sunDir" ), sunView[0], sunView[1], sunView[2] );
 		p_glUniform1f( p_glGetUniformLocation( modernAoProg, "sunOn" ), wantSun ? 1.0f : 0.0f );
+		p_glUniform1i( p_glGetUniformLocation( modernAoProg, "dbg" ), r_modernDebug->integer );
 		p_glUniform1f( p_glGetUniformLocation( modernAoProg, "sunLength" ), r_modernSunLength->value );
+		if ( modernSunValid )
+		{	// de l'espace camera a la carte d'ombre, en une seule matrice
+			float	invView[16], viewToSun[16];
+
+			R_ModernInvertView( backEnd.viewParms.world.modelMatrix, invView );
+			R_ModernMulMat( modernSunMatrix, invView, viewToSun );
+			GL_SelectTexture( 1 );
+			qglBindTexture( GL_TEXTURE_2D, modernSunTex );
+			GL_SelectTexture( 0 );
+			p_glUniform1i( p_glGetUniformLocation( modernAoProg, "sunMap" ), 1 );
+			p_glUniformMatrix4fv( p_glGetUniformLocation( modernAoProg, "viewToSun" ), 1, GL_FALSE, viewToSun );
+			p_glUniform1f( p_glGetUniformLocation( modernAoProg, "sunTexel" ), 1.0f / (float)modernSunSize );
+		}
+		p_glUniform1f( p_glGetUniformLocation( modernAoProg, "sunMapOn" ), modernSunValid ? 1.0f : 0.0f );
 		R_ModernFullscreenQuad();
+		if ( modernSunValid )
+		{
+			GL_SelectTexture( 1 );
+			qglBindTexture( GL_TEXTURE_2D, 0 );
+			GL_SelectTexture( 0 );
+		}
 
 		p_glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 		qglViewport( x, y, w, h );
@@ -791,7 +1225,6 @@ static void R_ModernPostProcess( void )
 	qglBindTexture( GL_TEXTURE_2D, 0 );
 	GL_SelectTexture( 0 );
 
-	qglEnable( GL_CULL_FACE );
 	qglMatrixMode( GL_PROJECTION );
 	qglPopMatrix();
 	qglMatrixMode( GL_MODELVIEW );
