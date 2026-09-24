@@ -2373,6 +2373,10 @@ using playerState_t = PlayerStateBase<saberInfo_t>;
 #define	BUTTON_COOP_REVIVE	512			// coop: +coop_revive held beside a downed teammate
 #define	BUTTON_COOP_ZOOM_SHIFT	10			// coop: bits 10-11 = the remote cgame's cg.zoomMode (0 none, 1 binoculars, 2 scope, 3 goggles)
 #define	BUTTON_COOP_ZOOM_MASK	( 3 << BUTTON_COOP_ZOOM_SHIFT )
+#define	BUTTON_COOP_FORCE_SHIFT	12			// coop: bits 12-15 = le pouvoir de Force choisi
+												// par le cgame distant (MAX_SHOWPOWERS = 12, et les
+												// boutons ne voyagent que sur 16 bits)
+#define	BUTTON_COOP_FORCE_MASK	( 15 << BUTTON_COOP_FORCE_SHIFT )
 
 #define	MOVE_RUN			120			// if forwardmove or rightmove are >= MOVE_RUN,
 										// then BUTTON_WALKING should be set

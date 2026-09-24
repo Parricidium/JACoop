@@ -2120,7 +2120,11 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 			}
 		}
 	}
-	cgi_SetUserCmdValue( cg.weaponSelect | ( ( cg.zoomMode & 3 ) << 8 ), speed, mPitchOverride, mYawOverride );	// coop: zoom in the high byte (BUTTON_COOP_ZOOM_*)
+	// coop: l'arme dans l'octet bas, le zoom en 8-9, et le pouvoir de Force
+	// choisi en 10-13. Ce dernier doit voyager : le code partage lit
+	// cg.forcepowerSelect, qui cote hote est la selection de l'HOTE.
+	cgi_SetUserCmdValue( cg.weaponSelect | ( ( cg.zoomMode & 3 ) << 8 )
+		| ( ( cg.forcepowerSelect & 15 ) << 10 ), speed, mPitchOverride, mYawOverride );
 	extern float coopLastMouseSpeed, coopLastMouseFov, coopLastMouseTs;
 	coopLastMouseSpeed = speed;	// coop: shown by coop_ents (mouse dead = sensitivity 0)
 	coopLastMouseFov = cg.refdef.fov_y;

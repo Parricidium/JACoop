@@ -1513,6 +1513,19 @@ void ClientCommand( int clientNum ) {
 			gi.Printf( "coop_hp:      takedamage %i contents %i saber %i invincible %i\n", p->takedamage,
 				p->contents, p->client->ps.SaberActive() ? 1 : 0,
 				p->client->ps.powerups[PW_INVINCIBLE] > level.time ? 1 : 0 );
+			// coop: la longueur de lame, parce qu'un sabre "devenu petit" ne se
+			// lit nulle part ailleurs (signale par JD le 23/09)
+			for ( int sn = 0; sn < MAX_SABERS; sn++ )
+			{
+				const saberInfo_t *sab = &p->client->ps.saber[sn];
+
+				if ( !sab->name || !sab->name[0] )
+				{
+					continue;
+				}
+				gi.Printf( "coop_hp:      sabre %i '%s' lames %i, longueur %.0f/%.0f\n", sn,
+					sab->name, sab->numBlades, sab->blade[0].length, sab->blade[0].lengthMax );
+			}
 		}
 		for ( int i = MAX_CLIENTS; i < globals.num_entities; i++ )
 		{	// allied NPCs: their enemy tells us whether a stray player shot turned them

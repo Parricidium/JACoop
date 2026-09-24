@@ -1895,6 +1895,7 @@ qboolean qbVidRestartOccured = qfalse;
 //===================
 qboolean gbUseTheseValuesFromLoadSave = qfalse;	// MUST default to this
 int gi_cg_forcepowerSelect;
+
 int gi_cg_inventorySelect;
 //===================
 

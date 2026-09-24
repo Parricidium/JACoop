@@ -2227,6 +2227,11 @@ static void G_CoopPitRescue( gentity_t *ent, const vec3_t safeOrigin, float safe
 	VectorSet( angles, 0, safeYaw, 0 );
 	SetClientViewAngle( ent, angles );
 	ent->client->ps.groundEntityNum = ENTITYNUM_WORLD;
+	// Sans ce bit, le client INTERPOLE le deplacement au lieu de sauter : la vue
+	// glissait doucement du fond de la fosse jusqu'au point de secours, comme un
+	// travelling (signale par JD sur t1_rail). G_CoopPlaceBeside le posait deja,
+	// le sauvetage de fosse l'avait oublie.
+	ent->client->ps.eFlags ^= EF_TELEPORT_BIT;
 	gi.linkentity( ent );
 	// no fade to undo: the pit trigger only fades when the fall actually killed
 	// (g_trigger.cpp, "if ( G_CoopIsPlayer( other ) && other->health <= 0 )"),
