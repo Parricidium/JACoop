@@ -650,6 +650,7 @@ void		Info_Print( const char *s );
 void		Com_BeginRedirect (char *buffer, int buffersize, void (*flush)(char *));
 void		Com_EndRedirect( void );
 void 		QDECL Com_Printf( const char *fmt, ... );
+const char	*Coop_Tr( const char *fr, const char *en );	// coop: French game -> fr, any other language -> en
 void 		QDECL Com_DPrintf( const char *fmt, ... );
 void 		NORETURN QDECL Com_Error( int code, const char *fmt, ... );
 void 		NORETURN Com_Quit_f( void );

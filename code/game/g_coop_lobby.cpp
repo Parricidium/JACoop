@@ -347,7 +347,7 @@ static void G_CoopSyncForce( gentity_t *ent )
 		coopLastPoints[ent->s.number] = points;
 		if ( points > 0 && !coopLobby )
 		{
-			gi.SendServerCommand( ent->s.number, "cp \"^3%i point%s de Force a repartir\n^7F6 > Points de Force\"", points, points > 1 ? "s" : "" );
+			G_CoopPrintTr( ent->s.number, "cp", "^3%i point%s de Force a repartir\n^7F6 > Points de Force", "^3%i Force point%s to spend\n^7F6 > Force points", points, points > 1 ? "s" : "" );
 		}
 	}
 }
@@ -372,7 +372,7 @@ void G_CoopForceCommand( gentity_t *ent )
 	}
 	if ( total > G_CoopAllocTotal( &host->ps ) )
 	{
-		gi.SendServerCommand( ent->s.number, "print \"^1Trop de points de Force demandes.\n\"" );
+		G_CoopPrintTr( ent->s.number, "print", "^1Trop de points de Force demandes.\n", "^1Too many Force points asked for.\n" );
 		return;
 	}
 	playerState_t *ps = &ent->client->ps;
@@ -545,7 +545,7 @@ static void G_CoopStartCampaign( void )
 	}
 	coopStartSent = qtrue;
 	gi.Printf( "coop: starting the campaign\n" );
-	gi.SendServerCommand( -1, "print \"^2La partie commence !\n\"" );
+	G_CoopPrintTr( -1, "print", "^2La partie commence !\n", "^2The game begins!\n" );
 	gi.SendConsoleCommand( "set g_coopLobby 0 ; map yavin1\n" );
 }
 

@@ -168,11 +168,7 @@ static void G_CoopEndMissionTitle( const char *map, char *out, int outSize )
 		{
 			if ( !Q_stricmp( e->map, map ) )
 			{
-				char buf[128];
-				if ( cgi_SP_GetStringTextString( e->ref, buf, sizeof( buf ) ) && buf[0] )
-				{
-					Q_strncpyz( out, buf, outSize );
-				}
+				Com_sprintf( out, outSize, "@%s", e->ref );	// coop: each client reads it in its language
 				return;
 			}
 		}
@@ -346,7 +342,8 @@ static void G_CoopEndStartLoadout( const char *map, const char *label )
 	coopEndPhase = COOPEND_LOADOUT;
 	coopEndPhaseTime = level.time;
 	gi.Printf( "coop: next mission is %s (%s)\n", coopEndMap, coopEndTitle );
-	gi.SendServerCommand( -1, "print \"^2Prochaine mission : %s\n\"", coopEndTitle );
+	// "@@REF" : the mission title in the language of whoever reads it (CG_Print_f)
+	G_CoopPrintTr( -1, "print", "^2Prochaine mission : %s%s\n", "^2Next mission: %s%s\n", coopEndTitle[0] == '@' ? "@" : "", coopEndTitle );
 	G_CoopEndOpenMenu( "coopLoadout" );
 }
 
@@ -409,7 +406,7 @@ static void G_CoopEndAfterDebrief( void )
 	coopEndPhase = COOPEND_WAIT;
 	coopEndWaitAcked = qfalse;
 	coopEndPhaseTime = level.time;
-	Q_strncpyz( coopEndInfo, "L'hote choisit la suite de la campagne...", sizeof( coopEndInfo ) );
+	Q_strncpyz( coopEndInfo, "#W", sizeof( coopEndInfo ) );	// "the host is choosing" (CL_CoopEndLocalize)
 	G_CoopEndPublish();
 	gi.Printf( "coop: no mission to vote for here, the host gets the stock menu %s\n", coopEndStockMenu );
 	gi.SendConsoleCommand( va( "uimenu %s\n", coopEndStockMenu ) );
@@ -437,11 +434,11 @@ static void G_CoopEndStart( void )
 	}
 	if ( atoi( secrets ) > 0 )
 	{
-		Com_sprintf( coopEndStats, sizeof( coopEndStats ), "Ennemis elimines : %s          Zones secretes : %s", killed, secrets );
+		Com_sprintf( coopEndStats, sizeof( coopEndStats ), "#S %s %s", killed, secrets );
 	}
 	else
 	{
-		Com_sprintf( coopEndStats, sizeof( coopEndStats ), "Ennemis elimines : %s", killed );
+		Com_sprintf( coopEndStats, sizeof( coopEndStats ), "#S %s", killed );
 	}
 	coopEndInfo[0] = '\0';
 	G_CoopEndBuildMissions();
@@ -542,7 +539,7 @@ void G_CoopEndLevelFrame( void )
 	switch ( coopEndPhase )
 	{
 	case COOPEND_DEBRIEF:
-		Com_sprintf( coopEndInfo, sizeof( coopEndInfo ), "Debriefing : %i joueur(s) sur %i ont continue", done, players );
+		Com_sprintf( coopEndInfo, sizeof( coopEndInfo ), "#D %i %i", done, players );
 		if ( done >= players || level.time - coopEndPhaseTime > COOPEND_DEBRIEF_TIMEOUT )
 		{
 			G_CoopEndAfterDebrief();
@@ -550,7 +547,7 @@ void G_CoopEndLevelFrame( void )
 		break;
 
 	case COOPEND_VOTE:
-		Com_sprintf( coopEndInfo, sizeof( coopEndInfo ), "Votes : %i sur %i", voted, players );
+		Com_sprintf( coopEndInfo, sizeof( coopEndInfo ), "#V %i %i", voted, players );
 		if ( voted >= players || level.time - coopEndPhaseTime > COOPEND_VOTE_TIMEOUT )
 		{
 			G_CoopEndTally();
@@ -558,7 +555,7 @@ void G_CoopEndLevelFrame( void )
 		break;
 
 	case COOPEND_LOADOUT:
-		Com_sprintf( coopEndInfo, sizeof( coopEndInfo ), "Prets : %i sur %i", ready, players );
+		Com_sprintf( coopEndInfo, sizeof( coopEndInfo ), "#R %i %i", ready, players );
 		if ( ready >= players )
 		{
 			G_CoopEndLaunch();

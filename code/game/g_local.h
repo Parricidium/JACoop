@@ -511,6 +511,8 @@ int G_CoopZoomMode( const gentity_t *ent );
 void G_CoopSetZoomMode( gentity_t *ent, int mode );
 void G_CoopReadZoomMode( gentity_t *ent, usercmd_t *ucmd );
 void G_CoopChangeWeapon( gentity_t *ent, int wp );
+const char *G_CoopTr( const char *fr, const char *en );			// this machine's language
+void G_CoopPrintTr( int to, const char *cmd, const char *fr, const char *en, ... );	// each receiver's language
 int G_CoopBestOwnedWeapon( const playerState_t *ps );
 void G_CoopReEquip( gentity_t *ent );
 void G_CoopUpdateTimescale( void );

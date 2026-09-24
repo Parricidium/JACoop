@@ -846,29 +846,29 @@ static int CL_CoopLobbyRows( char rows[MAX_CLIENTS][96] ) {
 		}
 		const char *state;
 		if ( ready == 5 ) {
-			state = "   -  prepare son equipement...";
+			state = Coop_Tr( "   -  prepare son equipement...", "   -  getting equipped..." );
 		} else if ( ready == 6 ) {
-			state = "   -  PRET";
+			state = Coop_Tr( "   -  PRET", "   -  READY" );
 		} else if ( ready == 2 ) {
-			state = "   (hote)";
+			state = Coop_Tr( "   (hote)", "   (host)" );
 		} else if ( ready == 3 ) {
-			state = "   -  cree son personnage...";
+			state = Coop_Tr( "   -  cree son personnage...", "   -  creating a character..." );
 		} else if ( ready == 4 ) {
-			state = "   -  personnage valide";
+			state = Coop_Tr( "   -  personnage valide", "   -  character confirmed" );
 		} else if ( !Q_stricmp( dl, "list" ) ) {
-			state = "   -  verification des skins...";
+			state = Coop_Tr( "   -  verification des skins...", "   -  checking skins..." );
 		} else if ( dl[0] >= '0' && dl[0] <= '9' ) {
-			state = va( "   -  telechargement %i%%", atoi( dl ) );
+			state = va( Coop_Tr( "   -  telechargement %i%%", "   -  downloading %i%%" ), atoi( dl ) );
 		} else if ( !Q_stricmp( dl, "ulist" ) ) {
-			state = "   -  verification de ses mods...";
+			state = Coop_Tr( "   -  verification de ses mods...", "   -  checking their mods..." );
 		} else if ( dl[0] == 'u' && dl[1] >= '0' && dl[1] <= '9' ) {
-			state = va( "   -  envoi de ses mods %i%%", atoi( dl + 1 ) );
+			state = va( Coop_Tr( "   -  envoi de ses mods %i%%", "   -  sending their mods %i%%" ), atoi( dl + 1 ) );
 		} else if ( !Q_stricmp( dl, "uerr" ) ) {
-			state = ready == 1 ? "   -  pret (echec de l'envoi de ses mods)" : "   -  echec de l'envoi de ses mods";
+			state = ready == 1 ? Coop_Tr( "   -  pret (echec de l'envoi de ses mods)", "   -  ready (sending their mods failed)" ) : Coop_Tr( "   -  echec de l'envoi de ses mods", "   -  sending their mods failed" );
 		} else if ( !Q_stricmp( dl, "err" ) ) {
-			state = ready == 1 ? "   -  pret (echec du telechargement)" : "   -  echec du telechargement";
+			state = ready == 1 ? Coop_Tr( "   -  pret (echec du telechargement)", "   -  ready (download failed)" ) : Coop_Tr( "   -  echec du telechargement", "   -  download failed" );
 		} else {
-			state = ready == 1 ? "   -  pret" : "   -  pas pret";
+			state = ready == 1 ? Coop_Tr( "   -  pret", "   -  ready" ) : Coop_Tr( "   -  pas pret", "   -  not ready" );
 		}
 		Com_sprintf( rows[n++], 96, "%s%s", row, state );
 		p = end;
@@ -949,9 +949,50 @@ char CL_GetCoopEndPhase( void ) {
 	return s[0] ? s[0] : 'N';
 }
 
+// coop: the host publishes tokens, not sentences - each machine words them in
+// its own language: "@REF" a text of the game (mission title), "#S killed
+// [secrets]", "#D/#V/#R done total" (debriefing, votes, ready), "#W" the host
+// is on the game's own screens
+static const char *CL_CoopEndLocalize( const char *in ) {
+	static char	buf[2][256];
+	static int	idx;
+	char		*out = buf[idx++ & 1];
+	int			a = 0, b = 0;
+
+	if ( in[0] == '@' ) {
+		return SE_GetString( in + 1 );
+	}
+	if ( in[0] != '#' || !in[1] ) {
+		return in;
+	}
+	const int n = sscanf( in + 2, "%i %i", &a, &b );
+	switch ( in[1] ) {
+	case 'S':
+		if ( n >= 2 && b > 0 ) {
+			Com_sprintf( out, sizeof( buf[0] ), Coop_Tr( "Ennemis elimines : %i          Zones secretes : %i", "Enemies killed: %i          Secret areas: %i" ), a, b );
+		} else {
+			Com_sprintf( out, sizeof( buf[0] ), Coop_Tr( "Ennemis elimines : %i", "Enemies killed: %i" ), a );
+		}
+		return out;
+	case 'D':
+		Com_sprintf( out, sizeof( buf[0] ), Coop_Tr( "Debriefing : %i joueur(s) sur %i ont continue", "Debriefing: %i of %i player(s) have continued" ), a, b );
+		return out;
+	case 'V':
+		Com_sprintf( out, sizeof( buf[0] ), Coop_Tr( "Votes : %i sur %i", "Votes: %i of %i" ), a, b );
+		return out;
+	case 'R':
+		Com_sprintf( out, sizeof( buf[0] ), Coop_Tr( "Prets : %i sur %i", "Ready: %i of %i" ), a, b );
+		return out;
+	case 'W':
+		return Coop_Tr( "L'hote choisit la suite de la campagne...", "The host is choosing how the campaign continues..." );
+	default:
+		return in;
+	}
+}
+
 // field 1 = mission title, 2 = stats line, 3 = state line
 const char *CL_GetCoopEndHeader( int field ) {
-	return CL_CoopEndField( 0, field );
+	return CL_CoopEndLocalize( CL_CoopEndField( 0, field ) );
 }
 
 int CL_GetCoopEndCount( void ) {
@@ -971,12 +1012,12 @@ const char *CL_GetCoopEndText( int index ) {
 	if ( index < 0 || index >= CL_GetCoopEndCount() ) {
 		return "";
 	}
-	Q_strncpyz( label, CL_CoopEndField( index + 1, 1 ), sizeof( label ) );
+	Q_strncpyz( label, CL_CoopEndLocalize( CL_CoopEndField( index + 1, 1 ) ), sizeof( label ) );
 	Q_strncpyz( votes, CL_CoopEndField( index + 1, 2 ), sizeof( votes ) );
 	Q_strncpyz( voters, CL_CoopEndField( index + 1, 3 ), sizeof( voters ) );
 	const int n = atoi( votes );
 	if ( n > 0 ) {
-		Com_sprintf( row, sizeof( row ), "%s   -   %i voix  (%s)", label, n, voters );
+		Com_sprintf( row, sizeof( row ), Coop_Tr( "%s   -   %i voix  (%s)", "%s   -   %i vote(s)  (%s)" ), label, n, voters );
 	} else {
 		Q_strncpyz( row, label, sizeof( row ) );
 	}

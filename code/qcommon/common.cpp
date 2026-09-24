@@ -553,6 +553,50 @@ void Info_Print( const char *s ) {
 Com_StringContains
 ============
 */
+/*
+================
+Coop_Tr
+
+coop: the mod's own texts come in two languages - French for a game in French,
+English for every other language (JD, 24/09).
+================
+*/
+#ifdef _WIN32
+extern "C" __declspec(dllimport) unsigned short __stdcall GetUserDefaultUILanguage( void );
+#endif
+
+// coop: the first launch of the bilingual version. Every JACoop folder already
+// has se_language "english" archived (OpenJK's default), a French player
+// included: once, the game follows the language of Windows; after that, the
+// game's own language setting decides.
+static void Com_CoopLanguageInit( void )
+{
+	cvar_t *done = Cvar_Get( "coop_langInit", "0", CVAR_ARCHIVE );
+
+	if ( done->integer )
+	{
+		return;
+	}
+#ifdef _WIN32
+	if ( ( GetUserDefaultUILanguage() & 0x3ff ) == 0x0c )	// LANG_FRENCH
+	{
+		Cvar_Set( "se_language", "french" );
+	}
+#endif
+	Cvar_Set( "coop_langInit", "1" );
+}
+
+const char *Coop_Tr( const char *fr, const char *en )
+{
+	static cvar_t *lang;
+
+	if ( !lang )
+	{
+		lang = Cvar_Get( "se_language", "english", CVAR_ARCHIVE | CVAR_NORESTART );
+	}
+	return ( lang && !Q_stricmp( lang->string, "french" ) ) ? fr : en;
+}
+
 const char *Com_StringContains(const char *str1, const char *str2, int casesensitive) {
 	int len, i, j;
 
@@ -1185,6 +1229,7 @@ void Com_Init( char *commandLine ) {
 		JK2SP_Init();
 		Com_Printf("Running Jedi Outcast Mode\n");
 #else
+		Com_CoopLanguageInit();	// coop: once, the language of Windows (before the strings load)
 		SE_Init();	// Initialize StringEd
 		Com_Printf("Running Jedi Academy Mode\n");
 #endif

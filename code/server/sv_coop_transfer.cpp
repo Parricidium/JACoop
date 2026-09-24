@@ -206,7 +206,7 @@ static qboolean SV_CoopOpenNext( client_t *cl ) {
 	SV_CoopCloseFile( cl );
 	size = FS_CoopOpenOffered( dl->need[dl->needIndex], &dl->file );
 	if ( size < 0 || !dl->file ) {
-		SV_CoopFailClient( cl, va( "fichier %08x introuvable", dl->need[dl->needIndex] ) );
+		SV_CoopFailClient( cl, va( Coop_Tr( "fichier %08x introuvable", "file %08x not found" ), dl->need[dl->needIndex] ) );
 		return qfalse;
 	}
 	dl->fileSum = dl->need[dl->needIndex];
@@ -342,7 +342,7 @@ void SV_CoopNeed_f( client_t *cl ) {
 	}
 	n = atoi( Cmd_Argv( 1 ) );
 	if ( n < 0 || n > MAX_COOP_OFFER || Cmd_Argc() < 2 + n ) {
-		SV_CoopFailClient( cl, "liste invalide" );
+		SV_CoopFailClient( cl, Coop_Tr( "liste invalide", "invalid list" ) );
 		return;
 	}
 	dl->needCount = 0;
@@ -356,7 +356,7 @@ void SV_CoopNeed_f( client_t *cl ) {
 			}
 		}
 		if ( j == dl->offerCount ) {
-			SV_CoopFailClient( cl, va( "checksum %08x inconnu", sum ) );
+			SV_CoopFailClient( cl, va( Coop_Tr( "checksum %08x inconnu", "unknown checksum %08x" ), sum ) );
 			return;
 		}
 		dl->need[dl->needCount++] = (int)sum;
@@ -978,7 +978,7 @@ void SV_CoopUploadRead( client_t *cl, msg_t *msg ) {
 	}
 	len = MSG_ReadShort( msg );
 	if ( block < 0 || len < 0 || len > COOP_UP_BLK ) {
-		SV_DropClient( cl, "bloc coopup invalide" );
+		SV_DropClient( cl, Coop_Tr( "bloc coopup invalide", "invalid coopup block" ) );
 		return;
 	}
 	MSG_ReadData( msg, data, len );
@@ -1004,7 +1004,7 @@ void SV_CoopUploadRead( client_t *cl, msg_t *msg ) {
 		}
 		info = SV_CoopUpOffer( cl, sum );
 		if ( !info || size != info->size ) {
-			SV_CoopUploadFail( cl, "taille annoncee incoherente" );
+			SV_CoopUploadFail( cl, Coop_Tr( "taille annoncee incoherente", "announced size does not match" ) );
 			return;
 		}
 		up->curSum = sum;
@@ -1014,7 +1014,7 @@ void SV_CoopUploadRead( client_t *cl, msg_t *msg ) {
 		// the name is ours: checksum + the sanitized announced name, never a path from the client
 		up->file = FS_CoopOpenUpload( sum, info->name, up->relTmp, sizeof( up->relTmp ) );
 		if ( !up->file ) {
-			SV_CoopUploadFail( cl, "ecriture impossible" );
+			SV_CoopUploadFail( cl, Coop_Tr( "ecriture impossible", "cannot write" ) );
 			return;
 		}
 		Com_Printf( "coop: reception de %s depuis %s (%.1f Mo)\n", up->curName, cl->name, size / ( 1024.0f * 1024.0f ) );
@@ -1027,11 +1027,11 @@ void SV_CoopUploadRead( client_t *cl, msg_t *msg ) {
 	}
 	if ( len ) {
 		if ( up->curCount + len > up->curSize ) {
-			SV_CoopUploadFail( cl, "plus d'octets qu'annonce" );
+			SV_CoopUploadFail( cl, Coop_Tr( "plus d'octets qu'annonce", "more bytes than announced" ) );
 			return;
 		}
 		if ( FS_Write( data, len, up->file ) != len ) {
-			SV_CoopUploadFail( cl, "ecriture impossible" );
+			SV_CoopUploadFail( cl, Coop_Tr( "ecriture impossible", "cannot write" ) );
 			return;
 		}
 		up->curCount += len;
@@ -1053,7 +1053,7 @@ void SV_CoopUploadRead( client_t *cl, msg_t *msg ) {
 		up->relTmp[0] = '\0';
 		if ( up->curCount != up->curSize ) {
 			FS_CoopRemoveFile( relTmp );
-			SV_CoopUploadFail( cl, "fichier incomplet" );
+			SV_CoopUploadFail( cl, Coop_Tr( "fichier incomplet", "incomplete file" ) );
 			return;
 		}
 		if ( !FS_CoopFinishUpload( relTmp, up->curSum, up->curName, why, sizeof( why ) ) ) {

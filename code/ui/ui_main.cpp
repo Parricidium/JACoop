@@ -1105,13 +1105,13 @@ static void UI_CoopNpcPreview( void )
 	Cvar_Set( "ui_coopNpcName", e->name );
 	if ( !e->model[0] )
 	{	// vehicule ou droide md3 : rien a montrer en 3D
-		Cvar_Set( "ui_coopNpcInfo", "(vehicule ou droide : pas d apercu)" );
+		Cvar_Set( "ui_coopNpcInfo", Coop_Tr( "(vehicule ou droide : pas d apercu)", "(vehicle or droid: no preview)" ) );
 		item->window.flags &= ~WINDOW_VISIBLE;
 		return;
 	}
 	Cvar_Set( "ui_coopNpcInfo", e->fromModel
-		? va( "skin %s - jedi cree a la volee", e->model )
-		: va( "modele : %s", e->model ) );
+		? va( Coop_Tr( "skin %s - jedi cree a la volee", "skin %s - jedi made on the fly" ), e->model )
+		: va( Coop_Tr( "modele : %s", "model: %s" ), e->model ) );
 	item->window.flags |= WINDOW_VISIBLE;
 	ItemParse_model_g2anim_go( item, "BOTH_STAND1" );
 	ItemParse_asset_model_go( item, va( "models/players/%s/model.glm", e->model ) );
@@ -1129,7 +1129,7 @@ static void UI_CoopNpcsInit( void )
 		UI_CoopScanNpcs();
 	}
 	coopNpcSel = 0;
-	Cvar_Set( "ui_coopNpcCount", va( "%i PNJ installes", coopNpcCount ) );
+	Cvar_Set( "ui_coopNpcCount", va( Coop_Tr( "%i PNJ installes", "%i NPCs installed" ), coopNpcCount ) );
 	UI_CoopSetListCursor( "npcList", 0 );
 	UI_CoopNpcPreview();
 }
@@ -1381,7 +1381,7 @@ static void UI_CoopDrawModelIcon( float x, float y, float w, float h, float scal
 	}
 	else
 	{
-		ui.R_Font_DrawString( x, y + w * 0.4f, "(pas de portrait)", color, iFontIndex, -1, scale * 0.8f );
+		ui.R_Font_DrawString( x, y + w * 0.4f, Coop_Tr( "(pas de portrait)", "(no portrait)" ), color, iFontIndex, -1, scale * 0.8f );
 	}
 	ui.R_Font_DrawString( x, y + w + 4, va( "%s / %s", folder, skin ), color, iFontIndex, -1, scale * 0.8f );
 }
@@ -1465,8 +1465,8 @@ static void UI_CoopHiltsInit( void )
 		}
 		coopHiltList[coopHiltCount++] = i;
 	}
-	Cvar_Set( "ui_coopHiltTitle", coopHiltSecond ? "SABRE GAUCHE" : ( wantStaff ? "DOUBLE LAME" : "SABRE" ) );
-	Cvar_Set( "ui_coopHiltCount", va( "%i modeles installes", coopHiltCount ) );
+	Cvar_Set( "ui_coopHiltTitle", coopHiltSecond ? Coop_Tr( "SABRE GAUCHE", "LEFT SABER" ) : ( wantStaff ? Coop_Tr( "DOUBLE LAME", "SABERSTAFF" ) : Coop_Tr( "SABRE", "SABER" ) ) );
+	Cvar_Set( "ui_coopHiltCount", va( Coop_Tr( "%i modeles installes", "%i models installed" ), coopHiltCount ) );
 	UI_CoopSetListCursor( "hiltList", coopHiltSel );
 	UI_CoopHiltPreview();
 }
@@ -1658,14 +1658,14 @@ static void UI_CoopColorSliders( const char *cur )
 	coopColorLast[0] = r;
 	coopColorLast[1] = g;
 	coopColorLast[2] = b;
-	Cvar_Set( "ui_coopColorText", va( "%s   (R %i  V %i  B %i)", cur, r, g, b ) );
+	Cvar_Set( "ui_coopColorText", va( Coop_Tr( "%s   (R %i  V %i  B %i)", "%s   (R %i  G %i  B %i)" ), cur, r, g, b ) );
 }
 
 static void UI_CoopColorInit( void )
 {
 	coopColorSecond = (qboolean)( Cvar_VariableIntegerValue( "ui_coopHiltWhich" ) == 2 );
 	Q_strncpyz( coopColorSaved, Cvar_VariableString( UI_CoopColorCvar() ), sizeof( coopColorSaved ) );
-	Cvar_Set( "ui_coopHiltTitle", coopColorSecond ? "COULEUR DU SABRE GAUCHE" : "COULEUR DE LA LAME" );
+	Cvar_Set( "ui_coopHiltTitle", coopColorSecond ? Coop_Tr( "COULEUR DU SABRE GAUCHE", "LEFT SABER COLOUR" ) : Coop_Tr( "COULEUR DE LA LAME", "BLADE COLOUR" ) );
 	UI_CoopColorSliders( coopColorSaved );
 }
 
@@ -1689,7 +1689,7 @@ static void UI_CoopSaberColorSync( void )
 	coopColorLast[1] = g;
 	coopColorLast[2] = b;
 	Cvar_Set( UI_CoopColorCvar(), va( "#%02x%02x%02x", r, g, b ) );
-	Cvar_Set( "ui_coopColorText", va( "#%02x%02x%02x   (R %i  V %i  B %i)", r, g, b, r, g, b ) );
+	Cvar_Set( "ui_coopColorText", va( Coop_Tr( "#%02x%02x%02x   (R %i  V %i  B %i)", "#%02x%02x%02x   (R %i  G %i  B %i)" ), r, g, b, r, g, b ) );
 }
 
 // one of the six presets, from the picker's quick buttons
@@ -2783,7 +2783,7 @@ static qboolean UI_RunMenuScript ( const char **args )
 		{
 			if ( Cvar_VariableIntegerValue( "sv_coopTransferPending" ) > 0 )
 			{	// coop: a joiner is still fetching our skins (the button is hidden, this catches a race)
-				Cvar_Set( "ui_coopLobbyMsg", "Un joueur telecharge encore tes skins : attends que tout le monde soit pret." );
+				Cvar_Set( "ui_coopLobbyMsg", Coop_Tr( "Un joueur telecharge encore tes skins : attends que tout le monde soit pret.", "A player is still downloading your skins: wait until everyone is ready." ) );
 				return qtrue;
 			}
 			// Lobby host: difficulty + character screens, then the campaign (see startgame).
@@ -2837,7 +2837,7 @@ static qboolean UI_RunMenuScript ( const char **args )
 		{
 			if ( Cvar_VariableIntegerValue( "sv_coopTransferPending" ) > 0 )
 			{	// coop: a joiner is still fetching our skins
-				Cvar_Set( "ui_coopLobbyMsg", "Un joueur telecharge encore tes skins : attends que tout le monde soit pret." );
+				Cvar_Set( "ui_coopLobbyMsg", Coop_Tr( "Un joueur telecharge encore tes skins : attends que tout le monde soit pret.", "A player is still downloading your skins: wait until everyone is ready." ) );
 				return qtrue;
 			}
 			// Lobby host: pick a savegame (joiners get their characters back from its sidecar).
@@ -2850,7 +2850,7 @@ static qboolean UI_RunMenuScript ( const char **args )
 			const char *dl = Cvar_VariableString( "cl_coopTransferState" );
 			if ( !Q_stricmp( dl, "list" ) || !Q_stricmp( dl, "downloading" ) )
 			{	// coop: we are fetching the host's skins, the engine flags us ready when they are in
-				Cvar_Set( "ui_coopLobbyMsg", "Attends la fin du telechargement des skins de l'hote." );
+				Cvar_Set( "ui_coopLobbyMsg", Coop_Tr( "Attends la fin du telechargement des skins de l'hote.", "Wait until the host's skins have finished downloading." ) );
 				return qtrue;
 			}
 			Cvar_Set( "coop_ready", Cvar_VariableIntegerValue( "coop_ready" ) ? "0" : "1" );

@@ -2910,7 +2910,7 @@ static qboolean FS_CoopPakContentAllowed( pack_t *pak, char *why, int whySize ) 
 			continue;
 		}
 		if ( strstr( name, ".." ) || strstr( name, "::" ) || strchr( name, ':' ) || name[0] == '/' || name[0] == '\\' ) {
-			Com_sprintf( why, whySize, "chemin interdit '%s'", name );
+			Com_sprintf( why, whySize, Coop_Tr( "chemin interdit '%s'", "forbidden path '%s'" ), name );
 			return qfalse;
 		}
 		if ( name[len - 1] == '/' ) {
@@ -2919,7 +2919,7 @@ static qboolean FS_CoopPakContentAllowed( pack_t *pak, char *why, int whySize ) 
 		for ( j = 0; fs_coopBadExtensions[j]; j++ ) {
 			size_t el = strlen( fs_coopBadExtensions[j] );
 			if ( len > el && !Q_stricmp( name + len - el, fs_coopBadExtensions[j] ) ) {
-				Com_sprintf( why, whySize, "fichier interdit '%s'", name );
+				Com_sprintf( why, whySize, Coop_Tr( "fichier interdit '%s'", "forbidden file '%s'" ), name );
 				return qfalse;
 			}
 		}
@@ -2941,7 +2941,7 @@ static qboolean FS_CoopPakContentAllowed( pack_t *pak, char *why, int whySize ) 
 			}
 		}
 		if ( !fs_coopPathPrefixes[j] && !COM_CompareExtension( name, ".txt" ) ) {
-			Com_sprintf( why, whySize, "dossier non autorise '%s'", name );
+			Com_sprintf( why, whySize, Coop_Tr( "dossier non autorise '%s'", "folder not allowed '%s'" ), name );
 			return qfalse;
 		}
 	}
@@ -3179,11 +3179,11 @@ static qboolean FS_CoopAddPak( const char *ospath, const char *basename, int exp
 
 	pak = FS_LoadZipFile( ospath, basename );
 	if ( !pak ) {
-		Com_sprintf( why, whySize, "zip illisible" );
+		Com_sprintf( why, whySize, Coop_Tr( "zip illisible", "unreadable zip" ) );
 		return qfalse;
 	}
 	if ( pak->checksum != expectedSum ) {
-		Com_sprintf( why, whySize, "checksum %08x au lieu de %08x", pak->checksum, expectedSum );
+		Com_sprintf( why, whySize, Coop_Tr( "checksum %08x au lieu de %08x", "checksum %08x instead of %08x" ), pak->checksum, expectedSum );
 		FS_FreePak( pak );
 		return qfalse;
 	}

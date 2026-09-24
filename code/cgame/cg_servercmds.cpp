@@ -180,7 +180,28 @@ static void CG_CenterPrint_f( void ) {
 }
 
 static void CG_Print_f( void ) {
-	CG_Printf( "%s", CG_Argv( 1 ) );
+	const char	*in = CG_Argv( 1 );
+	const char	*at = strstr( in, "@@" );
+
+	if ( at )
+	{	// coop: "@@REF" = a text of the game (a mission title), in our own language
+		char	ref[64], text[256], out[1024];
+		int		n = 0;
+
+		while ( n < (int)sizeof( ref ) - 1 && ( isalnum( (unsigned char)at[2 + n] ) || at[2 + n] == '_' ) )
+		{
+			ref[n] = at[2 + n];
+			n++;
+		}
+		ref[n] = '\0';
+		if ( n && cgi_SP_GetStringTextString( ref, text, sizeof( text ) ) && text[0] )
+		{
+			Com_sprintf( out, sizeof( out ), "%.*s%s%s", (int)( at - in ), in, text, at + 2 + n );
+			CG_Printf( "%s", out );
+			return;
+		}
+	}
+	CG_Printf( "%s", in );
 }
 
 static void CG_CaptionText_f( void ) {

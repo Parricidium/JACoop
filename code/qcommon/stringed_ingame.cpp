@@ -1184,7 +1184,7 @@ void SE_Init(void)
 //	int iNumLanguages = SE_GetNumLanguages();
 #endif
 
-	se_language = Cvar_Get("se_language", "english", CVAR_ARCHIVE | CVAR_NORESTART);
+	se_language = Cvar_Get("se_language", "english", CVAR_ARCHIVE | CVAR_NORESTART | CVAR_USERINFO);	// coop: the host sends each joiner its messages in its language
 	se_debug = Cvar_Get("se_debug", "0", 0);
 	sp_leet = Cvar_Get("sp_leet", "0", CVAR_ROM );
 

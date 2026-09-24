@@ -23,6 +23,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "cg_headers.h"
 
+extern const char *G_CoopTr( const char *fr, const char *en );	// g_coop.cpp : the mod's texts, FR / EN
+
 #include "cg_media.h"
 #include "../game/objectives.h"
 #include "../game/b_local.h"
@@ -174,7 +176,7 @@ void CG_MissionFailed(void)
 			{
 				Q_strncpyz( reason, text, sizeof( reason ) );
 			}
-			cgi_Cvar_Set( "ui_coopAllDownText", va( "Mission echouee : %s", reason ) );
+			cgi_Cvar_Set( "ui_coopAllDownText", va( G_CoopTr( "Mission echouee : %s", "Mission failed: %s" ), reason ) );
 			cgi_UI_SetActive_Menu( "coopAllDownClient" );
 		}
 		else

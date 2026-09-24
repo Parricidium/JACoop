@@ -173,7 +173,7 @@ static void CL_CoopUploadFail( const char *code ) {
 	}
 	clc.coopup.state = CLUP_FAILED;
 	Cvar_Set( "cl_coopTransferState", "error" );
-	CL_CoopSetStatus( va( "Echec de l'envoi de mes mods a l'hote (%s).", code ) );
+	CL_CoopSetStatus( va( Coop_Tr( "Echec de l'envoi de mes mods a l'hote (%s).", "Sending my mods to the host failed (%s)." ), code ) );
 }
 
 static void CL_CoopUploadDone( void ) {
@@ -188,7 +188,7 @@ static void CL_CoopUploadDone( void ) {
 		Com_Printf( "coop: mes mods envoyes a l'hote (%i fichier(s), %.1f Mo, %.1f s, %.0f Ko/s)\n",
 			up->sendCount, up->totalBytes / ( 1024.0f * 1024.0f ), secs,
 			secs > 0.01f ? up->totalBytes / 1024.0f / secs : 0.0f );
-		CL_CoopSetStatus( va( "Mes mods envoyes a l'hote (%i fichier(s), %.1f Mo).", up->sendCount, up->totalBytes / ( 1024.0f * 1024.0f ) ) );
+		CL_CoopSetStatus( va( Coop_Tr( "Mes mods envoyes a l'hote (%i fichier(s), %.1f Mo).", "My mods sent to the host (%i file(s), %.1f MB)." ), up->sendCount, up->totalBytes / ( 1024.0f * 1024.0f ) ) );
 	}
 }
 
@@ -321,7 +321,7 @@ static void CL_CoopUploadServerCommand( int argc, char **argv, const char *rest 
 		if ( !CL_CoopUploadOpenNext() ) {
 			return;
 		}
-		CL_CoopSetStatus( va( "Envoi de mes mods a l'hote (%i fichier(s), %.1f Mo)...", up->sendCount, up->totalBytes / ( 1024.0f * 1024.0f ) ) );
+		CL_CoopSetStatus( va( Coop_Tr( "Envoi de mes mods a l'hote (%i fichier(s), %.1f Mo)...", "Sending my mods to the host (%i file(s), %.1f MB)..." ), up->sendCount, up->totalBytes / ( 1024.0f * 1024.0f ) ) );
 		return;
 	}
 
@@ -500,7 +500,7 @@ static void CL_CoopUploadFrame( void ) {
 		if ( pct > 99 ) {
 			pct = 99;
 		}
-		CL_CoopSetStatus( va( "Envoi de %s a l'hote : %i %%  (%.0f Ko/s)", up->curName[0] ? up->curName : "...", pct,
+		CL_CoopSetStatus( va( Coop_Tr( "Envoi de %s a l'hote : %i %%  (%.0f Ko/s)", "Sending %s to the host: %i %%  (%.0f KB/s)" ), up->curName[0] ? up->curName : "...", pct,
 			secs > 0.5f ? up->ackedBytes / 1024.0f / secs : 0.0f ) );
 	}
 }
@@ -533,7 +533,7 @@ static void CL_CoopTransferFail( const char *code, const char *detail ) {
 		CL_AddReliableCommand( va( "coopdl_fail %s", code ) );
 	}
 	CL_CoopSetState( CLDL_FAILED, "error" );
-	CL_CoopSetStatus( va( "Echec du telechargement des skins de l'hote (%s).", code ) );
+	CL_CoopSetStatus( va( Coop_Tr( "Echec du telechargement des skins de l'hote (%s).", "Downloading the host's skins failed (%s)." ), code ) );
 	Cvar_Set( "cl_coopTransferPct", "0" );
 }
 
@@ -555,7 +555,7 @@ void CL_CoopTransferHello( void ) {
 	CL_AddReliableCommand( va( "coopdl_hello %i", COOP_DL_PROTOCOL ) );
 	clc.coopdl.helloTime = cls.realtime;
 	CL_CoopSetState( CLDL_WAITLIST, "list" );
-	CL_CoopSetStatus( "Verification des skins de l'hote..." );
+	CL_CoopSetStatus( Coop_Tr( "Verification des skins de l'hote...", "Checking the host's skins..." ) );
 	Com_DPrintf( "coop: demande de la liste des skins de l'hote\n" );
 }
 
@@ -622,7 +622,7 @@ static void CL_CoopTransferListComplete( void ) {
 	dl->bytesAtLastTick = 0;
 	dl->speed = 0;
 	CL_CoopSetState( CLDL_RECEIVING, "downloading" );
-	CL_CoopSetStatus( va( "Telechargement des skins de l'hote (%i fichier(s), %.1f Mo)...", dl->needCount, dl->totalBytes / ( 1024.0f * 1024.0f ) ) );
+	CL_CoopSetStatus( va( Coop_Tr( "Telechargement des skins de l'hote (%i fichier(s), %.1f Mo)...", "Downloading the host's skins (%i file(s), %.1f MB)..." ), dl->needCount, dl->totalBytes / ( 1024.0f * 1024.0f ) ) );
 	Cvar_Set( "cl_coopTransferPct", "0" );
 }
 
@@ -738,7 +738,7 @@ void CL_CoopTransferServerCommand( const char *s ) {
 			Com_Printf( S_COLOR_YELLOW "coop: transfert refuse par l'hote (%s)\n", why );
 			CL_CoopCloseCurrent( qtrue );
 			CL_CoopSetState( CLDL_FAILED, "error" );
-			CL_CoopSetStatus( va( "L'hote a interrompu le transfert des skins (%s).", why ) );
+			CL_CoopSetStatus( va( Coop_Tr( "L'hote a interrompu le transfert des skins (%s).", "The host stopped the skin transfer (%s)." ), why ) );
 			Cvar_Set( "cl_coopTransferPct", "0" );
 		}
 		return;
@@ -759,7 +759,7 @@ static void CL_CoopTransferComplete( void ) {
 	CL_AddReliableCommand( "coopdl_done" );
 	CL_CoopSetState( CLDL_DONE, "done" );
 	Cvar_Set( "cl_coopTransferPct", "100" );
-	CL_CoopSetStatus( va( "Skins de l'hote recus (%i fichier%s, %.1f Mo).", dl->downloadedFiles, dl->downloadedFiles > 1 ? "s" : "", dl->totalBytes / ( 1024.0f * 1024.0f ) ) );
+	CL_CoopSetStatus( va( Coop_Tr( "Skins de l'hote recus (%i fichier%s, %.1f Mo).", "Host's skins received (%i file%s, %.1f MB)." ), dl->downloadedFiles, dl->downloadedFiles > 1 ? "s" : "", dl->totalBytes / ( 1024.0f * 1024.0f ) ) );
 	Com_Printf( "coop: transfert termine (%i fichier(s), %.1f Mo, %.1f s)\n", dl->downloadedFiles, dl->totalBytes / ( 1024.0f * 1024.0f ), secs );
 	if ( dl->downloadedFiles > 0 ) {
 		// we were the reason the host waited: mark ourselves ready
@@ -961,9 +961,9 @@ void CL_CoopTransferFrame( void ) {
 		}
 		Cvar_Set( "cl_coopTransferPct", va( "%i", pct ) );
 		if ( eta >= 0 ) {
-			CL_CoopSetStatus( va( "Telechargement de %s : %i %%  (%.1f Mo/s, %i s)", dl->cur.name[0] ? dl->cur.name : "...", pct, dl->speed / ( 1024.0f * 1024.0f ), eta ) );
+			CL_CoopSetStatus( va( Coop_Tr( "Telechargement de %s : %i %%  (%.1f Mo/s, %i s)", "Downloading %s: %i %%  (%.1f MB/s, %i s)" ), dl->cur.name[0] ? dl->cur.name : "...", pct, dl->speed / ( 1024.0f * 1024.0f ), eta ) );
 		} else {
-			CL_CoopSetStatus( va( "Telechargement de %s : %i %%", dl->cur.name[0] ? dl->cur.name : "...", pct ) );
+			CL_CoopSetStatus( va( Coop_Tr( "Telechargement de %s : %i %%", "Downloading %s: %i %%" ), dl->cur.name[0] ? dl->cur.name : "...", pct ) );
 		}
 	}
 }
