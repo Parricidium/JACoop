@@ -382,7 +382,6 @@ static const char *glslSunMap =
 static const char *fsComposite =
 	"#version 120\n"
 	"uniform sampler2D scene;\n"
-	"uniform sampler2D sceneDepth;\n"
 	"uniform sampler2D ao;\n"
 	"uniform vec2 texel;\n"
 	"uniform float intensity;\n"
@@ -394,8 +393,22 @@ static const char *fsComposite =
 	"uniform sampler2D rtLight;\n"		// le ray tracing : lumiere ajoutee
 	"uniform sampler2D rtRefl;\n"		// ... et reflet (rgb) avec sa force (a)
 	"uniform float rtOn;\n"
+	"uniform sampler2D rtMat;\n"		// le tampon de materiaux : normale de relief (vue), genre+brillance
+	"uniform sampler2D rtMatDepth;\n"
+	"uniform vec3 sunView;\n"
+	"uniform float reliefOn;\n"
+	"%s"
 	"varying vec2 uv;\n"
 	"float hash( vec2 c ) { return fract( sin( dot( c, vec2( 12.9898, 78.233 ) ) ) * 43758.5453 ); }\n"
+	"vec3 normalAt( vec2 t, vec3 p ) {\n"
+	"	vec3 l = viewPos( t - vec2( texel.x, 0.0 ) ) - p;\n"
+	"	vec3 r = viewPos( t + vec2( texel.x, 0.0 ) ) - p;\n"
+	"	vec3 d = viewPos( t - vec2( 0.0, texel.y ) ) - p;\n"
+	"	vec3 u = viewPos( t + vec2( 0.0, texel.y ) ) - p;\n"
+	"	vec3 h = ( abs( l.z ) < abs( r.z ) ) ? -l : r;\n"
+	"	vec3 v = ( abs( d.z ) < abs( u.z ) ) ? -d : u;\n"
+	"	return normalize( cross( h, v ) );\n"
+	"}\n"
 	"void main() {\n"
 	"	vec4 c = texture2D( scene, uv );\n"
 	"	float a = 0.0;\n"
@@ -465,6 +478,25 @@ static const char *fsComposite =
 	"			vec4 R = texture2D( rtRefl, uv );\n"
 	"			col += L.rgb * ( c.rgb * 0.7 + 0.15 );\n"
 	"			col = mix( col, R.rgb, R.a );\n"
+	// Le relief du decor : la normale de la texture contre la normale
+	// geometrique, face au soleil la ou il eclaire (le G brut, sans le
+	// flou), et un leger modele partout (les creux tournent le dos a la
+	// camera).
+	"			if ( reliefOn > 0.5 ) {\n"
+	"				vec4 mm = texture2D( rtMat, uv );\n"
+	"				float dd = texture2D( sceneDepth, uv ).r;\n"
+	"				float mdd = texture2D( rtMatDepth, uv ).r;\n"
+	"				if ( mm.a > 0.0 && abs( floor( mm.a * 5.0 + 0.001 ) - 1.0 ) < 0.5 && abs( mdd - dd ) < 0.0004 && dd < 1.0 ) {\n"
+	"					vec3 pv = viewPosAt( uv, dd );\n"
+	"					vec3 ng = normalAt( uv, pv );\n"
+	"					vec3 nd = normalize( mm.xyz * 2.0 - 1.0 );\n"
+	"					float lit = texture2D( ao, uv ).g * sunStrength;\n"
+	"					float gl = dot( ng, sunView );\n"
+	"					float rel = ( gl > 0.05 ) ? clamp( dot( nd, sunView ) / gl, 0.3, 1.7 ) : 1.0;\n"
+	"					float amb = 1.0 + 0.35 * ( nd.z - ng.z ) * reliefOn;\n"
+	"					col *= mix( amb, rel * amb, lit * step( 0.05, gl ) );\n"
+	"				}\n"
+	"			}\n"
 	"		}\n"
 	"		gl_FragColor = vec4( col + rays, c.a );\n"
 	"	}\n"
@@ -589,7 +621,7 @@ void R_ModernInit( void )
 		return;
 	}
 	modernAoProg = R_ModernCompile( vsPassthrough, va( fsAo, glslViewPos, glslSunMap ), "occlusion ambiante" );
-	modernComposite = R_ModernCompile( vsPassthrough, fsComposite, "composition" );
+	modernComposite = R_ModernCompile( vsPassthrough, va( fsComposite, glslViewPos ), "composition" );
 	if ( !modernAoProg || !modernComposite )
 	{
 		modernFailed = qtrue;
@@ -985,6 +1017,8 @@ ne fait que recopier : l'image doit etre identique a celle d'avant.
 */
 static qboolean	modernPending;		// une vue 3D a ete dessinee, la passe lui est due
 static qboolean	modernOpaqueDone;	// ... ou la passe a deja eu lieu au milieu de cette vue
+static qboolean	modernLatePending;	// la passe tardive du trace (verre, eau, lave) est due au premier 2D
+static modernRTParams_t	modernLateParams;
 
 // La frontiere opaque -> transparent de la vue principale : le decor et les
 // personnages sont peints, les lames de sabre, lueurs, sprites et effets
@@ -1022,6 +1056,11 @@ void R_ModernMarkPending( void )
 
 void R_ModernFlush( void )
 {
+	if ( modernLatePending )
+	{	// le transparent est peint : verre, eau, lave
+		modernLatePending = qfalse;
+		R_ModernRTLatePass( &modernLateParams );
+	}
 	if ( !modernPending )
 	{
 		return;
@@ -1143,6 +1182,11 @@ static void R_ModernPostProcess( void )
 		prm.wantSun = wantSun;
 		prm.wantAo = wantAo;
 		rtDone = R_ModernRTPass( &prm );
+		if ( rtDone )
+		{
+			modernLateParams = prm;
+			modernLatePending = qtrue;
+		}
 		qglViewport( x, y, w, h );
 		qglScissor( x, y, w, h );
 		modernSunValid = qfalse;
@@ -1232,9 +1276,40 @@ static void R_ModernPostProcess( void )
 		qglBindTexture( GL_TEXTURE_2D, R_ModernRTLightTex() );
 		qglActiveTextureARB( 0x84C4 /* GL_TEXTURE4_ARB */ );
 		qglBindTexture( GL_TEXTURE_2D, R_ModernRTReflTex() );
+		qglActiveTextureARB( 0x84C5 /* GL_TEXTURE5_ARB */ );
+		qglBindTexture( GL_TEXTURE_2D, R_ModernRTMatTex() );
+		qglActiveTextureARB( 0x84C6 /* GL_TEXTURE6_ARB */ );
+		qglBindTexture( GL_TEXTURE_2D, R_ModernRTMatDepth() );
 		qglActiveTextureARB( GL_TEXTURE0_ARB );
 	}
+	if ( r_modernDebug->integer == 6 )
+	{	// SONDE : les liaisons au moment de la composition
+		static int lastSay;
+
+		if ( abs( (int)( backEnd.refdef.time - lastSay ) ) > 1000 )
+		{
+			GLint	b[7];
+
+			lastSay = backEnd.refdef.time;
+			for ( int u = 0; u < 7; u++ )
+			{
+				qglActiveTextureARB( GL_TEXTURE0_ARB + u );
+				qglGetIntegerv( GL_TEXTURE_BINDING_2D, &b[u] );
+			}
+			qglActiveTextureARB( GL_TEXTURE0_ARB );
+			ri.Printf( PRINT_ALL, "composition: unites %i %i %i %i %i %i %i | scene %i prof %i ao %i aoRT %i lum %i refl %i mat %i matprof %i tmu %i prog %i\n",
+				b[0], b[1], b[2], b[3], b[4], b[5], b[6], modernSceneTex, modernDepthTex, modernAoTex, R_ModernRTAoTex(),
+				R_ModernRTLightTex(), R_ModernRTReflTex(), R_ModernRTMatTex(), R_ModernRTMatDepth(), glState.currenttmu, modernComposite );
+		}
+	}
 	p_glUseProgram( modernComposite );
+	p_glUniform1i( p_glGetUniformLocation( modernComposite, "rtMat" ), 5 );
+	p_glUniform1i( p_glGetUniformLocation( modernComposite, "rtMatDepth" ), 6 );
+	p_glUniform3f( p_glGetUniformLocation( modernComposite, "sunView" ), sunView[0], sunView[1], sunView[2] );
+	p_glUniform1f( p_glGetUniformLocation( modernComposite, "reliefOn" ), ( rtDone && r_modernRTNormals->integer ) ? r_modernRTNormalStrength->value : 0.0f );
+	p_glUniform2f( p_glGetUniformLocation( modernComposite, "projAB" ), P[0], P[5] );
+	p_glUniform2f( p_glGetUniformLocation( modernComposite, "projCD" ), P[8], P[9] );
+	p_glUniform2f( p_glGetUniformLocation( modernComposite, "projEF" ), P[10], P[14] );
 	p_glUniform1i( p_glGetUniformLocation( modernComposite, "rtLight" ), 3 );
 	p_glUniform1i( p_glGetUniformLocation( modernComposite, "rtRefl" ), 4 );
 	p_glUniform1f( p_glGetUniformLocation( modernComposite, "rtOn" ), rtDone ? 1.0f : 0.0f );
@@ -1285,6 +1360,10 @@ static void R_ModernPostProcess( void )
 
 	if ( rtDone )
 	{
+		qglActiveTextureARB( 0x84C6 );
+		qglBindTexture( GL_TEXTURE_2D, 0 );
+		qglActiveTextureARB( 0x84C5 );
+		qglBindTexture( GL_TEXTURE_2D, 0 );
 		qglActiveTextureARB( 0x84C4 /* GL_TEXTURE4_ARB */ );
 		qglBindTexture( GL_TEXTURE_2D, 0 );
 		qglActiveTextureARB( GL_TEXTURE3_ARB );

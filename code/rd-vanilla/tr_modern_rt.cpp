@@ -36,6 +36,11 @@ cvar_t	*r_modernRTReflect;
 cvar_t	*r_modernRTDynamic;
 cvar_t	*r_modernRTScale;
 cvar_t	*r_modernRTReflectStrength;
+cvar_t	*r_modernRTNormals;
+cvar_t	*r_modernRTNormalStrength;
+cvar_t	*r_modernRTWater;
+cvar_t	*r_modernRTGlass;
+cvar_t	*r_modernRTLava;
 
 extern bool g_bRenderGlowingObjects;
 
@@ -64,6 +69,7 @@ typedef void	(APIENTRY *PFN_glBufferData)( GLenum, ptrdiff_t, const void *, GLen
 typedef void	(APIENTRY *PFN_glBindBufferBase)( GLenum, GLuint, GLuint );
 typedef void	(APIENTRY *PFN_glDrawBuffers)( GLsizei, const GLenum * );
 typedef void	(APIENTRY *PFN_glUniform4fv)( GLint, GLsizei, const GLfloat * );
+typedef void	(APIENTRY *PFN_glUniform3fv)( GLint, GLsizei, const GLfloat * );
 
 static PFN_glGenBuffers		p_glGenBuffers;
 static PFN_glDeleteBuffers	p_glDeleteBuffers;
@@ -72,6 +78,7 @@ static PFN_glBufferData		p_glBufferData;
 static PFN_glBindBufferBase	p_glBindBufferBase;
 static PFN_glDrawBuffers	p_glDrawBuffers;
 static PFN_glUniform4fv		p_glUniform4fv;
+static PFN_glUniform3fv		p_glUniform3fv;
 
 #define RT_MAX_LIGHTS		32
 #define RT_MAX_DYN_TRIS		300000
@@ -85,7 +92,16 @@ static GLuint	rtLightTex, rtReflTex;
 static GLuint	rtAoTex;			// notre cible occlusion/ombre, a l'echelle de la passe
 static GLuint	rtAoTexBound;		// la cible 0 qu'on a attachee (celle de tr_modern)
 static int		rtWidth, rtHeight;
-static GLuint	rtMaskFbo, rtMaskTex, rtMaskDepth;	// les surfaces brillantes, avec leur profondeur
+static GLuint	rtMaskFbo, rtMaskTex, rtMaskDepth;	// le tampon de materiaux : normale, genre+brillance, profondeur
+static GLuint	rtMatProg;						// le shader qui le remplit
+static GLuint	rtLateProg;						// verre, eau, lave, apres le transparent
+static GLuint	rtLateTex;						// l'image avec le transparent, pour les reflets tardifs
+static qboolean	rtLateActive;					// la capture des surfaces tardives est ouverte
+static int		rtLateFrame;
+#define RT_MAX_LAVA	64
+static vec3_t	rtLava[RT_MAX_LAVA];				// les nappes de lave de la carte (centres)
+static float	rtLavaSize[RT_MAX_LAVA];
+static int		rtLavaCount;
 static GLuint	rtWorldNodes, rtWorldTris;			// SSBO du decor
 static GLuint	rtDynNodes, rtDynTris;				// SSBO des sous-modeles et personnages
 static int		rtWorldNodeCount, rtWorldTriCount;
@@ -418,6 +434,60 @@ static void RT_PushTri( std::vector<rtTri> &out, const float *a, const float *b,
 	out.push_back( t );
 }
 
+// Le genre d'une surface pour le tampon de materiaux : 0 opaque, 1 verre,
+// 2 eau, 3 lave, -1 rien a faire.
+static int RT_ShaderKind( const shader_t *sh )
+{
+	if ( !sh || ( sh->surfaceFlags & ( SURF_NODRAW | SURF_SKY ) ) || !sh->stages || sh->numUnfoggedPasses < 1 )
+	{
+		return -1;
+	}
+	if ( sh->contentFlags & CONTENTS_LAVA )
+	{
+		return r_modernRTLava->integer ? 3 : -1;
+	}
+	if ( sh->contentFlags & CONTENTS_WATER )
+	{
+		return r_modernRTWater->integer ? 2 : -1;
+	}
+	if ( sh->sort > SS_OPAQUE )
+	{	// transparent : seulement le verre (une lueur d'environnement, ou son nom)
+		if ( !r_modernRTGlass->integer )
+		{
+			return -1;
+		}
+		if ( Q_stristr( sh->name, "glass" ) || Q_stristr( sh->name, "window" ) || Q_stristr( sh->name, "vitre" ) )
+		{
+			return 1;
+		}
+		for ( int i = 0; i < sh->numUnfoggedPasses; i++ )
+		{
+			if ( sh->stages[i].bundle[0].tcGen == TCGEN_ENVIRONMENT_MAPPED )
+			{
+				return 1;
+			}
+		}
+		return -1;
+	}
+	return 0;
+}
+
+// La texture de base d'un shader (le premier etage qui n'est pas la carte de
+// lumiere), pour en tirer le relief.
+static const image_t *RT_ShaderDiffuse( const shader_t *sh )
+{
+	for ( int i = 0; i < sh->numUnfoggedPasses; i++ )
+	{
+		const textureBundle_t *b = &sh->stages[i].bundle[0];
+
+		if ( b->image && !b->isLightmap && !b->isVideoMap && b->image->width > 1 )
+		{
+			return b->image;
+		}
+	}
+	return NULL;
+}
+
 static qboolean RT_ShaderCasts( const shader_t *sh )
 {
 	if ( !sh || sh->sort > SS_OPAQUE || ( sh->surfaceFlags & ( SURF_NODRAW | SURF_SKY ) ) )
@@ -605,7 +675,15 @@ TRAVERSE( travD, dn, dt )
 float trace( vec3 ro, vec3 rd, float tmax, bool any, float dynMax ) {
 	float t = travW( ro, rd, tmax, any );
 	if ( any && t < tmax ) return t;
-	if ( dynNodes > 0 ) t = travD( ro, rd, min( t, dynMax ), any );
+	if ( dynNodes > 0 ) {
+		// ne garder le resultat dynamique que s'il touche vraiment : travD rend
+		// sa borne quand il ne touche rien, et la borne min( t, dynMax ) faisait
+		// croire a l'occlusion que chaque rayon butait a 64 unites (mesure :
+		// occlusion moyenne 86/255 au lieu de 241)
+		float lim = min( t, dynMax );
+		float td = travD( ro, rd, lim, any );
+		if ( td < lim ) t = td;
+	}
 	return t;
 }
 
@@ -618,6 +696,12 @@ void main() {
 	vec3 n = normalize( mat3( invView ) * nv );
 	vec3 camPos = invView[3].xyz;
 	vec3 o = p + n * 0.75;
+	// la normale de relief du decor (tampon de materiaux), pour l'eclairage et
+	// les reflets ; les rayons d'ombre gardent la normale geometrique
+	vec4 mm = texture( shineMask, uv );
+	float mdd = texture( shineDepth, uv ).r;
+	bool hasMat = ( mm.a > 0.0 && abs( mdd - d ) < 0.0004 );
+	vec3 nd = hasMat ? normalize( mat3( invView ) * normalize( mm.xyz * 2.0 - 1.0 ) ) : n;
 	vec3 t1 = normalize( cross( n, ( abs( n.y ) < 0.9 ) ? vec3( 0.0, 1.0, 0.0 ) : vec3( 1.0, 0.0, 0.0 ) ) );
 	vec3 t2 = cross( n, t1 );
 
@@ -663,7 +747,7 @@ void main() {
 	vec3 light = vec3( 0.0 );
 	for ( int i = 0; i < numLights; i++ ) {
 		vec3 lp = lPos[i].xyz; float rad = lPos[i].w;
-		if ( lCol[i].w > 0.5 ) {	// une lame : le point du segment le plus proche
+		if ( lCol[i].w > 0.5 && lCol[i].w < 1.5 ) {	// une lame : le point du segment le plus proche
 			vec3 ab = lEnd[i].xyz - lp; float len2 = dot( ab, ab );
 			float s = ( len2 > 0.0 ) ? clamp( dot( p - lp, ab ) / len2, 0.0, 1.0 ) : 0.0;
 			lp += ab * s;
@@ -671,8 +755,8 @@ void main() {
 		vec3 L = lp - p; float dist = length( L );
 		if ( dist >= rad || dist < 0.5 ) continue;
 		L /= dist;
-		float ndl = dot( n, L );
-		if ( ndl <= 0.0 ) continue;
+		float ndl = dot( nd, L );
+		if ( ndl <= 0.0 || dot( n, L ) <= -0.2 ) continue;
 		float att = 1.0 - dist / rad; att *= att;
 		float vis = ( trace( o, L, dist - 1.0, true, dist ) < dist - 1.0 ) ? 0.0 : 1.0;
 		light += lCol[i].rgb * ( ndl * att * vis );
@@ -682,11 +766,10 @@ void main() {
 	// --- le reflet, la ou la surface est brillante
 	vec4 refl = vec4( 0.0 );
 	if ( reflOn > 0.5 ) {
-		float m = texture( shineMask, uv ).r;
-		float md = texture( shineDepth, uv ).r;
-		if ( m > 0.01 && abs( md - d ) < 0.0004 ) {
+		float m = fract( mm.a * 5.0 );
+		if ( hasMat && abs( floor( mm.a * 5.0 + 0.001 ) - 1.0 ) < 0.5 && m > 0.01 ) {
 			vec3 vdir = normalize( p - camPos );
-			vec3 rd = reflect( vdir, n );
+			vec3 rd = reflect( vdir, nd );
 			float t = trace( o, rd, 8192.0, false, 8192.0 );
 			if ( t < 8192.0 ) {
 				vec4 hv = viewMat * vec4( p + rd * t, 1.0 );
@@ -695,7 +778,7 @@ void main() {
 					if ( st.x > 0.0 && st.x < 1.0 && st.y > 0.0 && st.y < 1.0 ) {
 						float sz = viewPos( st ).z;
 						if ( abs( sz - hv.z ) < 12.0 + 0.02 * -hv.z ) {
-							float fres = 0.35 + 0.65 * pow( 1.0 - max( dot( -vdir, n ), 0.0 ), 3.0 );
+							float fres = 0.35 + 0.65 * pow( 1.0 - max( dot( -vdir, nd ), 0.0 ), 3.0 );
 							refl = vec4( texture( scene, st ).rgb, clamp( m * fres * reflStrength, 0.0, 0.9 ) );
 						}
 					}
@@ -707,6 +790,141 @@ void main() {
 	outAo = vec4( ao, shade, 0.0, 1.0 );
 	outLight = vec4( light, 0.0 );
 	outRefl = refl;
+}
+)GLSL";
+
+// Le tampon de materiaux. La normale de relief vient de la texture elle-meme
+// (le gradient de sa luminance, comme les normal maps generees d'Arx), posee
+// dans un repere tangent construit par les derivees d'ecran - le BSP n'a pas
+// de tangentes. L'eau et la lave ont des vagues procedurales dans ce repere.
+static const char *rtMatVertex =
+	"#version 430 compatibility\n"
+	"out vec3 vp;\n"
+	"out vec2 uv;\n"
+	"void main() {\n"
+	"	vp = ( gl_ModelViewMatrix * gl_Vertex ).xyz;\n"
+	"	uv = gl_MultiTexCoord0.xy;\n"
+	"	gl_Position = ftransform();\n"
+	"}\n";
+
+static const char *rtMatFragment = R"GLSL(#version 430 compatibility
+uniform sampler2D diffuse;
+uniform vec2 texel;
+uniform float strength;
+uniform float kind;		// 0 opaque, 1 verre, 2 eau, 3 lave
+uniform float shine;
+uniform float time;
+uniform mat4 invView;
+in vec3 vp;
+in vec2 uv;
+out vec4 outMat;
+float lum( vec2 t ) { vec3 c = texture( diffuse, t ).rgb; return dot( c, vec3( 0.3, 0.59, 0.11 ) ); }
+void main() {
+	vec3 dp1 = dFdx( vp ), dp2 = dFdy( vp );
+	vec2 duv1 = dFdx( uv ), duv2 = dFdy( uv );
+	vec3 N = normalize( cross( dp1, dp2 ) );
+	if ( N.z < 0.0 ) N = -N;	// vers la camera
+	vec3 dp2perp = cross( dp2, N ), dp1perp = cross( N, dp1 );
+	vec3 T = dp2perp * duv1.x + dp1perp * duv2.x;
+	vec3 B = dp2perp * duv1.y + dp1perp * duv2.y;
+	float invmax = inversesqrt( max( dot( T, T ), dot( B, B ) ) + 1e-12 );
+	T *= invmax; B *= invmax;
+	vec2 g;
+	if ( kind > 1.5 ) {	// eau, lave : des vagues
+		vec3 w = ( invView * vec4( vp, 1.0 ) ).xyz;
+		float sp = ( kind > 2.5 ) ? 0.35 : 1.0;
+		float f = ( kind > 2.5 ) ? 0.012 : 0.03;
+		float a = ( kind > 2.5 ) ? 0.2 : 0.16;
+		g.x = ( sin( w.x * f + time * 1.1 * sp ) * 0.5 + sin( ( w.x + w.y ) * f * 1.7 - time * 1.9 * sp ) * 0.3 + sin( ( w.x * 0.7 - w.y * 1.9 ) * f * 3.1 + time * 2.7 * sp ) * 0.2 ) * a;
+		g.y = ( sin( w.y * f * 1.3 - time * 1.4 * sp ) * 0.5 + sin( ( w.x - w.y ) * f * 2.1 + time * 1.6 * sp ) * 0.3 + sin( ( w.y * 0.6 + w.x * 2.3 ) * f * 2.9 - time * 2.3 * sp ) * 0.2 ) * a;
+	} else {			// le relief de la texture
+		float l = lum( uv - vec2( texel.x, 0.0 ) ), r = lum( uv + vec2( texel.x, 0.0 ) );
+		float d = lum( uv - vec2( 0.0, texel.y ) ), u = lum( uv + vec2( 0.0, texel.y ) );
+		g = vec2( r - l, u - d ) * strength * 2.5;
+	}
+	vec3 n = normalize( N - T * g.x - B * g.y );
+	outMat = vec4( n * 0.5 + 0.5, ( kind + 1.0 + clamp( shine, 0.0, 0.9 ) ) / 5.0 );
+}
+)GLSL";
+
+// Apres le transparent : le verre recoit un reflet trace, l'eau sa refraction
+// et son reflet (fresnel), la lave sa lueur. La reflexion reprend l'image
+// complete (avec le transparent), la refraction l'image d'avant (l'opaque
+// derriere l'eau).
+static const char *rtLateFragment = R"GLSL(#version 430 compatibility
+uniform sampler2D mat;
+uniform sampler2D matDepth;
+uniform sampler2D sceneDepth;
+uniform sampler2D scene;		// l'opaque, d'avant le transparent
+uniform sampler2D current;		// l'image complete
+uniform vec2 projAB;
+uniform vec2 projCD;
+uniform vec2 projEF;
+uniform vec2 texel;
+uniform mat4 invView;
+uniform mat4 viewMat;
+uniform float time;
+uniform float reflStrength;
+uniform int dynNodes;
+layout(std430, binding = 0) readonly buffer B0 { vec4 wn[]; };
+layout(std430, binding = 1) readonly buffer B1 { vec4 wt[]; };
+layout(std430, binding = 2) readonly buffer B2 { vec4 dn[]; };
+layout(std430, binding = 3) readonly buffer B3 { vec4 dt[]; };
+in vec2 uv;
+out vec4 outCol;
+vec3 viewPosAt( vec2 t, float d ) {
+	vec3 n = vec3( t * 2.0 - 1.0, d * 2.0 - 1.0 );
+	float w = n.z / projEF.y + projEF.x / projEF.y;
+	vec3 p = vec3( ( n.x + projCD.x ) / projAB.x, ( n.y + projCD.y ) / projAB.y, -1.0 );
+	return p / w;
+}
+%s
+vec3 reflectAt( vec3 p, vec3 rd, out float ok ) {
+	ok = 0.0;
+	float t = trace( p + rd * 0.5, rd, 8192.0, false, 8192.0 );
+	if ( t >= 8192.0 ) return vec3( 0.0 );
+	vec4 hv = viewMat * vec4( p + rd * t, 1.0 );
+	if ( hv.z >= -1.0 ) return vec3( 0.0 );
+	vec2 st = vec2( hv.x / -hv.z * projAB.x - projCD.x, hv.y / -hv.z * projAB.y - projCD.y ) * 0.5 + 0.5;
+	if ( st.x <= 0.0 || st.x >= 1.0 || st.y <= 0.0 || st.y >= 1.0 ) return vec3( 0.0 );
+	float sz = viewPosAt( st, texture( sceneDepth, st ).r ).z;
+	if ( abs( sz - hv.z ) > 16.0 + 0.03 * -hv.z ) return vec3( 0.0 );
+	ok = 1.0;
+	return texture( current, st ).rgb;
+}
+void main() {
+	vec4 m = texture( mat, uv );
+	float kind = floor( m.a * 5.0 + 0.001 ) - 1.0;
+	float md = texture( matDepth, uv ).r;
+	float d = texture( sceneDepth, uv ).r;
+	if ( kind < 0.5 || md >= 1.0 || md > d + 0.00005 ) discard;	// rien, ou cache par l'opaque
+	vec3 cur = texture( current, uv ).rgb;
+	vec3 pv = viewPosAt( uv, md );
+	vec3 nv = normalize( m.xyz * 2.0 - 1.0 );
+	vec3 p = ( invView * vec4( pv, 1.0 ) ).xyz;
+	vec3 n = normalize( mat3( invView ) * nv );
+	vec3 camPos = invView[3].xyz;
+	vec3 vdir = normalize( p - camPos );
+	float cosv = max( dot( -vdir, n ), 0.0 );
+	float ok;
+	if ( kind < 1.5 ) {			// verre : un reflet en plus
+		vec3 refl = reflectAt( p, reflect( vdir, n ), ok );
+		float fres = 0.15 + 0.85 * pow( 1.0 - cosv, 3.0 );
+		outCol = vec4( cur + refl * ( ok * fres * 0.9 * reflStrength ), 1.0 );
+	} else if ( kind < 2.5 ) {	// eau : refraction de ce qui est dessous, reflet dessus
+		vec2 off = nv.xy * 0.035;
+		vec3 under = texture( scene, clamp( uv + off, vec2( 0.002 ), vec2( 0.998 ) ) ).rgb;
+		vec3 base = mix( cur, under * vec3( 0.75, 0.9, 1.0 ), 0.55 );
+		vec3 refl = reflectAt( p, reflect( vdir, n ), ok );
+		float fres = 0.08 + 0.92 * pow( 1.0 - cosv, 4.0 );
+		if ( ok < 0.5 ) refl = mix( base, vec3( 0.45, 0.55, 0.65 ), 0.5 );
+		float sun = pow( max( dot( reflect( vdir, n ), normalize( vec3( 0.45, 0.3, 0.9 ) ) ), 0.0 ), 160.0 );
+		outCol = vec4( mix( base, refl, clamp( fres * reflStrength, 0.0, 0.85 ) ) + vec3( 0.35 ) * sun, 1.0 );
+	} else {					// lave : ca brille, ca pulse
+		float pulse = 0.85 + 0.25 * sin( time * 1.7 + p.x * 0.01 + p.y * 0.013 ) + 0.1 * nv.x;
+		vec3 glow = vec3( 1.0, 0.45, 0.12 ) * ( 0.35 * pulse );
+		outCol = vec4( cur * ( 1.1 + 0.3 * pulse ) + glow, 1.0 );
+	}
 }
 )GLSL";
 
@@ -739,6 +957,7 @@ static qboolean RT_Init( void )
 	GRAB( p_glBindBufferBase, "glBindBufferBase" );
 	GRAB( p_glDrawBuffers, "glDrawBuffers" );
 	GRAB( p_glUniform4fv, "glUniform4fv" );
+	GRAB( p_glUniform3fv, "glUniform3fv" );
 #undef GRAB
 	if ( missing )
 	{
@@ -749,6 +968,29 @@ static qboolean RT_Init( void )
 	R_ModernDrainErrors();
 	rtProg = R_ModernCompile( rtVertex, rtFragment, "ray tracing" );
 	if ( !rtProg )
+	{
+		rtFailed = qtrue;
+		return qfalse;
+	}
+	rtMatProg = R_ModernCompile( rtMatVertex, rtMatFragment, "materiaux" );
+	{	// la passe tardive partage le parcours de la BVH avec la passe principale
+		const char	*t0 = strstr( rtFragment, "#define TRAVERSE" );
+		const char	*t1 = strstr( rtFragment, "void main() {" );
+
+		if ( t0 && t1 && t1 > t0 )
+		{
+			char	*trav = (char *)malloc( t1 - t0 + 1 );
+			char	*src = (char *)malloc( strlen( rtLateFragment ) + ( t1 - t0 ) + 16 );
+
+			memcpy( trav, t0, t1 - t0 );
+			trav[t1 - t0] = 0;
+			Com_sprintf( src, strlen( rtLateFragment ) + ( t1 - t0 ) + 16, rtLateFragment, trav );
+			rtLateProg = R_ModernCompile( rtVertex, src, "verre, eau, lave" );
+			free( src );
+			free( trav );
+		}
+	}
+	if ( !rtMatProg || !rtLateProg )
 	{
 		rtFailed = qtrue;
 		return qfalse;
@@ -793,6 +1035,7 @@ static void RT_FreeTargets( void )
 	if ( rtReflTex )	{ qglDeleteTextures( 1, &rtReflTex ); rtReflTex = 0; }
 	if ( rtMaskTex )	{ qglDeleteTextures( 1, &rtMaskTex ); rtMaskTex = 0; }
 	if ( rtMaskDepth )	{ qglDeleteTextures( 1, &rtMaskDepth ); rtMaskDepth = 0; }
+	if ( rtLateTex )	{ qglDeleteTextures( 1, &rtLateTex ); rtLateTex = 0; }
 	rtWidth = rtHeight = 0;
 	rtAoTexBound = 0;
 }
@@ -832,6 +1075,7 @@ static qboolean RT_Targets( int w, int h, GLuint aoTex )
 	}
 	rtMaskTex = RT_MakeTex( w, h, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE );
 	rtMaskDepth = RT_MakeTex( w, h, GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT, GL_FLOAT );
+	rtLateTex = RT_MakeTex( w, h, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE );
 
 	p_glGenFramebuffers( 1, &rtFbo );
 	p_glBindFramebuffer( GL_FRAMEBUFFER, rtFbo );
@@ -877,6 +1121,52 @@ static void RT_EnsureWorld( void )
 
 	RT_GatherWorld( tris );
 	RT_Build( tris, rtNodesTmp, rtTrisTmp );
+	{	// les nappes de lave : regroupees par cases de 384 unites, elles
+		// eclaireront alentour comme des lumieres tracees
+		const bmodel_t	*world = &tr.world->bmodels[0];
+		struct cell { int cx, cy, cz; vec3_t sum; float area; int n; };
+		std::vector<cell> cells;
+
+		for ( int i = 0; i < world->numSurfaces; i++ )
+		{
+			const msurface_t *surf = &world->firstSurface[i];
+
+			if ( !surf->shader || !( surf->shader->contentFlags & CONTENTS_LAVA ) || !surf->data || *surf->data != SF_FACE )
+			{
+				continue;
+			}
+			const srfSurfaceFace_t *face = (const srfSurfaceFace_t *)surf->data;
+			vec3_t c = { 0, 0, 0 };
+
+			for ( int k = 0; k < face->numPoints; k++ )
+			{
+				VectorAdd( c, face->points[k], c );
+			}
+			VectorScale( c, 1.0f / face->numPoints, c );
+			const int cx = (int)floorf( c[0] / 384.0f ), cy = (int)floorf( c[1] / 384.0f ), cz = (int)floorf( c[2] / 384.0f );
+			size_t j;
+
+			for ( j = 0; j < cells.size(); j++ )
+			{
+				if ( cells[j].cx == cx && cells[j].cy == cy && cells[j].cz == cz ) break;
+			}
+			if ( j == cells.size() )
+			{
+				cell nc = { cx, cy, cz, { 0, 0, 0 }, 0.0f, 0 };
+				cells.push_back( nc );
+			}
+			VectorAdd( cells[j].sum, c, cells[j].sum );
+			cells[j].n++;
+		}
+		rtLavaCount = 0;
+		for ( size_t j = 0; j < cells.size() && rtLavaCount < RT_MAX_LAVA; j++ )
+		{
+			VectorScale( cells[j].sum, 1.0f / cells[j].n, rtLava[rtLavaCount] );
+			rtLava[rtLavaCount][2] += 24.0f;		// un peu au-dessus de la nappe
+			rtLavaSize[rtLavaCount] = (float)cells[j].n;
+			rtLavaCount++;
+		}
+	}
 	RT_Upload( rtWorldNodes, rtNodesTmp.data(), rtNodesTmp.size() * sizeof( rtNode ), GL_STATIC_DRAW );
 	RT_Upload( rtWorldTris, rtTrisTmp.data(), rtTrisTmp.size() * sizeof( float ), GL_STATIC_DRAW );
 	rtWorldNodeCount = (int)rtNodesTmp.size();
@@ -909,7 +1199,36 @@ static void RT_EnsureWorld( void )
 				}
 			}
 		}
-		ri.Printf( PRINT_ALL, "   %i surfaces brillantes dans le decor\n", shiny );
+		int water = 0, glass = 0, lava = 0;
+		vec3_t wpos = { 0, 0, 0 }, wmin = { 1e30f, 1e30f, 1e30f }, wmax = { -1e30f, -1e30f, -1e30f };
+
+		for ( int i = 0; i < world->numSurfaces; i++ )
+		{
+			const msurface_t *surf = &world->firstSurface[i];
+			const int k = surf->shader ? RT_ShaderKind( surf->shader ) : -1;
+
+			if ( k == 2 )
+			{
+				water++;
+				if ( surf->data && *surf->data == SF_FACE )
+				{
+					const srfSurfaceFace_t *f = (const srfSurfaceFace_t *)surf->data;
+					for ( int v = 0; v < f->numPoints; v++ )
+					{
+						for ( int a = 0; a < 3; a++ )
+						{
+							if ( f->points[v][a] < wmin[a] ) wmin[a] = f->points[v][a];
+							if ( f->points[v][a] > wmax[a] ) wmax[a] = f->points[v][a];
+						}
+					}
+				}
+			}
+			else if ( k == 1 ) glass++;
+			else if ( k == 3 ) lava++;
+		}
+		if ( water ) { VectorAdd( wmin, wmax, wpos ); VectorScale( wpos, 0.5f, wpos ); }
+		ri.Printf( PRINT_ALL, "   %i surfaces brillantes, %i d'eau (boite %.0f %.0f %.0f a %.0f %.0f %.0f, centre %.0f %.0f %.0f), %i de verre, %i de lave (%i nappes) dans le decor\n",
+			shiny, water, wmin[0], wmin[1], wmin[2], wmax[0], wmax[1], wmax[2], wpos[0], wpos[1], wpos[2], glass, lava, rtLavaCount );
 	}
 }
 
@@ -927,6 +1246,8 @@ qboolean R_ModernRTLightsActive( void )
 GLuint R_ModernRTLightTex( void ) { return rtLightTex; }
 GLuint R_ModernRTReflTex( void ) { return rtReflTex; }
 GLuint R_ModernRTAoTex( void ) { return rtAoTex; }
+GLuint R_ModernRTMatTex( void ) { return rtMaskTex; }
+GLuint R_ModernRTMatDepth( void ) { return rtMaskDepth; }
 
 void R_ModernRTShutdown( void )
 {
@@ -934,6 +1255,16 @@ void R_ModernRTShutdown( void )
 	{
 		p_glDeleteProgram( rtProg );
 		rtProg = 0;
+	}
+	if ( rtMatProg )
+	{
+		p_glDeleteProgram( rtMatProg );
+		rtMatProg = 0;
+	}
+	if ( rtLateProg )
+	{
+		p_glDeleteProgram( rtLateProg );
+		rtLateProg = 0;
 	}
 	if ( rtReady )
 	{
@@ -954,6 +1285,7 @@ void R_ModernRTShutdown( void )
 void R_ModernRTViewBegin( void )
 {
 	rtViewActive = qfalse;
+	rtLateActive = qfalse;
 	if ( !R_ModernRTActive() || !rtReady || !rtMaskFbo || g_bRenderGlowingObjects )
 	{
 		return;
@@ -988,28 +1320,96 @@ static qboolean RT_ShaderShines( const shader_t *sh )
 	return qfalse;
 }
 
+// Une surface du decor dans le tampon de materiaux : normale de relief,
+// genre, brillance, avec sa profondeur.
+static void RT_DrawMaterial( const shader_t *sh, int kind, float shine )
+{
+	const image_t	*img = RT_ShaderDiffuse( sh );
+	const uint32_t	bits = glState.glStateBits;
+
+	if ( !img && kind == 0 )
+	{
+		return;
+	}
+	p_glBindFramebuffer( GL_FRAMEBUFFER, rtMaskFbo );
+	GL_State( GLS_DEFAULT );
+	GL_SelectTexture( 1 );
+	qglDisable( GL_TEXTURE_2D );
+	GL_SelectTexture( 0 );
+	if ( img )
+	{
+		GL_Bind( (image_t *)img );
+	}
+	qglDisableClientState( GL_COLOR_ARRAY );
+	qglEnableClientState( GL_TEXTURE_COORD_ARRAY );
+	qglTexCoordPointer( 2, GL_FLOAT, sizeof( vec2_t ) * NUM_TEX_COORDS, tess.texCoords[0][0] );
+	qglVertexPointer( 3, GL_FLOAT, 16, tess.xyz );
+
+	p_glUseProgram( rtMatProg );
+	p_glUniform1i( p_glGetUniformLocation( rtMatProg, "diffuse" ), 0 );
+	p_glUniform2f( p_glGetUniformLocation( rtMatProg, "texel" ), img ? 1.0f / img->width : 0.001f, img ? 1.0f / img->height : 0.001f );
+	p_glUniform1f( p_glGetUniformLocation( rtMatProg, "strength" ), r_modernRTNormals->integer ? r_modernRTNormalStrength->value : 0.0f );
+	p_glUniform1f( p_glGetUniformLocation( rtMatProg, "kind" ), (float)kind );
+	p_glUniform1f( p_glGetUniformLocation( rtMatProg, "shine" ), shine );
+	p_glUniform1f( p_glGetUniformLocation( rtMatProg, "time" ), backEnd.refdef.time * 0.001f );
+	{
+		float	invView[16];
+		const float	*m = backEnd.viewParms.world.modelMatrix;
+
+		for ( int r = 0; r < 3; r++ )
+		{
+			for ( int c = 0; c < 3; c++ ) invView[c * 4 + r] = m[r * 4 + c];
+			invView[12 + r] = -( m[12] * m[r * 4 + 0] + m[13] * m[r * 4 + 1] + m[14] * m[r * 4 + 2] );
+		}
+		invView[3] = invView[7] = invView[11] = 0.0f;
+		invView[15] = 1.0f;
+		p_glUniformMatrix4fv( p_glGetUniformLocation( rtMatProg, "invView" ), 1, GL_FALSE, invView );
+	}
+	qglDrawElements( GL_TRIANGLES, tess.numIndexes, GL_UNSIGNED_INT, tess.indexes );
+	p_glUseProgram( 0 );
+
+	qglDisableClientState( GL_TEXTURE_COORD_ARRAY );
+	GL_State( bits );
+	p_glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+}
+
 // Apres chaque surface dessinee (RB_EndSurface) : les sous-modeles et les
-// personnages deposent leurs triangles dans le monde, et les surfaces
-// brillantes se redessinent dans le masque des reflets.
+// personnages deposent leurs triangles dans le monde ; le decor (monde et
+// sous-modeles, pas les persos) se redessine dans le tampon de materiaux ;
+// apres la passe, le verre, l'eau et la lave y entrent a leur tour.
 void R_ModernRTAfterSurface( void )
 {
-	if ( !rtViewActive || g_bRenderGlowingObjects || tess.numIndexes < 3 )
+	if ( g_bRenderGlowingObjects || tess.numIndexes < 3 || !rtReady )
 	{
 		return;
 	}
 	const shader_t *sh = tess.shader;
 
-	if ( !sh || sh == tr.shadowShader || sh == tr.projectionShadowShader || sh->sort > SS_OPAQUE
-		|| ( sh->surfaceFlags & ( SURF_NODRAW | SURF_SKY ) ) )
+	if ( !sh || sh == tr.shadowShader || sh == tr.projectionShadowShader || ( sh->surfaceFlags & ( SURF_NODRAW | SURF_SKY ) ) )
+	{
+		return;
+	}
+	const refEntity_t	*e = &backEnd.currentEntity->e;
+	const qboolean		isWorld = (qboolean)( backEnd.currentEntity == &tr.worldEntity );
+	const qboolean		isBrush = (qboolean)( !isWorld && e->reType == RT_MODEL && e->hModel && R_GetModelByHandle( e->hModel )->type == MOD_BRUSH );
+	const int			kind = RT_ShaderKind( sh );
+
+	if ( rtLateActive && !rtViewActive )
+	{	// apres la passe : seulement le verre, l'eau, la lave du decor
+		if ( kind >= 1 && ( isWorld || isBrush ) && !( e->renderfx & RF_DEPTHHACK ) )
+		{
+			RT_DrawMaterial( sh, kind, 0.0f );
+		}
+		return;
+	}
+	if ( !rtViewActive || sh->sort > SS_OPAQUE )
 	{
 		return;
 	}
 
-	if ( r_modernRTDynamic->integer && backEnd.currentEntity != &tr.worldEntity
+	if ( r_modernRTDynamic->integer && !isWorld
 		&& (int)rtDyn.size() + tess.numIndexes / 3 <= RT_MAX_DYN_TRIS )
 	{
-		const refEntity_t *e = &backEnd.currentEntity->e;
-
 		if ( !( e->renderfx & ( RF_DEPTHHACK | RF_NOSHADOW ) ) )
 		{
 			vec3_t	w[3];
@@ -1039,24 +1439,9 @@ void R_ModernRTAfterSurface( void )
 		}
 	}
 
-	if ( r_modernRTReflect->integer && RT_ShaderShines( sh ) )
-	{	// la meme geometrie, dans le masque, avec sa profondeur
-		const uint32_t	bits = glState.glStateBits;
-
-		p_glBindFramebuffer( GL_FRAMEBUFFER, rtMaskFbo );
-		GL_State( GLS_DEFAULT );
-		GL_SelectTexture( 1 );
-		qglDisable( GL_TEXTURE_2D );
-		GL_SelectTexture( 0 );
-		qglDisable( GL_TEXTURE_2D );
-		qglDisableClientState( GL_COLOR_ARRAY );
-		qglDisableClientState( GL_TEXTURE_COORD_ARRAY );
-		qglColor4f( 0.6f, 0.6f, 0.6f, 1.0f );
-		qglVertexPointer( 3, GL_FLOAT, 16, tess.xyz );
-		qglDrawElements( GL_TRIANGLES, tess.numIndexes, GL_UNSIGNED_INT, tess.indexes );
-		qglEnable( GL_TEXTURE_2D );
-		GL_State( bits );
-		p_glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+	if ( kind >= 0 && ( isWorld || isBrush ) )
+	{	// le decor, avec son relief et sa brillance (lave et eau opaques comprises)
+		RT_DrawMaterial( sh, kind, ( kind == 0 && r_modernRTReflect->integer && RT_ShaderShines( sh ) ) ? 0.6f : 0.0f );
 	}
 }
 
@@ -1079,6 +1464,96 @@ static void RT_SaberColor( const refEntity_t *e, vec3_t out )
 	out[0] = base[0] * e->shaderRGBA[0] / 255.0f;
 	out[1] = base[1] * e->shaderRGBA[1] / 255.0f;
 	out[2] = base[2] * e->shaderRGBA[2] / 255.0f;
+}
+
+// Apres le transparent (au premier 2D) : verre, eau, lave. L'image complete
+// est capturee pour les reflets ; l'opaque d'avant (sceneTex) sert a la
+// refraction de l'eau.
+void R_ModernRTLatePass( const modernRTParams_t *p )
+{
+	if ( !rtLateActive || !rtReady || !rtLateProg )
+	{
+		rtLateActive = qfalse;
+		return;
+	}
+	rtLateActive = qfalse;
+	if ( !r_modernRTWater->integer && !r_modernRTGlass->integer && !r_modernRTLava->integer )
+	{
+		return;
+	}
+	const float	*P = p->proj;
+
+	R_ModernDrainErrors();
+	GL_SelectTexture( 0 );
+	qglBindTexture( GL_TEXTURE_2D, rtLateTex );
+	qglCopyTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, 0, 0, p->w, p->h );
+
+	qglMatrixMode( GL_PROJECTION );
+	qglPushMatrix();
+	qglLoadIdentity();
+	qglMatrixMode( GL_MODELVIEW );
+	qglPushMatrix();
+	qglLoadIdentity();
+	GL_State( GLS_DEPTHTEST_DISABLE );
+	GL_Cull( CT_TWO_SIDED );
+	qglViewport( 0, 0, p->w, p->h );
+	qglScissor( 0, 0, p->w, p->h );
+
+	GL_SelectTexture( 3 );
+	qglBindTexture( GL_TEXTURE_2D, p->sceneTex );
+	GL_SelectTexture( 2 );
+	qglBindTexture( GL_TEXTURE_2D, p->depthTex );
+	GL_SelectTexture( 1 );
+	qglBindTexture( GL_TEXTURE_2D, rtMaskDepth );
+	GL_SelectTexture( 0 );
+	qglBindTexture( GL_TEXTURE_2D, rtMaskTex );
+	qglActiveTextureARB( 0x84C4 /* GL_TEXTURE4_ARB */ );
+	qglBindTexture( GL_TEXTURE_2D, rtLateTex );
+	qglActiveTextureARB( GL_TEXTURE0_ARB );
+
+	p_glBindBufferBase( GL_SHADER_STORAGE_BUFFER, 0, rtWorldNodes );
+	p_glBindBufferBase( GL_SHADER_STORAGE_BUFFER, 1, rtWorldTris );
+	p_glBindBufferBase( GL_SHADER_STORAGE_BUFFER, 2, rtDynNodes );
+	p_glBindBufferBase( GL_SHADER_STORAGE_BUFFER, 3, rtDynTris );
+
+	p_glUseProgram( rtLateProg );
+#define U( name )	p_glGetUniformLocation( rtLateProg, name )
+	p_glUniform1i( U( "mat" ), 0 );
+	p_glUniform1i( U( "matDepth" ), 1 );
+	p_glUniform1i( U( "sceneDepth" ), 2 );
+	p_glUniform1i( U( "scene" ), 3 );
+	p_glUniform1i( U( "current" ), 4 );
+	p_glUniform2f( U( "projAB" ), P[0], P[5] );
+	p_glUniform2f( U( "projCD" ), P[8], P[9] );
+	p_glUniform2f( U( "projEF" ), P[10], P[14] );
+	p_glUniform2f( U( "texel" ), 1.0f / (float)p->w, 1.0f / (float)p->h );
+	p_glUniformMatrix4fv( U( "invView" ), 1, GL_FALSE, p->invView );
+	p_glUniformMatrix4fv( U( "viewMat" ), 1, GL_FALSE, p->view );
+	p_glUniform1f( U( "time" ), backEnd.refdef.time * 0.001f );
+	p_glUniform1f( U( "reflStrength" ), r_modernRTReflectStrength->value );
+	p_glUniform1i( U( "dynNodes" ), rtDynNodeCount );
+#undef U
+	R_ModernFullscreenQuad();
+	p_glUseProgram( 0 );
+
+	qglActiveTextureARB( 0x84C4 );
+	qglBindTexture( GL_TEXTURE_2D, 0 );
+	qglActiveTextureARB( GL_TEXTURE0_ARB );
+	GL_SelectTexture( 3 );
+	qglBindTexture( GL_TEXTURE_2D, 0 );
+	GL_SelectTexture( 2 );
+	qglBindTexture( GL_TEXTURE_2D, 0 );
+	GL_SelectTexture( 1 );
+	qglBindTexture( GL_TEXTURE_2D, 0 );
+	GL_SelectTexture( 0 );
+	qglBindTexture( GL_TEXTURE_2D, 0 );
+	glState.currenttextures[0] = glState.currenttextures[1] = -1;
+
+	qglMatrixMode( GL_PROJECTION );
+	qglPopMatrix();
+	qglMatrixMode( GL_MODELVIEW );
+	qglPopMatrix();
+	R_ModernStep( "verre, eau, lave" );
 }
 
 qboolean R_ModernRTPass( const modernRTParams_t *p )
@@ -1117,6 +1592,8 @@ qboolean R_ModernRTPass( const modernRTParams_t *p )
 		rtDynNodeCount = (int)rtNodesTmp.size();
 	}
 	rtViewActive = qfalse;		// la capture de cette vue est close
+	rtLateActive = qtrue;		// ... et celle du verre, de l'eau, de la lave s'ouvre
+	rtLateFrame = backEnd.refdef.time;
 	const int	tCpu1 = ri.Milliseconds();
 
 	// --- les lumieres : celles de la scene, et les lames de sabre
@@ -1136,6 +1613,43 @@ qboolean R_ModernRTPass( const modernRTParams_t *p )
 			VectorCopy( dl->origin, lEnd[numLights] );
 			lEnd[numLights][3] = 0.0f;
 			numLights++;
+		}
+		if ( r_modernRTLava->integer )
+		{	// les nappes de lave les plus proches de la camera
+			const float	*cam = backEnd.viewParms.ori.origin;
+
+			for ( int pass = 0; pass < 12 && numLights < RT_MAX_LIGHTS; pass++ )
+			{
+				int		best = -1;
+				float	bestD = 1e30f;
+
+				for ( int i = 0; i < rtLavaCount; i++ )
+				{
+					vec3_t	dv;
+					qboolean used = qfalse;
+
+					for ( int k = 0; k < numLights; k++ )
+					{
+						if ( lCol[k][3] > 1.5f && lPos[k][0] == rtLava[i][0] && lPos[k][1] == rtLava[i][1] && lPos[k][2] == rtLava[i][2] ) { used = qtrue; break; }
+					}
+					if ( used ) continue;
+					VectorSubtract( rtLava[i], cam, dv );
+					const float dist = VectorLength( dv );
+
+					if ( dist < bestD ) { bestD = dist; best = i; }
+				}
+				if ( best < 0 || bestD > 1600.0f )
+				{
+					break;
+				}
+				VectorCopy( rtLava[best], lPos[numLights] );
+				lPos[numLights][3] = 320.0f + 40.0f * ( rtLavaSize[best] > 6.0f ? 6.0f : rtLavaSize[best] );
+				VectorSet( lCol[numLights], 1.0f, 0.42f, 0.1f );
+				lCol[numLights][3] = 2.0f;		// > 1.5 : une nappe de lave (point)
+				VectorCopy( rtLava[best], lEnd[numLights] );
+				lEnd[numLights][3] = 0.0f;
+				numLights++;
+			}
 		}
 		for ( int i = 0; i < backEnd.refdef.num_entities && numLights < RT_MAX_LIGHTS; i++ )
 		{

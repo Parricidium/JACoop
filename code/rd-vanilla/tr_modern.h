@@ -87,3 +87,6 @@ qboolean	R_ModernRTPass( const modernRTParams_t *p );	// qfalse : pas fait, reto
 GLuint		R_ModernRTLightTex( void );		// lumiere ajoutee (rgb)
 GLuint		R_ModernRTReflTex( void );		// reflet (rgb) et sa force (a)
 GLuint		R_ModernRTAoTex( void );		// occlusion (r) et ombre (g), a l'echelle de la passe
+void		R_ModernRTLatePass( const modernRTParams_t *p );	// verre, eau, lave, apres le transparent
+GLuint		R_ModernRTMatTex( void );		// le tampon de materiaux (normale, genre+brillance)
+GLuint		R_ModernRTMatDepth( void );

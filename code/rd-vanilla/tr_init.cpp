@@ -1559,6 +1559,12 @@ void R_Register( void )
 	// la passe tracee a une fraction de la resolution (0.5 = 4x moins de rayons)
 	r_modernRTScale = ri.Cvar_Get( "r_modernRTScale", "0.5", CVAR_ARCHIVE_ND );
 	r_modernRTReflectStrength = ri.Cvar_Get( "r_modernRTReflectStrength", "1", CVAR_ARCHIVE_ND );
+	// les matieres : relief tire des textures du decor, verre, eau, lave
+	r_modernRTNormals = ri.Cvar_Get( "r_modernRTNormals", "1", CVAR_ARCHIVE_ND );
+	r_modernRTNormalStrength = ri.Cvar_Get( "r_modernRTNormalStrength", "1", CVAR_ARCHIVE_ND );
+	r_modernRTWater = ri.Cvar_Get( "r_modernRTWater", "1", CVAR_ARCHIVE_ND );
+	r_modernRTGlass = ri.Cvar_Get( "r_modernRTGlass", "1", CVAR_ARCHIVE_ND );
+	r_modernRTLava = ri.Cvar_Get( "r_modernRTLava", "1", CVAR_ARCHIVE_ND );
 	r_DynamicGlowPasses = ri.Cvar_Get( "r_DynamicGlowPasses", "5", CVAR_ARCHIVE_ND );
 	r_DynamicGlowDelta  = ri.Cvar_Get( "r_DynamicGlowDelta", "0.8f", CVAR_ARCHIVE_ND );
 	r_DynamicGlowIntensity = ri.Cvar_Get( "r_DynamicGlowIntensity", "1.13f", CVAR_ARCHIVE_ND );
