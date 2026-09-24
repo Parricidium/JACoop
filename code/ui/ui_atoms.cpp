@@ -349,6 +349,7 @@ void UI_Init( int apiVersion, uiimport_t *uiimport, qboolean inGameLoad )
 	ui.Cvar_Create( "g_coopRequireReady",	"1",		CVAR_ARCHIVE );
 	ui.Cvar_Create( "cg_coopCameraLag",		"100",		CVAR_ARCHIVE );
 	ui.Cvar_Create( "ui_coopMaxPlayers",	"4",		CVAR_ARCHIVE );
+	ui.Cvar_Create( "ui_coopOptionsTab",	"0",		CVAR_ARCHIVE );	// onglet ouvert dans OPTIONS COOPERATION (0-3), retenu
 	// coop: the player's own menu images (dropped in <JACoop>/base/gfx/jacoop/, see UI_CoopSkinShader)
 	ui.Cvar_Create( "ui_coopCustomSkin",	"1",		CVAR_ARCHIVE );
 	ui.Cvar_Create( "ui_coopLogo",		"gfx/jacoop/logo",			CVAR_ARCHIVE );
