@@ -110,26 +110,26 @@ struct rtNode {
 };
 
 static std::vector<rtTri>	rtDyn;			// ce que les surfaces ont depose cette image
+struct rtRange { int first, count; vec3_t bmin, bmax, c; };
+static std::vector<rtRange>	rtDynEnts;		// ... groupe par entite (triangles contigus)
+static const void			*rtDynLastEnt;
 static std::vector<rtNode>	rtNodesTmp;
 static std::vector<float>	rtTrisTmp;
 
-static void RT_BuildInto( std::vector<rtTri> &t, std::vector<rtNode> &n, int slot, int b, int e, int depth )
+static void RT_Bounds( const std::vector<rtTri> &t, int b, int e, vec3_t bmin, vec3_t bmax, vec3_t cmin, vec3_t cmax )
 {
-	rtNode	nd;
-	vec3_t	cmin, cmax;
-
-	VectorSet( nd.bmin, 1e30f, 1e30f, 1e30f );
-	VectorSet( nd.bmax, -1e30f, -1e30f, -1e30f );
-	VectorCopy( nd.bmin, cmin );
-	VectorCopy( nd.bmax, cmax );
+	VectorSet( bmin, 1e30f, 1e30f, 1e30f );
+	VectorSet( bmax, -1e30f, -1e30f, -1e30f );
+	VectorCopy( bmin, cmin );
+	VectorCopy( bmax, cmax );
 	for ( int i = b; i < e; i++ )
 	{
 		for ( int k = 0; k < 3; k++ )
 		{
 			for ( int a = 0; a < 3; a++ )
 			{
-				if ( t[i].v[k][a] < nd.bmin[a] ) nd.bmin[a] = t[i].v[k][a];
-				if ( t[i].v[k][a] > nd.bmax[a] ) nd.bmax[a] = t[i].v[k][a];
+				if ( t[i].v[k][a] < bmin[a] ) bmin[a] = t[i].v[k][a];
+				if ( t[i].v[k][a] > bmax[a] ) bmax[a] = t[i].v[k][a];
 			}
 		}
 		for ( int a = 0; a < 3; a++ )
@@ -138,36 +138,166 @@ static void RT_BuildInto( std::vector<rtTri> &t, std::vector<rtNode> &n, int slo
 			if ( t[i].c[a] > cmax[a] ) cmax[a] = t[i].c[a];
 		}
 	}
-	// un petit gras : les rayons rasants ne doivent pas passer entre deux boites
+}
+
+static float RT_Area( const vec3_t mn, const vec3_t mx )
+{
+	const float dx = mx[0] - mn[0], dy = mx[1] - mn[1], dz = mx[2] - mn[2];
+
+	return ( dx < 0.0f ) ? 0.0f : 2.0f * ( dx * dy + dy * dz + dz * dx );
+}
+
+// Construction par la surface (SAH) : le plan de coupe est celui, parmi 8 bacs
+// sur chaque axe, qui minimise "aire gauche x triangles gauche + aire droite x
+// triangles droite". Un rayon visite ainsi bien moins de boites qu'avec la
+// mediane (mesure : la passe coutait le double).
+#define RT_BINS	8
+
+static void RT_BuildInto( std::vector<rtTri> &t, std::vector<rtNode> &n, int slot, int b, int e, int depth, qboolean sah )
+{
+	rtNode	nd;
+	vec3_t	cmin, cmax;
+
+	RT_Bounds( t, b, e, nd.bmin, nd.bmax, cmin, cmax );
 	for ( int a = 0; a < 3; a++ )
-	{
+	{	// un petit gras : les rayons rasants ne doivent pas passer entre deux boites
 		nd.bmin[a] -= 0.05f;
 		nd.bmax[a] += 0.05f;
 	}
+	const int count = e - b;
 
-	if ( e - b <= 4 || depth > 44 )
+	if ( count <= ( sah ? 2 : 6 ) || depth > 48 )
 	{
 		nd.first = (float)b;
-		nd.count = (float)( e - b );
+		nd.count = (float)count;
 		n[slot] = nd;
 		return;
 	}
 
-	int		axis = 0;
-	float	best = cmax[0] - cmin[0];
+	// le meilleur plan
+	int		bestAxis = -1, bestBin = -1;
+	float	bestCost = (float)count;		// le cout de la feuille
 
-	for ( int a = 1; a < 3; a++ )
+	for ( int axis = 0; axis < ( sah ? 3 : 0 ); axis++ )
 	{
-		if ( cmax[a] - cmin[a] > best )
+		const float extent = cmax[axis] - cmin[axis];
+
+		if ( extent <= 1e-4f )
 		{
-			best = cmax[a] - cmin[a];
-			axis = a;
+			continue;
+		}
+		int		cnt[RT_BINS] = { 0 };
+		vec3_t	bmn[RT_BINS], bmx[RT_BINS];
+
+		for ( int k = 0; k < RT_BINS; k++ )
+		{
+			VectorSet( bmn[k], 1e30f, 1e30f, 1e30f );
+			VectorSet( bmx[k], -1e30f, -1e30f, -1e30f );
+		}
+		const float scale = (float)RT_BINS / extent;
+
+		for ( int i = b; i < e; i++ )
+		{
+			int k = (int)( ( t[i].c[axis] - cmin[axis] ) * scale );
+
+			if ( k < 0 ) k = 0;
+			if ( k >= RT_BINS ) k = RT_BINS - 1;
+			cnt[k]++;
+			for ( int v = 0; v < 3; v++ )
+			{
+				for ( int a = 0; a < 3; a++ )
+				{
+					if ( t[i].v[v][a] < bmn[k][a] ) bmn[k][a] = t[i].v[v][a];
+					if ( t[i].v[v][a] > bmx[k][a] ) bmx[k][a] = t[i].v[v][a];
+				}
+			}
+		}
+		// balayage : aires cumulees de droite, puis de gauche
+		float	rightArea[RT_BINS];
+		int		rightCnt[RT_BINS];
+		vec3_t	amn, amx;
+
+		VectorSet( amn, 1e30f, 1e30f, 1e30f );
+		VectorSet( amx, -1e30f, -1e30f, -1e30f );
+		int rc = 0;
+		for ( int k = RT_BINS - 1; k > 0; k-- )
+		{
+			for ( int a = 0; a < 3; a++ )
+			{
+				if ( bmn[k][a] < amn[a] ) amn[a] = bmn[k][a];
+				if ( bmx[k][a] > amx[a] ) amx[a] = bmx[k][a];
+			}
+			rc += cnt[k];
+			rightArea[k] = RT_Area( amn, amx );
+			rightCnt[k] = rc;
+		}
+		VectorSet( amn, 1e30f, 1e30f, 1e30f );
+		VectorSet( amx, -1e30f, -1e30f, -1e30f );
+		int lc = 0;
+		const float parentArea = RT_Area( nd.bmin, nd.bmax );
+
+		for ( int k = 0; k < RT_BINS - 1; k++ )
+		{
+			for ( int a = 0; a < 3; a++ )
+			{
+				if ( bmn[k][a] < amn[a] ) amn[a] = bmn[k][a];
+				if ( bmx[k][a] > amx[a] ) amx[a] = bmx[k][a];
+			}
+			lc += cnt[k];
+			if ( lc == 0 || rightCnt[k + 1] == 0 || parentArea <= 0.0f )
+			{
+				continue;
+			}
+			const float cost = 0.5f + ( RT_Area( amn, amx ) * lc + rightArea[k + 1] * rightCnt[k + 1] ) / parentArea;
+
+			if ( cost < bestCost )
+			{
+				bestCost = cost;
+				bestAxis = axis;
+				bestBin = k;
+			}
 		}
 	}
-	const int mid = ( b + e ) / 2;
 
-	std::nth_element( t.begin() + b, t.begin() + mid, t.begin() + e,
-		[axis]( const rtTri &x, const rtTri &y ) { return x.c[axis] < y.c[axis]; } );
+	int mid;
+
+	if ( bestAxis < 0 )
+	{	// aucune coupe ne vaut mieux qu'une feuille (ou pas de SAH demande)
+		if ( sah && count <= 8 )
+		{
+			nd.first = (float)b;
+			nd.count = (float)count;
+			n[slot] = nd;
+			return;
+		}
+		// trop gros pour une feuille : la mediane sur l'axe le plus long
+		int		axis = 0;
+		float	best = cmax[0] - cmin[0];
+
+		for ( int a = 1; a < 3; a++ )
+		{
+			if ( cmax[a] - cmin[a] > best )
+			{
+				best = cmax[a] - cmin[a];
+				axis = a;
+			}
+		}
+		mid = ( b + e ) / 2;
+		std::nth_element( t.begin() + b, t.begin() + mid, t.begin() + e,
+			[axis]( const rtTri &x, const rtTri &y ) { return x.c[axis] < y.c[axis]; } );
+	}
+	else
+	{
+		const float	plane = cmin[bestAxis] + ( bestBin + 1 ) * ( cmax[bestAxis] - cmin[bestAxis] ) / (float)RT_BINS;
+		const int	axis = bestAxis;
+
+		mid = (int)( std::partition( t.begin() + b, t.begin() + e,
+			[axis, plane]( const rtTri &x ) { return x.c[axis] < plane; } ) - t.begin() );
+		if ( mid == b || mid == e )
+		{
+			mid = ( b + e ) / 2;
+		}
+	}
 
 	const int left = (int)n.size();
 
@@ -176,14 +306,65 @@ static void RT_BuildInto( std::vector<rtTri> &t, std::vector<rtNode> &n, int slo
 	nd.first = (float)left;
 	nd.count = 0.0f;
 	n[slot] = nd;
-	RT_BuildInto( t, n, left, b, mid, depth + 1 );
-	RT_BuildInto( t, n, left + 1, mid, e, depth + 1 );
+	RT_BuildInto( t, n, left, b, mid, depth + 1, sah );
+	RT_BuildInto( t, n, left + 1, mid, e, depth + 1, sah );
 }
 
 // Construit la BVH de t (reordonne t), et remplit les tampons plats : 8 flottants
 // par noeud, 12 par triangle (sommet, deux aretes - la forme qu'aime le test
 // de Moller-Trumbore).
-static void RT_Build( std::vector<rtTri> &t, std::vector<rtNode> &nodes, std::vector<float> &tris )
+// Le niveau du dessus de l'arbre dynamique : une boite par entite, coupee a
+// la mediane des centres ; sous chaque entite, sa propre BVH (ses triangles
+// sont contigus). Un rayon qui ne passe pres d'aucun perso est rejete a la
+// racine ou juste dessous, au lieu de descendre dans un arbre qui melange
+// tous les persos de la carte.
+static void RT_BuildEntities( std::vector<rtTri> &t, std::vector<rtNode> &n, std::vector<rtRange> &ents, int slot, int b, int e, int depth )
+{
+	if ( e - b == 1 )
+	{
+		RT_BuildInto( t, n, slot, ents[b].first, ents[b].first + ents[b].count, depth, qfalse );
+		return;
+	}
+	rtNode	nd;
+
+	VectorSet( nd.bmin, 1e30f, 1e30f, 1e30f );
+	VectorSet( nd.bmax, -1e30f, -1e30f, -1e30f );
+	for ( int i = b; i < e; i++ )
+	{
+		for ( int a = 0; a < 3; a++ )
+		{
+			if ( ents[i].bmin[a] < nd.bmin[a] ) nd.bmin[a] = ents[i].bmin[a];
+			if ( ents[i].bmax[a] > nd.bmax[a] ) nd.bmax[a] = ents[i].bmax[a];
+		}
+	}
+	int		axis = 0;
+	float	best = nd.bmax[0] - nd.bmin[0];
+
+	for ( int a = 1; a < 3; a++ )
+	{
+		if ( nd.bmax[a] - nd.bmin[a] > best )
+		{
+			best = nd.bmax[a] - nd.bmin[a];
+			axis = a;
+		}
+	}
+	const int mid = ( b + e ) / 2;
+
+	std::nth_element( ents.begin() + b, ents.begin() + mid, ents.begin() + e,
+		[axis]( const rtRange &x, const rtRange &y ) { return x.c[axis] < y.c[axis]; } );
+
+	const int left = (int)n.size();
+
+	n.push_back( rtNode() );
+	n.push_back( rtNode() );
+	nd.first = (float)left;
+	nd.count = 0.0f;
+	n[slot] = nd;
+	RT_BuildEntities( t, n, ents, left, b, mid, depth + 1 );
+	RT_BuildEntities( t, n, ents, left + 1, mid, e, depth + 1 );
+}
+
+static void RT_Build( std::vector<rtTri> &t, std::vector<rtNode> &nodes, std::vector<float> &tris, std::vector<rtRange> *ents = NULL )
 {
 	nodes.clear();
 	tris.clear();
@@ -193,7 +374,22 @@ static void RT_Build( std::vector<rtTri> &t, std::vector<rtNode> &nodes, std::ve
 	}
 	nodes.reserve( t.size() );
 	nodes.push_back( rtNode() );
-	RT_BuildInto( t, nodes, 0, 0, (int)t.size(), 0 );
+	if ( ents && ents->size() > 1 )
+	{
+		for ( size_t i = 0; i < ents->size(); i++ )
+		{
+			vec3_t cmn, cmx;
+
+			RT_Bounds( t, (*ents)[i].first, (*ents)[i].first + (*ents)[i].count, (*ents)[i].bmin, (*ents)[i].bmax, cmn, cmx );
+			VectorAdd( (*ents)[i].bmin, (*ents)[i].bmax, (*ents)[i].c );
+			VectorScale( (*ents)[i].c, 0.5f, (*ents)[i].c );
+		}
+		RT_BuildEntities( t, nodes, *ents, 0, 0, (int)ents->size(), 0 );
+	}
+	else
+	{
+		RT_BuildInto( t, nodes, 0, 0, (int)t.size(), 0, ents ? qfalse : qtrue );
+	}
 
 	tris.resize( t.size() * 12 );
 	for ( size_t i = 0; i < t.size(); i++ )
@@ -361,44 +557,55 @@ float hash( vec2 c ) { return fract( sin( dot( c, vec2( 12.9898, 78.233 ) ) ) * 
 #define TRAVERSE( NAME, NODES, TRIS ) \
 float NAME( vec3 ro, vec3 rd, float tmax, bool any ) { \
 	vec3 inv = 1.0 / ( abs( rd ) + vec3( 1e-9 ) ) * sign( rd + vec3( 1e-12 ) ); \
-	int stack[48]; int sp = 0; int node = 0; float best = tmax; \
-	for ( int it = 0; it < 8192; it++ ) { \
+	int stack[48]; int sp = 0; float best = tmax; \
+	{ vec4 a = NODES[0]; vec4 b = NODES[1]; \
+	  vec3 t0 = ( a.xyz - ro ) * inv; vec3 t1 = ( b.xyz - ro ) * inv; vec3 tmn = min( t0, t1 ); vec3 tmx = max( t0, t1 ); \
+	  if ( max( max( tmn.x, tmn.y ), max( tmn.z, 0.0 ) ) > min( min( tmx.x, tmx.y ), min( tmx.z, best ) ) ) return best; } \
+	int node = 0; \
+	for ( int it = 0; it < 4096; it++ ) { \
 		vec4 a = NODES[node * 2]; vec4 b = NODES[node * 2 + 1]; \
-		vec3 t0 = ( a.xyz - ro ) * inv; vec3 t1 = ( b.xyz - ro ) * inv; \
-		vec3 tmn = min( t0, t1 ); vec3 tmx = max( t0, t1 ); \
-		float tn = max( max( tmn.x, tmn.y ), max( tmn.z, 0.0 ) ); \
-		float tf = min( min( tmx.x, tmx.y ), min( tmx.z, best ) ); \
-		bool hit = tn <= tf; \
-		if ( hit ) { \
-			int first = int( a.w ); int cnt = int( b.w ); \
-			if ( cnt > 0 ) { \
-				for ( int i = 0; i < cnt; i++ ) { \
-					int t = ( first + i ) * 3; \
-					vec3 v0 = TRIS[t].xyz; vec3 e1 = TRIS[t + 1].xyz; vec3 e2 = TRIS[t + 2].xyz; \
-					vec3 pv = cross( rd, e2 ); float det = dot( e1, pv ); \
-					if ( abs( det ) < 1e-7 ) continue; \
-					float id = 1.0 / det; vec3 s = ro - v0; float u = dot( s, pv ) * id; \
-					if ( u < 0.0 || u > 1.0 ) continue; \
-					vec3 q = cross( s, e1 ); float v = dot( rd, q ) * id; \
-					if ( v < 0.0 || u + v > 1.0 ) continue; \
-					float tt = dot( e2, q ) * id; \
-					if ( tt > 0.02 && tt < best ) { best = tt; if ( any ) return best; } \
-				} \
-				hit = false; \
-			} else { node = first; if ( sp < 48 ) stack[sp++] = first + 1; continue; } \
+		int first = int( a.w ); int cnt = int( b.w ); \
+		if ( cnt > 0 ) { \
+			for ( int i = 0; i < cnt; i++ ) { \
+				int t = ( first + i ) * 3; \
+				vec3 v0 = TRIS[t].xyz; vec3 e1 = TRIS[t + 1].xyz; vec3 e2 = TRIS[t + 2].xyz; \
+				vec3 pv = cross( rd, e2 ); float det = dot( e1, pv ); \
+				if ( abs( det ) < 1e-7 ) continue; \
+				float id = 1.0 / det; vec3 s = ro - v0; float u = dot( s, pv ) * id; \
+				if ( u < 0.0 || u > 1.0 ) continue; \
+				vec3 q = cross( s, e1 ); float v = dot( rd, q ) * id; \
+				if ( v < 0.0 || u + v > 1.0 ) continue; \
+				float tt = dot( e2, q ) * id; \
+				if ( tt > 0.02 && tt < best ) { best = tt; if ( any ) return best; } \
+			} \
+			if ( sp == 0 ) break; \
+			node = stack[--sp]; continue; \
 		} \
-		if ( sp == 0 ) break; \
-		node = stack[--sp]; \
+		vec4 la = NODES[first * 2]; vec4 lb = NODES[first * 2 + 1]; \
+		vec4 ra = NODES[first * 2 + 2]; vec4 rb = NODES[first * 2 + 3]; \
+		vec3 lt0 = ( la.xyz - ro ) * inv; vec3 lt1 = ( lb.xyz - ro ) * inv; vec3 ln = min( lt0, lt1 ); vec3 lx = max( lt0, lt1 ); \
+		float ltn = max( max( ln.x, ln.y ), max( ln.z, 0.0 ) ); float ltf = min( min( lx.x, lx.y ), min( lx.z, best ) ); \
+		vec3 rt0 = ( ra.xyz - ro ) * inv; vec3 rt1 = ( rb.xyz - ro ) * inv; vec3 rn = min( rt0, rt1 ); vec3 rx = max( rt0, rt1 ); \
+		float rtn = max( max( rn.x, rn.y ), max( rn.z, 0.0 ) ); float rtf = min( min( rx.x, rx.y ), min( rx.z, best ) ); \
+		bool hl = ltn <= ltf; bool hr = rtn <= rtf; \
+		if ( hl && hr ) { \
+			if ( ltn <= rtn ) { node = first; if ( sp < 48 ) stack[sp++] = first + 1; } \
+			else { node = first + 1; if ( sp < 48 ) stack[sp++] = first; } \
+		} else if ( hl ) { node = first; } \
+		else if ( hr ) { node = first + 1; } \
+		else { if ( sp == 0 ) break; node = stack[--sp]; } \
 	} \
 	return best; \
 }
 TRAVERSE( travW, wn, wt )
 TRAVERSE( travD, dn, dt )
 
-float trace( vec3 ro, vec3 rd, float tmax, bool any ) {
+// dynMax : jusqu'ou les persos comptent (l'occlusion ne leur demande qu'une
+// ombre de contact : 64 unites, le reste serait paye pour rien)
+float trace( vec3 ro, vec3 rd, float tmax, bool any, float dynMax ) {
 	float t = travW( ro, rd, tmax, any );
 	if ( any && t < tmax ) return t;
-	if ( dynNodes > 0 ) t = travD( ro, rd, t, any );
+	if ( dynNodes > 0 ) t = travD( ro, rd, min( t, dynMax ), any );
 	return t;
 }
 
@@ -421,14 +628,19 @@ void main() {
 		if ( ndl > 0.02 ) {
 			vec3 s1 = normalize( cross( sunDir, ( abs( sunDir.y ) < 0.9 ) ? vec3( 0.0, 1.0, 0.0 ) : vec3( 1.0, 0.0, 0.0 ) ) );
 			vec3 s2 = cross( sunDir, s1 );
-			float lit = 0.0;
+			// adaptatif : deux rayons opposes dans le cone ; s'ils sont d'accord
+			// (plein soleil ou pleine ombre, l'immense majorite des pixels), on
+			// s'arrete la ; sinon on est dans la penombre et on tire le reste
+			float lit = 0.0; int done = 0;
 			for ( int i = 0; i < sunRays; i++ ) {
-				float a = 6.2831853 * hash( gl_FragCoord.xy + vec2( float( i ) * 17.0, 3.0 ) );
+				float a = 6.2831853 * hash( gl_FragCoord.xy + vec2( float( i ) * 17.0, 3.0 ) ) + ( ( i == 1 ) ? 3.1415926 : 0.0 );
 				float r = sqrt( hash( gl_FragCoord.yx + vec2( 1.0, float( i ) * 5.0 ) ) ) * sunSoft;
 				vec3 dir = normalize( sunDir + ( s1 * cos( a ) + s2 * sin( a ) ) * r );
-				lit += ( trace( o + sunDir * 0.25, dir, 16384.0, true ) < 16384.0 ) ? 0.0 : 1.0;
+				lit += ( trace( o + sunDir * 0.25, dir, 16384.0, true, 16384.0 ) < 16384.0 ) ? 0.0 : 1.0;
+				done++;
+				if ( i == 1 && ( lit < 0.5 || lit > 1.5 ) ) break;
 			}
-			shade = lit / float( sunRays );
+			shade = lit / float( done );
 		}
 	}
 
@@ -441,7 +653,7 @@ void main() {
 			float u2 = hash( gl_FragCoord.yx * 0.7 + vec2( 9.0, float( i ) * 3.3 ) );
 			float r = sqrt( u1 ); float a = 6.2831853 * u2;
 			vec3 dir = t1 * ( r * cos( a ) ) + t2 * ( r * sin( a ) ) + n * sqrt( max( 0.0, 1.0 - u1 ) );
-			float t = trace( o, dir, aoRange, false );
+			float t = trace( o, dir, aoRange, false, 64.0 );
 			if ( t < aoRange ) occ += 1.0 - t / aoRange;
 		}
 		ao = 1.0 - occ / float( aoRays );
@@ -462,7 +674,7 @@ void main() {
 		float ndl = dot( n, L );
 		if ( ndl <= 0.0 ) continue;
 		float att = 1.0 - dist / rad; att *= att;
-		float vis = ( trace( o, L, dist - 1.0, true ) < dist - 1.0 ) ? 0.0 : 1.0;
+		float vis = ( trace( o, L, dist - 1.0, true, dist ) < dist - 1.0 ) ? 0.0 : 1.0;
 		light += lCol[i].rgb * ( ndl * att * vis );
 	}
 	light *= lightScale;
@@ -475,7 +687,7 @@ void main() {
 		if ( m > 0.01 && abs( md - d ) < 0.0004 ) {
 			vec3 vdir = normalize( p - camPos );
 			vec3 rd = reflect( vdir, n );
-			float t = trace( o, rd, 8192.0, false );
+			float t = trace( o, rd, 8192.0, false, 8192.0 );
 			if ( t < 8192.0 ) {
 				vec4 hv = viewMat * vec4( p + rd * t, 1.0 );
 				if ( hv.z < -1.0 ) {
@@ -752,6 +964,8 @@ void R_ModernRTViewBegin( void )
 	}
 	rtViewActive = qtrue;
 	rtDyn.clear();
+	rtDynEnts.clear();
+	rtDynLastEnt = NULL;
 	p_glBindFramebuffer( GL_FRAMEBUFFER, rtMaskFbo );
 	qglClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
 	qglClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
@@ -800,6 +1014,15 @@ void R_ModernRTAfterSurface( void )
 		{
 			vec3_t	w[3];
 
+			if ( rtDynLastEnt != (const void *)backEnd.currentEntity || rtDynEnts.empty() )
+			{	// une nouvelle entite : un nouveau groupe contigu
+				rtRange r;
+
+				r.first = (int)rtDyn.size();
+				r.count = 0;
+				rtDynEnts.push_back( r );
+				rtDynLastEnt = backEnd.currentEntity;
+			}
 			for ( int i = 0; i + 2 < tess.numIndexes; i += 3 )
 			{
 				for ( int k = 0; k < 3; k++ )
@@ -811,6 +1034,7 @@ void R_ModernRTAfterSurface( void )
 					VectorMA( w[k], v[2], e->axis[2], w[k] );
 				}
 				RT_PushTri( rtDyn, w[0], w[1], w[2] );
+				rtDynEnts.back().count++;
 			}
 		}
 	}
@@ -882,15 +1106,18 @@ qboolean R_ModernRTPass( const modernRTParams_t *p )
 	RT_EnsureWorld();
 
 	// --- les sous-modeles et personnages de cette image
+	const int	tCpu0 = ri.Milliseconds();
+
 	rtDynNodeCount = 0;
 	if ( r_modernRTDynamic->integer && !rtDyn.empty() )
 	{
-		RT_Build( rtDyn, rtNodesTmp, rtTrisTmp );
+		RT_Build( rtDyn, rtNodesTmp, rtTrisTmp, &rtDynEnts );
 		RT_Upload( rtDynNodes, rtNodesTmp.data(), rtNodesTmp.size() * sizeof( rtNode ), GL_STREAM_DRAW );
 		RT_Upload( rtDynTris, rtTrisTmp.data(), rtTrisTmp.size() * sizeof( float ), GL_STREAM_DRAW );
 		rtDynNodeCount = (int)rtNodesTmp.size();
 	}
 	rtViewActive = qfalse;		// la capture de cette vue est close
+	const int	tCpu1 = ri.Milliseconds();
 
 	// --- les lumieres : celles de la scene, et les lames de sabre
 	float	lPos[RT_MAX_LIGHTS][4], lCol[RT_MAX_LIGHTS][4], lEnd[RT_MAX_LIGHTS][4];
@@ -934,6 +1161,12 @@ qboolean R_ModernRTPass( const modernRTParams_t *p )
 	const int	aoRays = r_modernRTAORays->integer < 1 ? 1 : ( r_modernRTAORays->integer > 32 ? 32 : r_modernRTAORays->integer );
 
 	R_ModernDrainErrors();
+	if ( r_modernDebug->integer == 6 )
+	{
+		qglFinish();
+	}
+	const int	tGpu0 = ri.Milliseconds();
+
 	p_glBindFramebuffer( GL_FRAMEBUFFER, rtFbo );
 	qglViewport( 0, 0, rtPassW, rtPassH );
 	qglScissor( 0, 0, rtPassW, rtPassH );
@@ -999,11 +1232,15 @@ qboolean R_ModernRTPass( const modernRTParams_t *p )
 	{
 		static int lastSay;
 
+		qglFinish();
+		const int	tGpu1 = ri.Milliseconds();
+
 		if ( abs( (int)( backEnd.refdef.time - lastSay ) ) > 1000 )
 		{
 			lastSay = backEnd.refdef.time;
-			ri.Printf( PRINT_ALL, "ray tracing: %i triangles dynamiques (%i noeuds), %i lumieres, soleil %i rayons, occlusion %i rayons\n",
-				(int)rtDyn.size(), rtDynNodeCount, numLights, p->wantSun ? sunRays : 0, p->wantAo ? aoRays : 0 );
+			ri.Printf( PRINT_ALL, "ray tracing: %i triangles dynamiques (%i noeuds), %i lumieres, soleil %i rayons, occlusion %i rayons | CPU bvh %i ms, GPU passe %i ms, %ix%i\n",
+				(int)rtDyn.size(), rtDynNodeCount, numLights, p->wantSun ? sunRays : 0, p->wantAo ? aoRays : 0,
+				tCpu1 - tCpu0, tGpu1 - tGpu0, rtPassW, rtPassH );
 			{	// ce que la scene contient
 				int hist[16] = { 0 };
 				for ( int i = 0; i < backEnd.refdef.num_entities; i++ )
