@@ -1704,6 +1704,41 @@ Le texte est insere en TETE du tampon : "wait" y repousse tout ce qui suit, donc
 le reste de la config.
 ====================
 */
+/*
+====================
+CL_CoopWaitCam_f
+
+coop dev: "coop_waitcam [trames]" - retient la suite de la config tant qu'une
+cinematique tourne. Compter des images ne marche pas : la fenetre de test n'est
+jamais au premier plan, les images ne sont donc pas limitees, et le meme "wait"
+vaut 49 s ou 90 s selon la charge de la machine.
+====================
+*/
+static void CL_CoopWaitCam_f( void ) {
+	const int	left = ( Cmd_Argc() > 1 ) ? atoi( Cmd_Argv( 1 ) ) : 9000;	// ~2min30
+	const int	floorLeft = ( Cmd_Argc() > 2 ) ? atoi( Cmd_Argv( 2 ) ) : 600;	// ~10 s
+
+	// Un plancher avant de regarder : la camera ne part pas a l'instant ou la
+	// carte est prete. Sans lui la commande rendait la main tout de suite, et
+	// les configs converties n'attendaient plus rien du tout.
+	if ( floorLeft > 0 ) {
+		Cbuf_ExecuteText( EXEC_INSERT, va( "wait 30 ; coop_waitcam %i %i\n", left - 30, floorLeft - 30 ) );
+		return;
+	}
+	// Le cgame vit dans la DLL de jeu : le client ne peut pas l'appeler. L'etat
+	// camera voyage donc dans la valeur que le cgame publie deja (bit 14), comme
+	// le zoom et le pouvoir de Force choisi.
+	if ( !( cl.cgameUserCmdValue & ( 1 << 14 ) ) ) {
+		Com_Printf( "coop_waitcam: plus de camera\n" );
+		return;
+	}
+	if ( left <= 0 ) {
+		Com_Printf( "coop_waitcam: abandon, une camera tourne toujours\n" );
+		return;
+	}
+	Cbuf_ExecuteText( EXEC_INSERT, va( "wait 30 ; coop_waitcam %i 0\n", left - 30 ) );
+}
+
 static void CL_CoopWaitJoin_f( void ) {
 	extern int SV_CoopJoinersActive( void );
 	const int	want = ( Cmd_Argc() > 1 ) ? atoi( Cmd_Argv( 1 ) ) : 1;
@@ -1852,6 +1887,7 @@ void CL_Init( void ) {
 	Cmd_AddCommand ("coop_keys", CL_CoopKeys_f);	// coop: where do keys and mouse go right now
 	Cmd_AddCommand ("uiclose", Menus_CloseAll);		// coop dev: close every menu (uimenu stacks them)
 	Cmd_AddCommand ("coop_waitjoin", CL_CoopWaitJoin_f);	// coop dev: hold a test config until the joiners are in
+	Cmd_AddCommand ("coop_waitcam", CL_CoopWaitCam_f);	// coop dev: ... and until the map's cinematic is over
 	Cmd_AddCommand ("coop_key", CL_CoopKey_f);	// coop dev: press a key by name
 	Cmd_AddCommand ("coop_mouse", CL_CoopMouse_f);	// coop dev: feed a mouse delta
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f);
@@ -1913,6 +1949,7 @@ void CL_Shutdown( void ) {
 	Cmd_RemoveCommand ("cinematic");
 	Cmd_RemoveCommand ("ingamecinematic");
 	Cmd_RemoveCommand ("coop_waitjoin");
+	Cmd_RemoveCommand ("coop_waitcam");
 	Cmd_RemoveCommand ("uimenu");
 	Cmd_RemoveCommand ("datapad");
 	Cmd_RemoveCommand ("endscreendissolve");
