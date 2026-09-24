@@ -1,0 +1,289 @@
+// JACoop - FIN DE MISSION : equipement de chacun avant le depart, puis PRET.
+// Les ecrans de Force et d armes sont les copies coop (coopForceSelect, coopWpnSelect) :
+// un invite n a pas de serveur, ses choix repartent vers l hote (coopforce / coop_endwpn).
+// Genere par dist/gen_coop_menus.py : ne pas editer a la main.
+{
+	menuDef
+	{
+		name					"coopLoadout"
+		fullScreen				1
+		rect					0 0 640 480
+		visible					1
+		focusColor				1 1 1 1
+		descX					320
+		descY					440
+		descScale				1
+		descColor				1 1 1 .75
+		descAlignment			ITEM_ALIGN_CENTER
+		onOpen
+		{
+			setfocus			readyButton
+		}
+		onESC
+		{
+			play				"sound/interface/menuroam.wav" ;
+			show				title
+		}
+
+		// --- decor ------------------------------------------------------
+		itemDef
+		{
+			name				background
+			group				grp_background
+			style				WINDOW_STYLE_SHADER
+			rect				0 0 640 480
+			background			"gfx/jacoop/panel_bg"
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				button_glow
+			group				mods
+			style				WINDOW_STYLE_FILLED
+			rect				0 0 0 0
+			backcolor			1 1 1 1
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				title
+			style				WINDOW_STYLE_EMPTY
+			rect				0 28 640 30
+			text				"@JACOOP_PREPARATION"
+			font				3
+			textscale			1.2
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			320
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				missionLabel
+			style				WINDOW_STYLE_EMPTY
+			rect				0 66 640 16
+			text				"@JACOOP_PROCHAINE_MISSION"
+			font				3
+			textscale			0.6
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			320
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				missionName
+			style				WINDOW_STYLE_EMPTY
+			rect				0 84 640 26
+			cvar				"ui_coopEndTitle"
+			font				3
+			textscale			0.95
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			320
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				forceButton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 150 220 26
+			text				"@JACOOP_POUVOIRS_DE_FORCE"
+			descText			"@JACOOP_DEPENSER_TON_POINT_DE_FORCE_AVANT_DE_PAR"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 147 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				setcvar			ui_coopForceFrom endlevel ;
+				close			all ;
+				open			coopForceSelect
+			}
+		}
+		itemDef
+		{
+			name				wpnButton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 190 220 26
+			text				"@JACOOP_ARMES"
+			descText			"@JACOOP_CHOISIR_DEUX_ARMES_ET_UN_EXPLOSIF_POUR_L"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 187 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				close			all ;
+				open			coopWpnSelect
+			}
+		}
+		itemDef
+		{
+			name				readyButton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 244 220 26
+			text				"@JACOOP_PRET_PAS_PRET"
+			descText			"@JACOOP_LA_MISSION_DEMARRE_QUAND_TOUT_LE_MONDE_E"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 241 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		coopEndReady
+			}
+		}
+		itemDef
+		{
+			name				playersLabel
+			style				WINDOW_STYLE_EMPTY
+			rect				320 150 290 16
+			text				"@JACOOP_JOUEURS"
+			font				3
+			textscale			0.7
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				playerList
+			type				ITEM_TYPE_LISTBOX
+			style				WINDOW_STYLE_FILLED
+			rect				320 170 290 100
+			feeder				0x19
+			elementwidth		290
+			elementheight		18
+			elementtype			LISTBOX_TEXT
+			textscale			0.6
+			forecolor			1 1 1 .82
+			backcolor			0 0 0 .45
+			outlinecolor		.6 .5 .3 .5
+			border				1
+			bordercolor			.45 .38 .25 1
+			visible				1
+		}
+		itemDef
+		{
+			name				infoLine
+			style				WINDOW_STYLE_EMPTY
+			rect				0 330 640 18
+			cvar				"ui_coopEndInfo"
+			font				3
+			textscale			0.65
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			320
+			forecolor			1 1 1 .82
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				hint1
+			style				WINDOW_STYLE_EMPTY
+			rect				0 360 640 16
+			text				"@JACOOP_TES_ARMES_ET_TES_POUVOIRS_TE_SUIVENT_D_U"
+			font				3
+			textscale			0.55
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			320
+			forecolor			1 1 1 .6
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				hint2
+			style				WINDOW_STYLE_EMPTY
+			rect				0 376 640 16
+			text				"@JACOOP_L_HOTE_PEUT_LANCER_LA_MISSION_SANS_ATTEN"
+			font				3
+			textscale			0.55
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			320
+			forecolor			1 1 1 .6
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				goButton
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				470 440 150 24
+			text				"@JACOOP_COMMENCER_HOTE"
+			descText			"@JACOOP_HOTE_LANCER_LA_MISSION_TOUT_DE_SUITE"
+			font				3
+			textscale			0.9
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			150
+			forecolor			1 1 1 1
+			cvarTest			"ui_coopEndHost"
+			showCvar			{ "1" }
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		coopEndGo
+			}
+		}
+	}
+}

@@ -1,0 +1,217 @@
+// JACoop - FIN DE MISSION : vote sur la prochaine mission (feeder 0x1c = CS_COOP_ENDLEVEL).
+// Genere par dist/gen_coop_menus.py : ne pas editer a la main.
+{
+	menuDef
+	{
+		name					"coopVote"
+		fullScreen				1
+		rect					0 0 640 480
+		visible					1
+		focusColor				1 1 1 1
+		descX					320
+		descY					440
+		descScale				1
+		descColor				1 1 1 .75
+		descAlignment			ITEM_ALIGN_CENTER
+		onOpen
+		{
+			uiScript			coopVoteOpen ;
+			setfocus			missionList
+		}
+		onESC
+		{
+			play				"sound/interface/menuroam.wav" ;
+			show				title
+		}
+
+		// --- decor ------------------------------------------------------
+		itemDef
+		{
+			name				background
+			group				grp_background
+			style				WINDOW_STYLE_SHADER
+			rect				0 0 640 480
+			background			"gfx/jacoop/panel_bg"
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				button_glow
+			group				mods
+			style				WINDOW_STYLE_FILLED
+			rect				0 0 0 0
+			backcolor			1 1 1 1
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				title
+			style				WINDOW_STYLE_EMPTY
+			rect				0 28 640 30
+			text				"@JACOOP_PROCHAINE_MISSION"
+			font				3
+			textscale			1.2
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			320
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				rule
+			style				WINDOW_STYLE_EMPTY
+			rect				0 64 640 16
+			text				"@JACOOP_CHACUN_VOTE_LA_MAJORITE_L_EMPORTE_L_HOTE"
+			font				3
+			textscale			0.55
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			320
+			forecolor			1 1 1 .6
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				missionsLabel
+			style				WINDOW_STYLE_EMPTY
+			rect				60 90 520 16
+			text				"@JACOOP_MISSIONS_DISPONIBLES"
+			font				3
+			textscale			0.7
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				missionList
+			type				ITEM_TYPE_LISTBOX
+			style				WINDOW_STYLE_FILLED
+			rect				60 110 520 112
+			feeder				0x1c
+			elementwidth		520
+			elementheight		18
+			elementtype			LISTBOX_TEXT
+			textscale			0.65
+			forecolor			1 1 1 .82
+			backcolor			0 0 0 .45
+			outlinecolor		.6 .5 .3 .5
+			border				1
+			bordercolor			.45 .38 .25 1
+			visible				1
+			doubleClick
+			{
+				uiScript		coopEndVote
+			}
+		}
+		itemDef
+		{
+			name				voteButton
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				60 232 200 24
+			text				"@JACOOP_VOTER"
+			descText			"@JACOOP_VOTER_POUR_LA_MISSION_SELECTIONNEE_DOUBL"
+			font				3
+			textscale			0.9
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		coopEndVote
+			}
+		}
+		itemDef
+		{
+			name				goButton
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				380 232 200 24
+			text				"@JACOOP_TRANCHER_HOTE"
+			descText			"@JACOOP_HOTE_COMPTER_LES_VOIX_TOUT_DE_SUITE"
+			font				3
+			textscale			0.9
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			cvarTest			"ui_coopEndHost"
+			showCvar			{ "1" }
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		coopEndGo
+			}
+		}
+		itemDef
+		{
+			name				playersLabel
+			style				WINDOW_STYLE_EMPTY
+			rect				60 272 520 16
+			text				"@JACOOP_JOUEURS"
+			font				3
+			textscale			0.7
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				playerList
+			type				ITEM_TYPE_LISTBOX
+			style				WINDOW_STYLE_FILLED
+			rect				60 292 520 84
+			feeder				0x19
+			elementwidth		520
+			elementheight		18
+			elementtype			LISTBOX_TEXT
+			textscale			0.6
+			forecolor			1 1 1 .82
+			backcolor			0 0 0 .45
+			outlinecolor		.6 .5 .3 .5
+			border				1
+			bordercolor			.45 .38 .25 1
+			visible				1
+		}
+		itemDef
+		{
+			name				infoLine
+			style				WINDOW_STYLE_EMPTY
+			rect				0 392 640 18
+			cvar				"ui_coopEndInfo"
+			font				3
+			textscale			0.65
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			320
+			forecolor			1 1 1 .82
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				hint
+			style				WINDOW_STYLE_EMPTY
+			rect				0 420 640 16
+			text				"@JACOOP_UNE_MISSION_DEJA_JOUEE_N_APPARAIT_PAS_DA"
+			font				3
+			textscale			0.55
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			320
+			forecolor			1 1 1 .6
+			visible				1
+			decoration
+		}
+	}
+}

@@ -1,0 +1,453 @@
+// JACoop - SABRE LASER : type, manches et couleurs, a tout moment. Ouvert depuis le
+// salon ou le menu F6 ; ui_coopForceFrom (lobby/game) dit ou revenir.
+// Genere par dist/gen_coop_menus.py : ne pas editer a la main.
+{
+	menuDef
+	{
+		name					"coopSaberPick"
+		fullScreen				1
+		rect					0 0 640 480
+		visible					1
+		focusColor				1 1 1 1
+		descX					320
+		descY					424
+		descScale				1
+		descColor				1 1 1 .75
+		descAlignment			ITEM_ALIGN_CENTER
+		onOpen
+		{
+			uiScript			coopSaberInit ;
+			setfocus			typeSingle
+		}
+		onESC
+		{
+			play				"sound/interface/menuroam.wav" ;
+			uiScript			coopForceBack
+		}
+
+		// --- decor ------------------------------------------------------
+		itemDef
+		{
+			name				background
+			group				grp_background
+			style				WINDOW_STYLE_SHADER
+			rect				0 0 640 480
+			background			"gfx/jacoop/panel_bg"
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				button_glow
+			group				mods
+			style				WINDOW_STYLE_FILLED
+			rect				0 0 0 0
+			backcolor			1 1 1 1
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				title
+			style				WINDOW_STYLE_EMPTY
+			rect				0 28 640 30
+			text				"@JACOOP_SABRE_LASER"
+			font				3
+			textscale			1.2
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			320
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				typeLabel
+			style				WINDOW_STYLE_EMPTY
+			rect				30 66 300 16
+			text				"@JACOOP_TYPE_DE_SABRE"
+			font				3
+			textscale			0.7
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				typeSingle
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				30 88 300 22
+			text				"@JACOOP_SABRE_SIMPLE"
+			descText			"@JACOOP_UNE_SEULE_LAME"
+			font				3
+			textscale			0.9
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		coopSaberType single
+			}
+		}
+		itemDef
+		{
+			name				typeStaff
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				30 112 300 22
+			text				"@JACOOP_DOUBLE_LAME"
+			descText			"@JACOOP_UN_SEUL_MANCHE_UNE_LAME_A_CHAQUE_BOUT"
+			font				3
+			textscale			0.9
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		coopSaberType staff
+			}
+		}
+		itemDef
+		{
+			name				typeDual
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				30 136 300 22
+			text				"@JACOOP_DEUX_SABRES"
+			descText			"@JACOOP_UN_SABRE_DANS_CHAQUE_MAIN"
+			font				3
+			textscale			0.9
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		coopSaberType dual
+			}
+		}
+		itemDef
+		{
+			name				typeNow
+			style				WINDOW_STYLE_EMPTY
+			rect				30 160 300 16
+			cvar				"ui_saber_type"
+			font				3
+			textscale			0.6
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 .6
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				hiltLabel
+			style				WINDOW_STYLE_EMPTY
+			rect				30 196 300 16
+			text				"@JACOOP_MANCHE"
+			font				3
+			textscale			0.7
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				hiltNow
+			style				WINDOW_STYLE_EMPTY
+			rect				30 216 300 18
+			cvar				"ui_saber_name"
+			font				3
+			textscale			0.7
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 .82
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				hiltButton
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				30 238 300 22
+			text				"@JACOOP_CHOISIR_LE_MANCHE"
+			descText			"@JACOOP_TOUS_LES_MANCHES_INSTALLES_MODS_COMPRIS"
+			font				3
+			textscale			0.9
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				setcvar			ui_coopHiltFrom pick ;
+				setcvar			ui_coopHiltWhich 1 ;
+				close			coopSaberPick ;
+				open			coopSaberHilts
+			}
+		}
+		itemDef
+		{
+			name				hilt2Now
+			style				WINDOW_STYLE_EMPTY
+			rect				30 264 300 18
+			cvar				"ui_saber2_name"
+			font				3
+			textscale			0.7
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_saber_type"
+			showCvar			{ "dual" }
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				hilt2Button
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				30 286 300 22
+			text				"@JACOOP_MANCHE_DE_LA_MAIN_GAUCHE"
+			descText			"@JACOOP_LE_MANCHE_DE_LA_SECONDE_LAME"
+			font				3
+			textscale			0.9
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			cvarTest			"ui_saber_type"
+			showCvar			{ "dual" }
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				setcvar			ui_coopHiltFrom pick ;
+				setcvar			ui_coopHiltWhich 2 ;
+				close			coopSaberPick ;
+				open			coopSaberHilts
+			}
+		}
+		itemDef
+		{
+			name				colorLabel
+			style				WINDOW_STYLE_EMPTY
+			rect				30 320 300 16
+			text				"@JACOOP_COULEUR_DE_LAME"
+			font				3
+			textscale			0.7
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				colorButton
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				30 342 300 22
+			text				"@JACOOP_COULEUR_EXACTE_RVB"
+			descText			"@JACOOP_COULEUR_EXACTE_DE_LA_LAME_EN_ROUGE_VERT"
+			font				3
+			textscale			0.9
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				setcvar			ui_coopHiltFrom pick ;
+				setcvar			ui_coopHiltWhich 1 ;
+				close			coopSaberPick ;
+				open			coopSaberColor
+			}
+		}
+		itemDef
+		{
+			name				color2Button
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				30 366 300 22
+			text				"@JACOOP_COULEUR_DE_LA_LAME_GAUCHE"
+			descText			"@JACOOP_COULEUR_EXACTE_DE_LA_SECONDE_LAME"
+			font				3
+			textscale			0.9
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			cvarTest			"ui_saber_type"
+			showCvar			{ "dual" }
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				setcvar			ui_coopHiltFrom pick ;
+				setcvar			ui_coopHiltWhich 2 ;
+				close			coopSaberPick ;
+				open			coopSaberColor
+			}
+		}
+		itemDef
+		{
+			name				saber
+			group				models
+			type				ITEM_TYPE_MODEL
+			rect				330 90 300 300
+			asset_model			"models/weapons2/saber_1/saber_1.glm"
+			isSaber 			1
+			model_angle			180
+			model_rotation		20
+			model_g2mins		0 0 0
+			model_g2maxs		20 20 20
+			model_fovx			75
+			model_fovy			75
+			cvarTest			ui_saber_type
+			hideCvar			{ "dual" }
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				saberR
+			group				models
+			type				ITEM_TYPE_MODEL
+			rect				330 56 300 210
+			asset_model			"models/weapons2/saber_1/saber_1.glm"
+			isSaber 			1
+			model_angle			180
+			model_rotation		20
+			model_g2mins		0 0 0
+			model_g2maxs		20 20 20
+			model_fovx			75
+			model_fovy			75
+			cvarTest			ui_saber_type
+			showCvar			{ "dual" }
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				saberL
+			group				models
+			type				ITEM_TYPE_MODEL
+			rect				330 240 300 210
+			asset_model			"models/weapons2/saber_1/saber_1.glm"
+			isSaber2			1
+			model_angle			180
+			model_rotation		20
+			model_g2mins		0 0 0
+			model_g2maxs		20 20 20
+			model_fovx			75
+			model_fovy			75
+			cvarTest			ui_saber_type
+			showCvar			{ "dual" }
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				previewR
+			style				WINDOW_STYLE_EMPTY
+			rect				340 172 300 14
+			text				"@JACOOP_MAIN_DROITE"
+			font				3
+			textscale			0.55
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 .6
+			cvarTest			"ui_saber_type"
+			showCvar			{ "dual" }
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				previewL
+			style				WINDOW_STYLE_EMPTY
+			rect				340 355 300 14
+			text				"@JACOOP_MAIN_GAUCHE"
+			font				3
+			textscale			0.55
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 .6
+			cvarTest			"ui_saber_type"
+			showCvar			{ "dual" }
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				hint
+			style				WINDOW_STYLE_EMPTY
+			rect				30 412 600 16
+			text				"@JACOOP_LES_AUTRES_JOUEURS_VOIENT_TON_SABRE_S_IL"
+			font				3
+			textscale			0.5
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 .6
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				backButton
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				30 440 160 24
+			text				"@JACOOP_RETOUR"
+			descText			"@JACOOP_REVENIR_SANS_RIEN_CHANGER"
+			font				3
+			textscale			0.9
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		coopForceBack
+			}
+		}
+		itemDef
+		{
+			name				applyButton
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				450 440 160 24
+			text				"@JACOOP_APPLIQUER"
+			descText			"@JACOOP_PRENDRE_CE_SABRE_TOUT_DE_SUITE_MEME_EN_J"
+			font				3
+			textscale			0.9
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			160
+			forecolor			1 1 1 1
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		updatesabercvars ;
+				exec			"cmd coop_rebuild" ;
+				uiScript		coopForceBack
+			}
+		}
+	}
+}

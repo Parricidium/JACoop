@@ -1,0 +1,2057 @@
+// JACoop - OPTIONS COOPERATION (charge au menu principal et en jeu : menus.txt + ingame.txt).
+// Genere par dist/gen_coop_menus.py : ne pas editer a la main.
+// Presentation de l'ecran Config officiel : onglets a gauche, options dans le cadre a droite.
+// ui_coopOptionsFrom (main / lobby / game) dit ou revenir (uiScript coopOptionsBack).
+{
+	menuDef
+	{
+		name					"coopOptionsMenu"
+		fullScreen				1
+		rect					0 0 640 480
+		visible					1
+		focusColor				1 1 1 1
+		descX					320
+		descY					440
+		descScale				1
+		descColor				1 1 1 .75
+		descAlignment			ITEM_ALIGN_CENTER
+		onOpen
+		{
+			play				"sound/interface/transition.wav" ;
+			hide				highlights ;
+			hide				sidebutton_glow ;
+		}
+		onESC
+		{
+			play				"sound/interface/menuroam.wav" ;
+			uiScript			coopOptionsBack
+		}
+
+		// --- decor ------------------------------------------------------
+		itemDef
+		{
+			name				background
+			group				grp_background
+			style				WINDOW_STYLE_SHADER
+			rect				0 0 640 480
+			background			"gfx/jacoop/panel_bg"
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				starwars
+			group				grp_background
+			style				WINDOW_STYLE_SHADER
+			rect				150 6 340 89
+			background			"gfx/menus/jediacademy"
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				button_glow
+			group				mods
+			style				WINDOW_STYLE_FILLED
+			rect				0 0 0 0
+			backcolor			1 1 1 1
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				optTitle
+			style				WINDOW_STYLE_SHADER
+			background			"gfx/menus/menu_blendbox"
+			text				"@JACOOP_OPTIONS_COOPERATION"
+			rect				100 104 440 16
+			font				3
+			textscale			0.7
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			225
+			textaligny			-1
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				sidebutton_glow
+			group				mods
+			style				WINDOW_STYLE_SHADER
+			rect				40 129 220 26
+			background			"gfx/menus/menu_blendbox2"
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				optPanel
+			style				WINDOW_STYLE_FILLED
+			rect				260 130 340 294
+			backcolor			0 0 0 .55
+			forecolor			1 1 1 1
+			border				1
+			bordercolor			.6 .45 .15 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				highlight0
+			group				highlights
+			style				WINDOW_STYLE_SHADER
+			rect				260 135 340 14
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				highlight1
+			group				highlights
+			style				WINDOW_STYLE_SHADER
+			rect				260 149 340 14
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				highlight2
+			group				highlights
+			style				WINDOW_STYLE_SHADER
+			rect				260 163 340 14
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				highlight3
+			group				highlights
+			style				WINDOW_STYLE_SHADER
+			rect				260 177 340 14
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				highlight4
+			group				highlights
+			style				WINDOW_STYLE_SHADER
+			rect				260 191 340 14
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				highlight5
+			group				highlights
+			style				WINDOW_STYLE_SHADER
+			rect				260 205 340 14
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				highlight6
+			group				highlights
+			style				WINDOW_STYLE_SHADER
+			rect				260 219 340 14
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				highlight7
+			group				highlights
+			style				WINDOW_STYLE_SHADER
+			rect				260 233 340 14
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				highlight8
+			group				highlights
+			style				WINDOW_STYLE_SHADER
+			rect				260 247 340 14
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				highlight9
+			group				highlights
+			style				WINDOW_STYLE_SHADER
+			rect				260 261 340 14
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				highlight10
+			group				highlights
+			style				WINDOW_STYLE_SHADER
+			rect				260 275 340 14
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				highlight11
+			group				highlights
+			style				WINDOW_STYLE_SHADER
+			rect				260 289 340 14
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				highlight12
+			group				highlights
+			style				WINDOW_STYLE_SHADER
+			rect				260 303 340 14
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				highlight13
+			group				highlights
+			style				WINDOW_STYLE_SHADER
+			rect				260 317 340 14
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				highlight14
+			group				highlights
+			style				WINDOW_STYLE_SHADER
+			rect				260 331 340 14
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				highlight15
+			group				highlights
+			style				WINDOW_STYLE_SHADER
+			rect				260 345 340 14
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				highlight16
+			group				highlights
+			style				WINDOW_STYLE_SHADER
+			rect				260 359 340 14
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				highlight17
+			group				highlights
+			style				WINDOW_STYLE_SHADER
+			rect				260 373 340 14
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				highlight18
+			group				highlights
+			style				WINDOW_STYLE_SHADER
+			rect				260 387 340 14
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				highlight19
+			group				highlights
+			style				WINDOW_STYLE_SHADER
+			rect				260 401 340 14
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				highlight20
+			group				highlights
+			style				WINDOW_STYLE_SHADER
+			rect				260 415 340 14
+			background			"gfx/menus/menu_blendbox"
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				tabPlayerActive
+			style				WINDOW_STYLE_SHADER
+			rect				40 129 220 26
+			background			"gfx/menus/menu_blendbox2"
+			forecolor			1 1 1 1
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "0" }
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				tabPlayer
+			group				tabs
+			text				"@JACOOP_JOUEUR"
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				80 130 170 24
+			font				3
+			textscale			0.9
+			textalignx			170
+			textaligny			2
+			textstyle			1
+			textalign			ITEM_ALIGN_RIGHT
+			forecolor			1 1 1 1
+			descText			"@JACOOP_PSEUDO_TOUCHE_POUR_RELEVER_CAMERA_CHAMP"
+			visible				1
+			mouseEnter
+			{
+				show			sidebutton_glow
+				setitemrect		sidebutton_glow	40 129 220 26
+			}
+			mouseExit
+			{
+				hide			sidebutton_glow
+			}
+			action
+			{
+				play			"sound/interface/sub_select" ;
+				hide			highlights ;
+				setcvar			ui_coopOptionsTab 0
+			}
+		}
+		itemDef
+		{
+			name				tabHostActive
+			style				WINDOW_STYLE_SHADER
+			rect				40 153 220 26
+			background			"gfx/menus/menu_blendbox2"
+			forecolor			1 1 1 1
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "1" }
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				tabHost
+			group				tabs
+			text				"@JACOOP_HOTE"
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				80 154 170 24
+			font				3
+			textscale			0.9
+			textalignx			170
+			textaligny			2
+			textstyle			1
+			textalign			ITEM_ALIGN_RIGHT
+			forecolor			1 1 1 1
+			descText			"@JACOOP_REGLAGES_DE_LA_PARTIE_NE_COMPTENT_QUE_PO"
+			visible				1
+			mouseEnter
+			{
+				show			sidebutton_glow
+				setitemrect		sidebutton_glow	40 153 220 26
+			}
+			mouseExit
+			{
+				hide			sidebutton_glow
+			}
+			action
+			{
+				play			"sound/interface/sub_select" ;
+				hide			highlights ;
+				setcvar			ui_coopOptionsTab 1
+			}
+		}
+		itemDef
+		{
+			name				tabRenderActive
+			style				WINDOW_STYLE_SHADER
+			rect				40 177 220 26
+			background			"gfx/menus/menu_blendbox2"
+			forecolor			1 1 1 1
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "3" }
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				tabRender
+			group				tabs
+			text				"@JACOOP_RENDU_MODERNE"
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				80 178 170 24
+			font				3
+			textscale			0.9
+			textalignx			170
+			textaligny			2
+			textstyle			1
+			textalign			ITEM_ALIGN_RIGHT
+			forecolor			1 1 1 1
+			descText			"@JACOOP_OMBRES_DU_SOLEIL_OCCLUSION_AMBIANTE_RAYO"
+			visible				1
+			mouseEnter
+			{
+				show			sidebutton_glow
+				setitemrect		sidebutton_glow	40 177 220 26
+			}
+			mouseExit
+			{
+				hide			sidebutton_glow
+			}
+			action
+			{
+				play			"sound/interface/sub_select" ;
+				hide			highlights ;
+				setcvar			ui_coopOptionsTab 3
+			}
+		}
+		itemDef
+		{
+			name				tabRTActive
+			style				WINDOW_STYLE_SHADER
+			rect				40 201 220 26
+			background			"gfx/menus/menu_blendbox2"
+			forecolor			1 1 1 1
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "4" }
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				tabRT
+			group				tabs
+			text				"@JACOOP_RAY_TRACING"
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				80 202 170 24
+			font				3
+			textscale			0.9
+			textalignx			170
+			textaligny			2
+			textstyle			1
+			textalign			ITEM_ALIGN_RIGHT
+			forecolor			1 1 1 1
+			descText			"@JACOOP_OMBRES_OCCLUSION_LUMIERES_ET_REFLETS_CAL"
+			visible				1
+			mouseEnter
+			{
+				show			sidebutton_glow
+				setitemrect		sidebutton_glow	40 201 220 26
+			}
+			mouseExit
+			{
+				hide			sidebutton_glow
+			}
+			action
+			{
+				play			"sound/interface/sub_select" ;
+				hide			highlights ;
+				setcvar			ui_coopOptionsTab 4
+			}
+		}
+		itemDef
+		{
+			name				nameField
+			group				player
+			type				ITEM_TYPE_EDITFIELD
+			style				WINDOW_STYLE_EMPTY
+			rect				260 133 340 14
+			text				"@JACOOP_PSEUDO"
+			descText			"@JACOOP_TON_NOM_VU_PAR_LES_AUTRES_JOUEURS_SALON"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "0" }
+			visible				1
+			cvar				"name"
+			maxChars			15
+			maxPaintChars		15
+			mouseEnter
+			{
+				show			highlight0
+			}
+			mouseExit
+			{
+				hide			highlight0
+			}
+		}
+		itemDef
+		{
+			name				reviveBind
+			group				player
+			type				ITEM_TYPE_BIND
+			style				WINDOW_STYLE_EMPTY
+			rect				260 147 340 14
+			text				"@JACOOP_RELEVER_TOUCHE"
+			descText			"@JACOOP_TOUCHE_A_MAINTENIR_PRES_D_UN_COEQUIPIER"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "0" }
+			visible				1
+			cvar				"+coop_revive"
+			mouseEnter
+			{
+				show			highlight1
+			}
+			mouseExit
+			{
+				hide			highlight1
+			}
+		}
+		itemDef
+		{
+			name				cameraLag
+			group				player
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 161 340 14
+			text				"@JACOOP_LISSAGE_CAMERA"
+			descText			"@JACOOP_RETARD_DE_LA_CAMERA_DES_CINEMATIQUES_CHE"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "0" }
+			visible				1
+			cvar				"cg_coopCameraLag"
+			cvarFloatList		{ "@JACOOP_AUCUN" 0 "@JACOOP_LEGER" 50 "Normal" 100 "@JACOOP_FORT" 200 }
+			mouseEnter
+			{
+				show			highlight2
+			}
+			mouseExit
+			{
+				hide			highlight2
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				fov
+			group				player
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 175 340 14
+			text				"@JACOOP_CHAMP_DE_VISION"
+			descText			"@JACOOP_VALEUR_DE_REFERENCE_EN_4_3_SUR_UN_ECRAN"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "0" }
+			visible				1
+			cvar				"cg_fov"
+			cvarFloatList		{ "@JACOOP_80_NORMAL" 80 "90" 90 "100" 100 "110" 110 "120" 120 }
+			mouseEnter
+			{
+				show			highlight3
+			}
+			mouseExit
+			{
+				hide			highlight3
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				maxPlayers
+			group				host
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 133 340 14
+			text				"@JACOOP_JOUEURS_MAX"
+			descText			"@JACOOP_NOMBRE_DE_PLACES_DANS_LA_PARTIE"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "1" }
+			visible				1
+			cvar				"ui_coopMaxPlayers"
+			cvarFloatList		{ "2" 2 "3" 3 "4" 4 }
+			mouseEnter
+			{
+				show			highlight0
+			}
+			mouseExit
+			{
+				hide			highlight0
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				requireReady
+			group				host
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 147 340 14
+			text				"@JACOOP_LANCEMENT"
+			descText			"@JACOOP_NOUVELLE_PARTIE_ATTEND_QUE_CHAQUE_INVITE"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "1" }
+			visible				1
+			cvar				"g_coopRequireReady"
+			cvarFloatList		{ "@JACOOP_PERSOS_VALIDES" 1 "@JACOOP_IMMEDIAT" 0 }
+			mouseEnter
+			{
+				show			highlight1
+			}
+			mouseExit
+			{
+				hide			highlight1
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				downed
+			group				host
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 161 340 14
+			text				"@JACOOP_JOUEURS_A_TERRE"
+			descText			"@JACOOP_UN_COUP_MORTEL_MET_A_TERRE_UN_COE_DCA50A"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "1" }
+			visible				1
+			cvar				"g_coopDowned"
+			cvarFloatList		{ "@JACOOP_OUI_RELEVER" 1 "@JACOOP_NON" 0 }
+			mouseEnter
+			{
+				show			highlight2
+			}
+			mouseExit
+			{
+				hide			highlight2
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				bleedOut
+			group				host
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 175 340 14
+			text				"@JACOOP_TEMPS_A_TERRE"
+			descText			"@JACOOP_DELAI_POUR_VENIR_RELEVER_UN_COEQUIPIER_A"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "1" }
+			visible				1
+			cvar				"g_coopBleedOut"
+			cvarFloatList		{ "30 s" 30 "60 s" 60 "90 s" 90 "120 s" 120 }
+			mouseEnter
+			{
+				show			highlight3
+			}
+			mouseExit
+			{
+				hide			highlight3
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				reviveTime
+			group				host
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 189 340 14
+			text				"@JACOOP_DUREE_POUR_RELEVER"
+			descText			"@JACOOP_TEMPS_DE_MAINTIEN_DE_LA_TOUCHE"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "1" }
+			visible				1
+			cvar				"g_coopReviveTime"
+			cvarFloatList		{ "2 s" 2 "3 s" 3 "5 s" 5 }
+			mouseEnter
+			{
+				show			highlight4
+			}
+			mouseExit
+			{
+				hide			highlight4
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				respawnDelay
+			group				host
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 203 340 14
+			text				"@JACOOP_REAPPARITION"
+			descText			"@JACOOP_DELAI_AVANT_DE_REVENIR_A_COTE_D_UN_COEQU"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "1" }
+			visible				1
+			cvar				"g_coopRespawnDelay"
+			cvarFloatList		{ "5 s" 5 "10 s" 10 "20 s" 20 }
+			mouseEnter
+			{
+				show			highlight5
+			}
+			mouseExit
+			{
+				hide			highlight5
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				allDownAuto
+			group				host
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 217 340 14
+			text				"@JACOOP_RECHARGEMENT_AUTO"
+			descText			"@JACOOP_TOUS_A_TERRE_LE_DERNIER_POINT_DE_CONTROL"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "1" }
+			visible				1
+			cvar				"g_coopAllDownAuto"
+			cvarFloatList		{ "@JACOOP_JAMAIS" 0 "20 s" 20 "40 s" 40 }
+			mouseEnter
+			{
+				show			highlight6
+			}
+			mouseExit
+			{
+				hide			highlight6
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				friendlyFire
+			group				host
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 231 340 14
+			text				"@JACOOP_TIRS_ENTRE_JOUEURS"
+			descText			"@JACOOP_LES_JOUEURS_PEUVENT_SE_BLESSER_ET_SE_TUE"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "1" }
+			visible				1
+			cvar				"g_coopFriendlyFire"
+			cvarFloatList		{ "@JACOOP_NON" 0 "@JACOOP_OUI" 1 "@JACOOP_MOITIE" 2 }
+			mouseEnter
+			{
+				show			highlight7
+			}
+			mouseExit
+			{
+				hide			highlight7
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				transferRate
+			group				host
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 245 340 14
+			text				"@JACOOP_DEBIT_D_ENVOI"
+			descText			"@JACOOP_VITESSE_D_ENVOI_DE_TES_PK3_AUX_INVITES_A"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "1" }
+			visible				1
+			cvar				"sv_coopTransferRate"
+			cvarFloatList		{ "@JACOOP_256_KO_S" 256 "@JACOOP_512_KO_S" 512 "@JACOOP_1_MO_S" 1024 "@JACOOP_2_MO_S" 2048 "@JACOOP_5_MO_S" 5120 "@JACOOP_10_MO_S" 10240 "@JACOOP_25_MO_S" 25600 "@JACOOP_50_MO_S" 51200 "@JACOOP_100_MO_S" 102400 "@JACOOP_ILLIMITE" 0 }
+			mouseEnter
+			{
+				show			highlight8
+			}
+			mouseExit
+			{
+				hide			highlight8
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				ragdoll
+			group				host
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 259 340 14
+			text				"@JACOOP_RAGDOLL_DES_CORPS"
+			descText			"@JACOOP_LES_PNJ_MORTS_TOMBENT_EN_PHYSIQUE_QUAND"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "1" }
+			visible				1
+			cvar				"g_coopRagdoll"
+			cvarFloatList		{ "@JACOOP_NON" 0 "@JACOOP_OUI" 1 "@JACOOP_DES_LA_MORT" 2 }
+			mouseEnter
+			{
+				show			highlight9
+			}
+			mouseExit
+			{
+				hide			highlight9
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				ragdollSync
+			group				host
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 273 340 14
+			text				"@JACOOP_SYNC_RAGDOLL"
+			descText			"@JACOOP_ENVOIE_LA_POSE_DES_CORPS_AUX_INVITES_20"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "1" }
+			visible				1
+			cvar				"g_coopRagdollSync"
+			cvarFloatList		{ "@JACOOP_NON" 0 "@JACOOP_OUI" 1 }
+			mouseEnter
+			{
+				show			highlight10
+			}
+			mouseExit
+			{
+				hide			highlight10
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				modern
+			group				render
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 133 340 14
+			text				"@JACOOP_RENDU_MODERNE_9490FA"
+			descText			"@JACOOP_ETEINT_LE_JEU_DESSINE_EXACTEMENT_COMME_A"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "3" }
+			visible				1
+			cvar				"r_modern"
+			cvarFloatList		{ "@JACOOP_ORIGINE" 0 "@JACOOP_ACTIVE" 1 }
+			mouseEnter
+			{
+				show			highlight0
+			}
+			mouseExit
+			{
+				hide			highlight0
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				aoLabel
+			group				render
+			style				WINDOW_STYLE_EMPTY
+			rect				260 161 340 14
+			text				"@JACOOP_OCCLUSION_AMBIANTE"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 1
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "3" }
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				ao
+			group				render
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 175 340 14
+			text				"@JACOOP_OCCLUSION_AMBIANTE_EB2DEA"
+			descText			"@JACOOP_ASSOMBRIT_LES_CREUX_ET_LES_RECOINS_SE_VO"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "3" }
+			visible				1
+			cvar				"r_modernAO"
+			cvarFloatList		{ "@JACOOP_NON" 0 "@JACOOP_OUI" 1 }
+			mouseEnter
+			{
+				show			highlight3
+			}
+			mouseExit
+			{
+				hide			highlight3
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				aoInt
+			group				render
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 189 340 14
+			text				"@JACOOP_INTENSITE"
+			descText			"@JACOOP_FORCE_DE_L_ASSOMBRISSEMENT"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "3" }
+			visible				1
+			cvar				"r_modernAOIntensity"
+			cvarFloatList		{ "@JACOOP_DISCRETE" 0.4 "@JACOOP_NORMALE" 0.8 "@JACOOP_FORTE" 1.2 "@JACOOP_TRES_FORTE" 1.6 }
+			mouseEnter
+			{
+				show			highlight4
+			}
+			mouseExit
+			{
+				hide			highlight4
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				aoRad
+			group				render
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 203 340 14
+			text				"@JACOOP_RAYON"
+			descText			"@JACOOP_DISTANCE_DE_RECHERCHE_EN_UNITES_DU_JEU_U"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "3" }
+			visible				1
+			cvar				"r_modernAORadius"
+			cvarFloatList		{ "@JACOOP_SERRE_16" 16 "@JACOOP_NORMAL_28" 28 "@JACOOP_LARGE_48" 48 "@JACOOP_TRES_LARGE_96" 96 }
+			mouseEnter
+			{
+				show			highlight5
+			}
+			mouseExit
+			{
+				hide			highlight5
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				sunLabel
+			group				render
+			style				WINDOW_STYLE_EMPTY
+			rect				260 231 340 14
+			text				"@JACOOP_OMBRES_DU_SOLEIL"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 1
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "3" }
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				sun
+			group				render
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 245 340 14
+			text				"@JACOOP_OMBRES_DU_SOLEIL_ED2C95"
+			descText			"@JACOOP_LE_DECOR_PROJETTE_SON_OMBRE_AUCUNE_CARTE"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "3" }
+			visible				1
+			cvar				"r_modernSun"
+			cvarFloatList		{ "@JACOOP_NON" 0 "@JACOOP_OUI" 1 }
+			mouseEnter
+			{
+				show			highlight8
+			}
+			mouseExit
+			{
+				hide			highlight8
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				sunMap
+			group				render
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 259 340 14
+			text				"@JACOOP_OMBRES_HORS_CHAMP"
+			descText			"@JACOOP_LE_DECOR_EST_DESSINE_DEPUIS_LE_SOLEIL_UN"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "3" }
+			visible				1
+			cvar				"r_modernSunMap"
+			cvarFloatList		{ "@JACOOP_OUI" 1 "@JACOOP_NON" 0 }
+			mouseEnter
+			{
+				show			highlight9
+			}
+			mouseExit
+			{
+				hide			highlight9
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				sunStr
+			group				render
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 273 340 14
+			text				"@JACOOP_FORCE_DES_OMBRES"
+			descText			"@JACOOP_A_QUEL_POINT_UNE_OMBRE_ASSOMBRIT"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "3" }
+			visible				1
+			cvar				"r_modernSunStrength"
+			cvarFloatList		{ "@JACOOP_LEGERE" 0.25 "@JACOOP_NORMALE" 0.45 "@JACOOP_MARQUEE" 0.7 }
+			mouseEnter
+			{
+				show			highlight10
+			}
+			mouseExit
+			{
+				hide			highlight10
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				sunLen
+			group				render
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 287 340 14
+			text				"@JACOOP_PORTEE_HORS_CARTE"
+			descText			"@JACOOP_AU_DELA_DE_LA_CARTE_D_OMBRE_JUSQU_OU_UNE"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "3" }
+			visible				1
+			cvar				"r_modernSunLength"
+			cvarFloatList		{ "@JACOOP_COURTE_160" 160 "@JACOOP_NORMALE_320" 320 "@JACOOP_LONGUE_640" 640 }
+			mouseEnter
+			{
+				show			highlight11
+			}
+			mouseExit
+			{
+				hide			highlight11
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				rayLabel
+			group				render
+			style				WINDOW_STYLE_EMPTY
+			rect				260 315 340 14
+			text				"@JACOOP_RAYONS_CREPUSCULAIRES"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 1
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "3" }
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				rays
+			group				render
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 329 340 14
+			text				"@JACOOP_RAYONS_DU_SOLEIL"
+			descText			"@JACOOP_RAIS_DE_LUMIERE_IL_FAUT_QUE_LE_SOLEIL_SO"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "3" }
+			visible				1
+			cvar				"r_modernRays"
+			cvarFloatList		{ "@JACOOP_NON" 0 "@JACOOP_OUI" 1 }
+			mouseEnter
+			{
+				show			highlight14
+			}
+			mouseExit
+			{
+				hide			highlight14
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				raysStr
+			group				render
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 343 340 14
+			text				"@JACOOP_FORCE_DES_RAYONS"
+			descText			"@JACOOP_INTENSITE_DES_RAIS"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "3" }
+			visible				1
+			cvar				"r_modernRaysStrength"
+			cvarFloatList		{ "@JACOOP_DISCRETE" 0.2 "@JACOOP_NORMALE" 0.35 "@JACOOP_FORTE" 0.6 }
+			mouseEnter
+			{
+				show			highlight15
+			}
+			mouseExit
+			{
+				hide			highlight15
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				dbgLabel
+			group				render
+			style				WINDOW_STYLE_EMPTY
+			rect				260 371 340 14
+			text				"@JACOOP_APERCU"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 1
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "3" }
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				debug
+			group				render
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 385 340 14
+			text				"@JACOOP_AFFICHER"
+			descText			"@JACOOP_POUR_JUGER_UN_EFFET_ISOLEMENT_A_REMETTRE"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "3" }
+			visible				1
+			cvar				"r_modernDebug"
+			cvarFloatList		{ "@JACOOP_LE_JEU" 0 "@JACOOP_PROFONDEUR" 1 "@JACOOP_OCCLUSION_SEULE" 3 "@JACOOP_OMBRE_SEULE" 4 "@JACOOP_RAYONS_SEULS" 5 }
+			mouseEnter
+			{
+				show			highlight18
+			}
+			mouseExit
+			{
+				hide			highlight18
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				rt
+			group				rt
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 133 340 14
+			text				"@JACOOP_RAY_TRACING_1F2C9E"
+			descText			"@JACOOP_RAYONS_PAR_PIXEL_OMBRES_DOUCES_EXACTES_O"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "4" }
+			visible				1
+			cvar				"r_modernRT"
+			cvarFloatList		{ "@JACOOP_NON" 0 "@JACOOP_OUI" 1 }
+			mouseEnter
+			{
+				show			highlight0
+			}
+			mouseExit
+			{
+				hide			highlight0
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				rtScale
+			group				rt
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 147 340 14
+			text				"@JACOOP_FINESSE"
+			descText			"@JACOOP_RESOLUTION_DE_LA_PASSE_TRACEE_QUART_4_FO"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "4" }
+			visible				1
+			cvar				"r_modernRTScale"
+			cvarFloatList		{ "@JACOOP_QUART" 0.5 "@JACOOP_MOITIE" 0.7 "@JACOOP_PLEINE" 1 }
+			mouseEnter
+			{
+				show			highlight1
+			}
+			mouseExit
+			{
+				hide			highlight1
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				rtSunLabel
+			group				rt
+			style				WINDOW_STYLE_EMPTY
+			rect				260 161 340 14
+			text				"@JACOOP_OMBRES_DU_SOLEIL"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 1
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "4" }
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				rtSunRays
+			group				rt
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 175 340 14
+			text				"@JACOOP_RAYONS"
+			descText			"@JACOOP_RAYONS_DANS_LA_PENOMBRE_SEULEMENT_2_PART"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "4" }
+			visible				1
+			cvar				"r_modernRTSunRays"
+			cvarFloatList		{ "2" 2 "4" 4 "8" 8 }
+			mouseEnter
+			{
+				show			highlight3
+			}
+			mouseExit
+			{
+				hide			highlight3
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				rtSoft
+			group				rt
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 189 340 14
+			text				"@JACOOP_DOUCEUR"
+			descText			"@JACOOP_LARGEUR_DE_LA_PENOMBRE"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "4" }
+			visible				1
+			cvar				"r_modernRTSoft"
+			cvarFloatList		{ "@JACOOP_NETTE" 0 "@JACOOP_DOUCE" 1 "@JACOOP_TRES_DOUCE" 2.5 }
+			mouseEnter
+			{
+				show			highlight4
+			}
+			mouseExit
+			{
+				hide			highlight4
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				rtAoLabel
+			group				rt
+			style				WINDOW_STYLE_EMPTY
+			rect				260 203 340 14
+			text				"@JACOOP_OCCLUSION_TRACEE"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 1
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "4" }
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				rtAoRays
+			group				rt
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 217 340 14
+			text				"@JACOOP_RAYONS"
+			descText			"@JACOOP_CHAQUE_RAYON_COUTE_AUTANT_QUE_LE_SOLEIL"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "4" }
+			visible				1
+			cvar				"r_modernRTAORays"
+			cvarFloatList		{ "1" 1 "2" 2 "4" 4 "8" 8 }
+			mouseEnter
+			{
+				show			highlight6
+			}
+			mouseExit
+			{
+				hide			highlight6
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				rtAoRange
+			group				rt
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 231 340 14
+			text				"@JACOOP_PORTEE"
+			descText			"@JACOOP_JUSQU_OU_UN_OBSTACLE_ASSOMBRIT_EN_UNITES"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "4" }
+			visible				1
+			cvar				"r_modernRTAORange"
+			cvarFloatList		{ "@JACOOP_COURTE_48" 48 "@JACOOP_NORMALE_96" 96 "@JACOOP_LONGUE_192" 192 }
+			mouseEnter
+			{
+				show			highlight7
+			}
+			mouseExit
+			{
+				hide			highlight7
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				rtLightLabel
+			group				rt
+			style				WINDOW_STYLE_EMPTY
+			rect				260 245 340 14
+			text				"@JACOOP_LUMIERES_ET_REFLETS"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 1
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "4" }
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				rtLights
+			group				rt
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 259 340 14
+			text				"@JACOOP_LUMIERES_TRACEES"
+			descText			"@JACOOP_LAMES_DE_SABRE_AVEC_LEUR_COULEUR_TIRS_EX"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "4" }
+			visible				1
+			cvar				"r_modernRTLights"
+			cvarFloatList		{ "@JACOOP_NON" 0 "@JACOOP_OUI" 1 }
+			mouseEnter
+			{
+				show			highlight9
+			}
+			mouseExit
+			{
+				hide			highlight9
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				rtLightScale
+			group				rt
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 273 340 14
+			text				"@JACOOP_INTENSITE"
+			descText			"@JACOOP_FORCE_DES_LUMIERES_TRACEES"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "4" }
+			visible				1
+			cvar				"r_modernRTLightScale"
+			cvarFloatList		{ "@JACOOP_DISCRETE" 0.5 "@JACOOP_NORMALE" 1 "@JACOOP_FORTE" 2 }
+			mouseEnter
+			{
+				show			highlight10
+			}
+			mouseExit
+			{
+				hide			highlight10
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				rtReflect
+			group				rt
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 287 340 14
+			text				"@JACOOP_REFLETS"
+			descText			"@JACOOP_SUR_LES_SURFACES_BRILLANTES_DU_DECOR_MET"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "4" }
+			visible				1
+			cvar				"r_modernRTReflect"
+			cvarFloatList		{ "@JACOOP_NON" 0 "@JACOOP_OUI" 1 }
+			mouseEnter
+			{
+				show			highlight11
+			}
+			mouseExit
+			{
+				hide			highlight11
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				rtReflStr
+			group				rt
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 301 340 14
+			text				"@JACOOP_FORCE_DES_REFLETS"
+			descText			"@JACOOP_A_QUEL_POINT_LE_REFLET_SE_VOIT_DECOR_VER"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "4" }
+			visible				1
+			cvar				"r_modernRTReflectStrength"
+			cvarFloatList		{ "@JACOOP_DISCRETE" 0.6 "@JACOOP_NORMALE" 1 "@JACOOP_FORTE" 1.6 }
+			mouseEnter
+			{
+				show			highlight12
+			}
+			mouseExit
+			{
+				hide			highlight12
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				rtDynamic
+			group				rt
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 315 340 14
+			text				"@JACOOP_PERSOS_ET_PORTES"
+			descText			"@JACOOP_LES_PERSONNAGES_PORTES_ET_ASCENSEURS_PRO"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "4" }
+			visible				1
+			cvar				"r_modernRTDynamic"
+			cvarFloatList		{ "@JACOOP_NON" 0 "@JACOOP_OUI" 1 }
+			mouseEnter
+			{
+				show			highlight13
+			}
+			mouseExit
+			{
+				hide			highlight13
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				rtMatLabel
+			group				rt
+			style				WINDOW_STYLE_EMPTY
+			rect				260 329 340 14
+			text				"@JACOOP_MATIERES_DU_DECOR"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 1
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "4" }
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				rtNormals
+			group				rt
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 343 340 14
+			text				"@JACOOP_RELIEF_DES_TEXTURES"
+			descText			"@JACOOP_NORMAL_MAPS_TIREES_DES_TEXTURES_DU_DECOR"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "4" }
+			visible				1
+			cvar				"r_modernRTNormals"
+			cvarFloatList		{ "@JACOOP_NON" 0 "@JACOOP_OUI" 1 }
+			mouseEnter
+			{
+				show			highlight15
+			}
+			mouseExit
+			{
+				hide			highlight15
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				rtNormalStr
+			group				rt
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 357 340 14
+			text				"@JACOOP_FORCE_DU_RELIEF"
+			descText			"@JACOOP_PROFONDEUR_DU_RELIEF"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "4" }
+			visible				1
+			cvar				"r_modernRTNormalStrength"
+			cvarFloatList		{ "@JACOOP_DISCRETE" 0.5 "@JACOOP_NORMALE" 1 "@JACOOP_FORTE" 1.8 }
+			mouseEnter
+			{
+				show			highlight16
+			}
+			mouseExit
+			{
+				hide			highlight16
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				rtWater
+			group				rt
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 371 340 14
+			text				"@JACOOP_EAU"
+			descText			"@JACOOP_ONDULATIONS_REFRACTION_DE_CE_QUI_EST_DES"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "4" }
+			visible				1
+			cvar				"r_modernRTWater"
+			cvarFloatList		{ "@JACOOP_NON" 0 "@JACOOP_OUI" 1 }
+			mouseEnter
+			{
+				show			highlight17
+			}
+			mouseExit
+			{
+				hide			highlight17
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				rtGlass
+			group				rt
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 385 340 14
+			text				"@JACOOP_VERRE"
+			descText			"@JACOOP_UN_REFLET_TRACE_SUR_LES_VITRES_ET_LES_SU"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "4" }
+			visible				1
+			cvar				"r_modernRTGlass"
+			cvarFloatList		{ "@JACOOP_NON" 0 "@JACOOP_OUI" 1 }
+			mouseEnter
+			{
+				show			highlight18
+			}
+			mouseExit
+			{
+				hide			highlight18
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				rtLava
+			group				rt
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				260 399 340 14
+			text				"@JACOOP_LAVE"
+			descText			"@JACOOP_LA_LAVE_ONDULE_PULSE_ET_ECLAIRE_ALENTOUR"
+			font				4
+			textscale			1
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			190
+			textaligny			0
+			forecolor			1 1 1 .82
+			cvarTest			"ui_coopOptionsTab"
+			showCvar			{ "4" }
+			visible				1
+			cvar				"r_modernRTLava"
+			cvarFloatList		{ "@JACOOP_NON" 0 "@JACOOP_OUI" 1 }
+			mouseEnter
+			{
+				show			highlight19
+			}
+			mouseExit
+			{
+				hide			highlight19
+			}
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				backButton
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				480 456 130 24
+			text				"@JACOOP_RETOUR"
+			descText			"@JACOOP_RETOUR_E25BB8"
+			font				3
+			textscale			0.9
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			130
+			forecolor			1 1 1 1
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		coopOptionsBack
+			}
+		}
+	}
+}

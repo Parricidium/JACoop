@@ -1,0 +1,49 @@
+// menu defs
+// 
+{
+	loadMenu { "ui/ingame.menu"						}
+	loadMenu { "ui/ingamesave.menu"						}
+	loadMenu { "ui/ingameload.menu"						}
+	loadMenu { "ui/ingamecontrols.menu"					}
+	loadMenu { "ui/ingamesetup.menu"					}
+	loadMenu { "ui/ingamequit.menu"						}
+	loadMenu { "ui/ingameMissionSelect.menu"				}
+	loadMenu { "ui/ingameGotoTier.menu"					}
+	loadMenu { "ui/ingameForceSelect.menu"					}
+	loadMenu { "ui/ingameWpnSelect.menu"					}
+	loadMenu { "ui/ingameForceStatus.menu"					}
+	loadMenu { "ui/ingameForceHelp.menu"					}
+	loadMenu { "ui/ingameWpnSelectHelp.menu"				}
+
+	loadMenu { "ui/datapadforcepowers.menu"					}
+	loadMenu { "ui/datapadmission.menu"					}
+	loadMenu { "ui/datapadweapons.menu"					}
+	loadMenu { "ui/datapadmoves.menu"					}
+
+	loadMenu { "ui/error.menu" }
+	loadMenu { "ui/ingamevid_warning.menu"					}
+	loadMenu { "ui/videodriver.menu"					}
+	loadMenu { "ui/saber.menu"						}
+	loadMenu { "ui/saberstyle.menu"						}
+
+	loadMenu { "ui/missionfailed.menu"					}
+	loadMenu { "ui/loadscreen.menu"						}
+
+	// JACoop (newgame_first + character : NOUVELLE PARTIE / PERSONNAGE depuis le salon)
+	loadMenu { "ui/newgame_first.menu" }
+	loadMenu { "ui/character.menu" }
+	loadMenu { "ui/coopingame.menu" }
+	loadMenu { "ui/cooplobby.menu" }
+	loadMenu { "ui/coopforce.menu" }
+	loadMenu { "ui/coopskins.menu" }
+	loadMenu { "ui/coopalldown.menu" }
+	loadMenu { "ui/coopdebrief.menu" }
+	loadMenu { "ui/coopvote.menu" }
+	loadMenu { "ui/cooploadout.menu" }
+	loadMenu { "ui/coopwpn.menu" }
+	loadMenu { "ui/coopoptions.menu" }
+	loadMenu { "ui/coopsaber.menu" }
+	loadMenu { "ui/coopsaberpick.menu" }
+	loadMenu { "ui/coopnpc.menu" }
+	loadMenu { "ui/coopsabercolor.menu" }
+}

@@ -1,0 +1,1027 @@
+// JACoop - textes des menus (genere par dist/localize_menus.py, ne pas editer)
+VERSION             "1"
+CONFIG              "W:\bin\stringed.cfg"
+FILENOTES           "JACoop menus"
+
+REFERENCE           100_MO_S
+LANG_ENGLISH        "100 MB/s"
+
+REFERENCE           10_MO_S
+LANG_ENGLISH        "10 MB/s"
+
+REFERENCE           1_MO_S
+LANG_ENGLISH        "1 MB/s"
+
+REFERENCE           256_KO_S
+LANG_ENGLISH        "256 KB/s"
+
+REFERENCE           25_MO_S
+LANG_ENGLISH        "25 MB/s"
+
+REFERENCE           2_MO_S
+LANG_ENGLISH        "2 MB/s"
+
+REFERENCE           50_MO_S
+LANG_ENGLISH        "50 MB/s"
+
+REFERENCE           512_KO_S
+LANG_ENGLISH        "512 KB/s"
+
+REFERENCE           5_MO_S
+LANG_ENGLISH        "5 MB/s"
+
+REFERENCE           80_NORMAL
+LANG_ENGLISH        "80 (normal)"
+
+REFERENCE           ACTIVE
+LANG_ENGLISH        "On"
+
+REFERENCE           ACTUALISER
+LANG_ENGLISH        "REFRESH"
+
+REFERENCE           ADRESSE
+LANG_ENGLISH        "Address:"
+
+REFERENCE           ADRESSE_DIRECTE_IP_PORT
+LANG_ENGLISH        "DIRECT ADDRESS (IP:PORT)"
+
+REFERENCE           AFFICHER
+LANG_ENGLISH        "Show:"
+
+REFERENCE           ALLER_VERS_L_INVITE
+LANG_ENGLISH        "GO TO THE GUEST"
+
+REFERENCE           ANNULER
+LANG_ENGLISH        "CANCEL"
+
+REFERENCE           APERCU
+LANG_ENGLISH        "PREVIEW"
+
+REFERENCE           APPLIQUER
+LANG_ENGLISH        "APPLY"
+
+REFERENCE           APPROCHE_TOI_ET_MAINTIENS_LA_TOUCHE_G
+LANG_ENGLISH        "get close and hold the G key."
+
+REFERENCE           ARMES
+LANG_ENGLISH        "WEAPONS"
+
+REFERENCE           ASSOMBRIT_LES_CREUX_ET_LES_RECOINS_SE_VO
+LANG_ENGLISH        "Darkens hollows and corners. Mostly visible indoors."
+
+REFERENCE           AUCUN
+LANG_ENGLISH        "None"
+
+REFERENCE           AUTORISE_LES_COMMANDES_DE_TRICHE_POUR_TO
+LANG_ENGLISH        "Allows cheat commands for everyone. SPAWN turns it on by itself."
+
+REFERENCE           AU_DELA_DE_LA_CARTE_D_OMBRE_JUSQU_OU_UNE
+LANG_ENGLISH        "Beyond the shadow map: how far a screen-space shadow can reach."
+
+REFERENCE           A_QUEL_POINT_LE_REFLET_SE_VOIT_DECOR_VER
+LANG_ENGLISH        "How visible the reflection is (scenery, glass, water)."
+
+REFERENCE           A_QUEL_POINT_UNE_OMBRE_ASSOMBRIT
+LANG_ENGLISH        "How much a shadow darkens."
+
+REFERENCE           BLEU
+LANG_ENGLISH        "BLUE"
+
+REFERENCE           BUREAU_NATIF
+LANG_ENGLISH        "Desktop (native)"
+
+REFERENCE           CETTE_ETAPE_DE_LA_CAMPAGNE_N_OFFRE_PAS_D
+LANG_ENGLISH        "This part of the campaign offers no choice: wait for the host."
+
+REFERENCE           CHACUN_GARDE_SES_ARMES_SES_POUVOIRS_ET_S
+LANG_ENGLISH        "Everyone keeps their weapons, powers and progress."
+
+REFERENCE           CHACUN_VOTE_LA_MAJORITE_L_EMPORTE_L_HOTE
+LANG_ENGLISH        "Everyone votes: the majority wins, the host decides a tie."
+
+REFERENCE           CHAMP_DE_VISION
+LANG_ENGLISH        "Field of view:"
+
+REFERENCE           CHANGER_DE_MODELE_OU_DE_SKIN_TOUT_DE_SUI
+LANG_ENGLISH        "Change model or skin right away, even in game."
+
+REFERENCE           CHAQUE_JOUEUR_GARDE_SA_PROGRESSION_AVEC
+LANG_ENGLISH        "Every player keeps their progress with the host's save."
+
+REFERENCE           CHAQUE_RAYON_COUTE_AUTANT_QUE_LE_SOLEIL
+LANG_ENGLISH        "Each ray costs as much as the sun: 2 are enough (the image is smoothed). 8 at full resolution halves the frame rate."
+
+REFERENCE           CHARGER
+LANG_ENGLISH        "LOAD"
+
+REFERENCE           CHARGER_UNE_SAUVEGARDE
+LANG_ENGLISH        "LOAD A SAVED GAME"
+
+REFERENCE           CHOISIR_DEUX_ARMES_ET_UN_EXPLOSIF_POUR_L
+LANG_ENGLISH        "Choose two weapons and an explosive for the mission."
+
+REFERENCE           CHOISIR_LA_COULEUR_DE_LA_LAME_AU_POINT_P
+LANG_ENGLISH        "Choose the blade colour precisely."
+
+REFERENCE           CHOISIR_LE_MANCHE
+LANG_ENGLISH        "CHOOSE THE HILT"
+
+REFERENCE           CHOISIR_TON_ESPECE_TON_APPARENCE_ET_TON
+LANG_ENGLISH        "Choose your species, your looks and your saber."
+
+REFERENCE           CHOISIR_UNE_AUTRE_SAUVEGARDE_LE_COMPTE_A
+LANG_ENGLISH        "Pick another saved game (the countdown keeps running)."
+
+REFERENCE           CHOISIR_UN_MODELE_OU_UN_SKIN_INSTALLE
+LANG_ENGLISH        "Choose an installed model or skin."
+
+REFERENCE           COMMENCER
+LANG_ENGLISH        "START"
+
+REFERENCE           COMMENCER_HOTE
+LANG_ENGLISH        "START (HOST)"
+
+REFERENCE           COMMENCER_LA_CAMPAGNE_EN_SOLO
+LANG_ENGLISH        "Start the single-player campaign."
+
+REFERENCE           COMPOSANTE_BLEUE_DE_LA_LAME_0_255
+LANG_ENGLISH        "Blue component of the blade (0-255)."
+
+REFERENCE           COMPOSANTE_ROUGE_DE_LA_LAME_0_255
+LANG_ENGLISH        "Red component of the blade (0-255)."
+
+REFERENCE           COMPOSANTE_VERTE_DE_LA_LAME_0_255
+LANG_ENGLISH        "Green component of the blade (0-255)."
+
+REFERENCE           CONFIGURER_LES_COMMANDES
+LANG_ENGLISH        "Set up the controls."
+
+REFERENCE           CONNEXION
+LANG_ENGLISH        "CONNECT"
+
+REFERENCE           CONTINUER_CHARGER
+LANG_ENGLISH        "CONTINUE (LOAD)"
+
+REFERENCE           CONTROLES
+LANG_ENGLISH        "CONTROLS"
+
+REFERENCE           COOPERATION
+LANG_ENGLISH        "CO-OP"
+
+REFERENCE           COULEURS_DU_JEU
+LANG_ENGLISH        "GAME COLOURS"
+
+REFERENCE           COULEUR_DE_LAME
+LANG_ENGLISH        "BLADE COLOUR"
+
+REFERENCE           COULEUR_DE_LA_LAME_GAUCHE
+LANG_ENGLISH        "LEFT BLADE COLOUR"
+
+REFERENCE           COULEUR_EXACTE_DE_LA_LAME_EN_ROUGE_VERT
+LANG_ENGLISH        "Exact blade colour, in red / green / blue."
+
+REFERENCE           COULEUR_EXACTE_DE_LA_SECONDE_LAME
+LANG_ENGLISH        "Exact colour of the second blade."
+
+REFERENCE           COULEUR_EXACTE_RVB
+LANG_ENGLISH        "EXACT COLOUR (RGB)"
+
+REFERENCE           COURTE_160
+LANG_ENGLISH        "Short (160)"
+
+REFERENCE           COURTE_48
+LANG_ENGLISH        "Short (48)"
+
+REFERENCE           CREER_MON_PERSONNAGE
+LANG_ENGLISH        "CREATE MY CHARACTER"
+
+REFERENCE           DEBIT_D_ENVOI
+LANG_ENGLISH        "Upload rate:"
+
+REFERENCE           DELAI_AVANT_DE_REVENIR_A_COTE_D_UN_COEQU
+LANG_ENGLISH        "Delay before coming back next to a teammate who is standing."
+
+REFERENCE           DELAI_POUR_VENIR_RELEVER_UN_COEQUIPIER_A
+LANG_ENGLISH        "How long to reach a downed teammate before they die."
+
+REFERENCE           DEMARRER_SANS_ATTENDRE_LES_PERSONNAGES_R
+LANG_ENGLISH        "Start without waiting for the remaining characters."
+
+REFERENCE           DEPENSER_TON_POINT_DE_FORCE_AVANT_DE_PAR
+LANG_ENGLISH        "Spend your Force point before leaving."
+
+REFERENCE           DES_LA_MORT
+LANG_ENGLISH        "On death"
+
+REFERENCE           DEUX_SABRES
+LANG_ENGLISH        "DUAL SABERS"
+
+REFERENCE           DIFFICULTE_ET_PERSONNAGE_PUIS_LES_INVITE
+LANG_ENGLISH        "Difficulty and character, then the guests create theirs."
+
+REFERENCE           DIRE_A_L_HOTE_QUE_TU_ES_PRET
+LANG_ENGLISH        "Tell the host you are ready."
+
+REFERENCE           DISCRETE
+LANG_ENGLISH        "Subtle"
+
+REFERENCE           DISTANCE_DE_RECHERCHE_EN_UNITES_DU_JEU_U
+LANG_ENGLISH        "Search distance, in game units (a player is 64 tall)."
+
+REFERENCE           DOUBLE_CLIC_SUR_UNE_PARTIE_POUR_LA_REJOI
+LANG_ENGLISH        "Double-click a game to join it."
+
+REFERENCE           DOUBLE_LAME
+LANG_ENGLISH        "SABERSTAFF"
+
+REFERENCE           DOUCE
+LANG_ENGLISH        "Soft"
+
+REFERENCE           DOUCEUR
+LANG_ENGLISH        "Softness:"
+
+REFERENCE           DUREE_POUR_RELEVER
+LANG_ENGLISH        "Revive time:"
+
+REFERENCE           EAU
+LANG_ENGLISH        "Water:"
+
+REFERENCE           ECHAP_FERME_CE_SALON_F6_LE_ROUVRE
+LANG_ENGLISH        "Escape closes this lobby, F6 opens it again."
+
+REFERENCE           ECHAP_MENU_DU_JEU_SAUVEGARDER_CHARGER
+LANG_ENGLISH        "Escape: game menu (save, load,"
+
+REFERENCE           ELLE_EST_GARDEE_DANS_LES_SAUVEGARDES_COM
+LANG_ENGLISH        "It is kept in saved games like the game's six colours."
+
+REFERENCE           ENVOIE_LA_POSE_DES_CORPS_AUX_INVITES_20
+LANG_ENGLISH        "Sends the pose of bodies to guests (20 times a second, ~250 bytes per body): the same for everyone."
+
+REFERENCE           EN_ATTENTE_DE_L_HOTE
+LANG_ENGLISH        "Waiting for the host..."
+
+REFERENCE           ESPECE_APPARENCE_SABRE_LA_PARTIE_DEMARRE
+LANG_ENGLISH        "Species, looks, saber: the game starts once everyone has confirmed."
+
+REFERENCE           ETEINT_LE_JEU_DESSINE_EXACTEMENT_COMME_A
+LANG_ENGLISH        "Off, the game draws exactly as before: no buffer created, no shader compiled. Local only."
+
+REFERENCE           ETRE_TELEPORTE_A_COTE_DE_L_HOTE_BLOQUE_D
+LANG_ENGLISH        "Teleport next to the host (stuck behind a door...)."
+
+REFERENCE           ETRE_TELEPORTE_A_COTE_DE_L_INVITE_LE_PLU
+LANG_ENGLISH        "Teleport next to the nearest guest."
+
+REFERENCE           EXEMPLE_192_168_1_10_29070_LE_PORT_PAR_D
+LANG_ENGLISH        "Example: 192.168.1.10:29070 - the default port is 29070."
+
+REFERENCE           FAIRE_APPARAITRE
+LANG_ENGLISH        "SPAWN"
+
+REFERENCE           FAIRE_APPARAITRE_CE_PNJ_DEVANT_TOI
+LANG_ENGLISH        "Spawn this NPC in front of you."
+
+REFERENCE           FAIRE_APPARAITRE_UN_PERSONNAGE_DEVANT_TO
+LANG_ENGLISH        "Spawn a character in front of you (host)."
+
+REFERENCE           FERMER
+LANG_ENGLISH        "CLOSE"
+
+REFERENCE           FERMER_CE_MENU_F6_LE_ROUVRE
+LANG_ENGLISH        "Close this menu (F6 opens it again)."
+
+REFERENCE           FERMER_LE_SALON_F6_LE_ROUVRE
+LANG_ENGLISH        "Close the lobby (F6 opens it again)."
+
+REFERENCE           FINESSE
+LANG_ENGLISH        "Resolution:"
+
+REFERENCE           FORCE_DES_LUMIERES_TRACEES
+LANG_ENGLISH        "Strength of the traced lights."
+
+REFERENCE           FORCE_DES_OMBRES
+LANG_ENGLISH        "Shadow strength:"
+
+REFERENCE           FORCE_DES_RAYONS
+LANG_ENGLISH        "Shaft strength:"
+
+REFERENCE           FORCE_DES_REFLETS
+LANG_ENGLISH        "Reflection strength:"
+
+REFERENCE           FORCE_DE_L_ASSOMBRISSEMENT
+LANG_ENGLISH        "How strong the darkening is."
+
+REFERENCE           FORCE_DU_RELIEF
+LANG_ENGLISH        "Relief strength:"
+
+REFERENCE           FORT
+LANG_ENGLISH        "Strong"
+
+REFERENCE           FORTE
+LANG_ENGLISH        "Strong"
+
+REFERENCE           GARDER_CETTE_COULEUR
+LANG_ENGLISH        "Keep this colour."
+
+REFERENCE           GARDER_CE_MANCHE
+LANG_ENGLISH        "Keep this hilt."
+
+REFERENCE           HEBERGER
+LANG_ENGLISH        "HOST"
+
+REFERENCE           HOTE
+LANG_ENGLISH        "HOST"
+
+REFERENCE           HOTE_COMPTER_LES_VOIX_TOUT_DE_SUITE
+LANG_ENGLISH        "Host: count the votes now."
+
+REFERENCE           HOTE_LANCER_LA_MISSION_TOUT_DE_SUITE
+LANG_ENGLISH        "Host: start the mission right away."
+
+REFERENCE           HOTE_PASSER_A_LA_SUITE_SANS_ATTENDRE_LES
+LANG_ENGLISH        "Host: move on without waiting for the others."
+
+REFERENCE           ILLIMITE
+LANG_ENGLISH        "Unlimited"
+
+REFERENCE           IMMEDIAT
+LANG_ENGLISH        "Immediate"
+
+REFERENCE           INTENSITE
+LANG_ENGLISH        "Intensity:"
+
+REFERENCE           INTENSITE_DES_RAIS
+LANG_ENGLISH        "Intensity of the rays."
+
+REFERENCE           JAMAIS
+LANG_ENGLISH        "Never"
+
+REFERENCE           JAUNE
+LANG_ENGLISH        "YELLOW"
+
+REFERENCE           JE_SUIS_PRET
+LANG_ENGLISH        "I'M READY"
+
+REFERENCE           JOUER_LA_CAMPAGNE_A_PLUSIEURS_CREER_OU_R
+LANG_ENGLISH        "Play the campaign together: host or join a game."
+
+REFERENCE           JOUEUR
+LANG_ENGLISH        "PLAYER"
+
+REFERENCE           JOUEURS
+LANG_ENGLISH        "PLAYERS"
+
+REFERENCE           JOUEURS_A_TERRE
+LANG_ENGLISH        "Downed players:"
+
+REFERENCE           JOUEURS_A_TERRE_JOUEURS_MAX_PSEUDO
+LANG_ENGLISH        "Downed players, max players, name..."
+
+REFERENCE           JOUEURS_MAX
+LANG_ENGLISH        "Max players:"
+
+REFERENCE           JUSQU_OU_UN_OBSTACLE_ASSOMBRIT_EN_UNITES
+LANG_ENGLISH        "How far an obstacle darkens, in game units."
+
+REFERENCE           J_AI_LU_LE_DEBRIEFING
+LANG_ENGLISH        "I have read the debriefing."
+
+REFERENCE           LAMES_DE_SABRE_AVEC_LEUR_COULEUR_TIRS_EX
+LANG_ENGLISH        "Saber blades (with their colour), shots, explosions, lava pools: per-pixel lighting with cast shadows."
+
+REFERENCE           LANCEMENT
+LANG_ENGLISH        "Start:"
+
+REFERENCE           LARGEUR_DE_LA_PENOMBRE
+LANG_ENGLISH        "Width of the penumbra."
+
+REFERENCE           LARGE_48
+LANG_ENGLISH        "Wide (48)"
+
+REFERENCE           LAVE
+LANG_ENGLISH        "Lava:"
+
+REFERENCE           LA_COULEUR_VOYAGE_AVEC_TON_PERSONNAGE_LE
+LANG_ENGLISH        "The colour travels with your character: other players see the same one."
+
+REFERENCE           LA_LAVE_ONDULE_PULSE_ET_ECLAIRE_ALENTOUR
+LANG_ENGLISH        "Lava ripples, pulses and lights its surroundings (traced lights)."
+
+REFERENCE           LA_MISSION_DEMARRE_QUAND_TOUT_LE_MONDE_E
+LANG_ENGLISH        "The mission starts when everyone is ready."
+
+REFERENCE           LEGER
+LANG_ENGLISH        "Light"
+
+REFERENCE           LEGERE
+LANG_ENGLISH        "Light"
+
+REFERENCE           LES_AUTRES_JOUEURS_VOIENT_CE_MANCHE_S_IL
+LANG_ENGLISH        "Other players see this hilt if they have the same pk3 as you."
+
+REFERENCE           LES_AUTRES_JOUEURS_VOIENT_CE_MODELE_S_IL
+LANG_ENGLISH        "Other players see this model if they have the same pk3 (the host sends theirs in the lobby)."
+
+REFERENCE           LES_AUTRES_JOUEURS_VOIENT_TON_SABRE_S_IL
+LANG_ENGLISH        "Other players see your saber if they have the same pk3 (it is sent to them in the lobby)."
+
+REFERENCE           LES_INVITES_CREENT_LEUR_PERSONNAGE_LA_PA
+LANG_ENGLISH        "The guests are creating their characters... the game starts once everyone has confirmed."
+
+REFERENCE           LES_JOUEURS_PEUVENT_SE_BLESSER_ET_SE_TUE
+LANG_ENGLISH        "Players can hurt and kill each other."
+
+REFERENCE           LES_PERSONNAGES_PORTES_ET_ASCENSEURS_PRO
+LANG_ENGLISH        "Characters, doors and lifts cast and receive shadows."
+
+REFERENCE           LES_PNJ_MORTS_TOMBENT_EN_PHYSIQUE_QUAND
+LANG_ENGLISH        "Dead NPCs fall with physics when pushed, pulled or sent flying; On death: at every death."
+
+REFERENCE           LES_SKINS_DE_L_HOTE_ARRIVENT_TU_SERAS_MA
+LANG_ENGLISH        "The host's skins are on their way: you will be marked ready automatically."
+
+REFERENCE           LE_DECOR_EST_DESSINE_DEPUIS_LE_SOLEIL_UN
+LANG_ENGLISH        "The scenery is drawn from the sun: a wall outside the view casts too, the shadow no longer moves with your gaze."
+
+REFERENCE           LE_DECOR_PROJETTE_SON_OMBRE_AUCUNE_CARTE
+LANG_ENGLISH        "The scenery casts its shadow. No map of the game declares a sun: the engine's is used."
+
+REFERENCE           LE_JEU
+LANG_ENGLISH        "The game"
+
+REFERENCE           LE_MANCHE_DE_LA_SECONDE_LAME
+LANG_ENGLISH        "The hilt of the second blade."
+
+REFERENCE           LE_PNJ_APPARAIT_DEVANT_L_HOTE_LES_INVITE
+LANG_ENGLISH        "The NPC appears in front of the host. Guests see it like any other character in the level."
+
+REFERENCE           LISSAGE_CAMERA
+LANG_ENGLISH        "Camera smoothing:"
+
+REFERENCE           LONGUE_192
+LANG_ENGLISH        "Long (192)"
+
+REFERENCE           LONGUE_640
+LANG_ENGLISH        "Long (640)"
+
+REFERENCE           LUMIERES_ET_REFLETS
+LANG_ENGLISH        "LIGHTS AND REFLECTIONS"
+
+REFERENCE           LUMIERES_TRACEES
+LANG_ENGLISH        "Traced lights:"
+
+REFERENCE           L_ADRESSE_DE_L_HOTE_PAR_EXEMPLE_192_168
+LANG_ENGLISH        "The host's address, for example 192.168.1.10:29070."
+
+REFERENCE           L_EQUIPE_A_ETE_VAINCUE
+LANG_ENGLISH        "The team has been defeated."
+
+REFERENCE           L_HOTE_A_LANCE_LA_PARTIE_CREE_TON_PERSON
+LANG_ENGLISH        "The host has started the game: create your character."
+
+REFERENCE           L_HOTE_LANCE_LA_PARTIE_TU_PEUX_TE_DECLAR
+LANG_ENGLISH        "The host starts the game. You can declare yourself ready, or prepare your character:"
+
+REFERENCE           L_HOTE_PEUT_LANCER_LA_MISSION_SANS_ATTEN
+LANG_ENGLISH        "The host can start the mission without waiting for latecomers."
+
+REFERENCE           MAIN_DROITE
+LANG_ENGLISH        "RIGHT HAND"
+
+REFERENCE           MAIN_GAUCHE
+LANG_ENGLISH        "LEFT HAND"
+
+REFERENCE           MANCHE
+LANG_ENGLISH        "HILT"
+
+REFERENCE           MANCHE_DE_LA_MAIN_GAUCHE
+LANG_ENGLISH        "LEFT HAND HILT"
+
+REFERENCE           MARQUEE
+LANG_ENGLISH        "Marked"
+
+REFERENCE           MATIERES_DU_DECOR
+LANG_ENGLISH        "SCENERY MATERIALS"
+
+REFERENCE           MISSIONS_DISPONIBLES
+LANG_ENGLISH        "AVAILABLE MISSIONS"
+
+REFERENCE           MISSION_TERMINEE
+LANG_ENGLISH        "MISSION COMPLETE"
+
+REFERENCE           MODELE
+LANG_ENGLISH        "MODEL"
+
+REFERENCE           MOITIE
+LANG_ENGLISH        "Half"
+
+REFERENCE           NETTE
+LANG_ENGLISH        "Sharp"
+
+REFERENCE           NOMBRE_DE_PLACES_DANS_LA_PARTIE
+LANG_ENGLISH        "Number of slots in the game."
+
+REFERENCE           NON
+LANG_ENGLISH        "No"
+
+REFERENCE           NORMALE
+LANG_ENGLISH        "Normal"
+
+REFERENCE           NORMALE_320
+LANG_ENGLISH        "Normal (320)"
+
+REFERENCE           NORMALE_96
+LANG_ENGLISH        "Normal (96)"
+
+REFERENCE           NORMAL_28
+LANG_ENGLISH        "Normal (28)"
+
+REFERENCE           NORMAL_MAPS_TIREES_DES_TEXTURES_DU_DECOR
+LANG_ENGLISH        "Normal maps derived from the scenery textures (not characters): the relief catches the sun and the lights."
+
+REFERENCE           NOUVELLE_PARTIE
+LANG_ENGLISH        "NEW GAME"
+
+REFERENCE           NOUVELLE_PARTIE_ATTEND_QUE_CHAQUE_INVITE
+LANG_ENGLISH        "NEW GAME waits until every guest has confirmed their character."
+
+REFERENCE           NOUVELLE_PARTIE_ET_CONTINUER_REVIENNENT
+LANG_ENGLISH        "NEW GAME and CONTINUE come back once everyone has finished downloading."
+
+REFERENCE           OCCLUSION_AMBIANTE
+LANG_ENGLISH        "AMBIENT OCCLUSION"
+
+REFERENCE           OCCLUSION_AMBIANTE_EB2DEA
+LANG_ENGLISH        "Ambient occlusion:"
+
+REFERENCE           OCCLUSION_SEULE
+LANG_ENGLISH        "Occlusion only"
+
+REFERENCE           OCCLUSION_TRACEE
+LANG_ENGLISH        "TRACED OCCLUSION"
+
+REFERENCE           OMBRES_DU_SOLEIL
+LANG_ENGLISH        "SUN SHADOWS"
+
+REFERENCE           OMBRES_DU_SOLEIL_ED2C95
+LANG_ENGLISH        "Sun shadows:"
+
+REFERENCE           OMBRES_DU_SOLEIL_OCCLUSION_AMBIANTE_RAYO
+LANG_ENGLISH        "Sun shadows, ambient occlusion, light shafts. Everything is off by default."
+
+REFERENCE           OMBRES_HORS_CHAMP
+LANG_ENGLISH        "Off-screen shadows:"
+
+REFERENCE           OMBRES_OCCLUSION_LUMIERES_ET_REFLETS_CAL
+LANG_ENGLISH        "Shadows, occlusion, lights and reflections computed with rays (GL 4.3)."
+
+REFERENCE           OMBRE_SEULE
+LANG_ENGLISH        "Shadow only"
+
+REFERENCE           ONDULATIONS_REFRACTION_DE_CE_QUI_EST_DES
+LANG_ENGLISH        "Ripples, refraction of what lies below, traced reflection on top, sun glint."
+
+REFERENCE           OPTIONS
+LANG_ENGLISH        "OPTIONS"
+
+REFERENCE           OPTIONS_COOPERATION
+LANG_ENGLISH        "CO-OP OPTIONS"
+
+REFERENCE           OPTIONS_QUITTER_UN_COEQUIPIER_A_TERRE
+LANG_ENGLISH        "options, quit). A teammate is down:"
+
+REFERENCE           ORANGE
+LANG_ENGLISH        "ORANGE"
+
+REFERENCE           ORIGINE
+LANG_ENGLISH        "Original"
+
+REFERENCE           OUI
+LANG_ENGLISH        "Yes"
+
+REFERENCE           OUI_RELEVER
+LANG_ENGLISH        "Yes (revive)"
+
+REFERENCE           OUVRE_LE_SALON_TES_AMIS_TE_REJOIGNENT_PU
+LANG_ENGLISH        "Opens the lobby: your friends join you, then NEW GAME or CONTINUE."
+
+REFERENCE           OUVRIR_AUX_AMIS
+LANG_ENGLISH        "OPEN TO FRIENDS"
+
+REFERENCE           OUVRIR_CETTE_PARTIE_SOLO_AUX_AMIS_ILS_AP
+LANG_ENGLISH        "Open this single-player game to friends: they appear next to you."
+
+REFERENCE           PARTIES_SUR_LE_RESEAU_LOCAL
+LANG_ENGLISH        "GAMES ON THE LOCAL NETWORK"
+
+REFERENCE           PASSER_HOTE
+LANG_ENGLISH        "SKIP (HOST)"
+
+REFERENCE           PERSONNAGE
+LANG_ENGLISH        "CHARACTER"
+
+REFERENCE           PERSONNAGE_MODIFIER
+LANG_ENGLISH        "CHARACTER (edit)"
+
+REFERENCE           PERSONNAGE_SKIN
+LANG_ENGLISH        "CHARACTER / SKIN"
+
+REFERENCE           PERSONNAGE_VALIDE_EN_ATTENTE_DES_AUTRES
+LANG_ENGLISH        "Character confirmed - waiting for the other players and the host."
+
+REFERENCE           PERSOS_ET_PORTES
+LANG_ENGLISH        "Characters and doors:"
+
+REFERENCE           PERSOS_VALIDES
+LANG_ENGLISH        "Characters confirmed"
+
+REFERENCE           PLEINE
+LANG_ENGLISH        "Full"
+
+REFERENCE           PNJ
+LANG_ENGLISH        "NPC"
+
+REFERENCE           POINTS_DE_FORCE
+LANG_ENGLISH        "FORCE POINTS"
+
+REFERENCE           PORTEE
+LANG_ENGLISH        "Range:"
+
+REFERENCE           PORTEE_HORS_CARTE
+LANG_ENGLISH        "Range beyond map:"
+
+REFERENCE           PORTRAIT
+LANG_ENGLISH        "PORTRAIT"
+
+REFERENCE           POUR_JUGER_UN_EFFET_ISOLEMENT_A_REMETTRE
+LANG_ENGLISH        "To judge one effect on its own. Set it back to The game to play."
+
+REFERENCE           POUVOIRS_DE_FORCE
+LANG_ENGLISH        "FORCE POWERS"
+
+REFERENCE           PRENDRE_CE_MODELE_TOUT_DE_SUITE_MEME_EN
+LANG_ENGLISH        "Take this model (right away, even in game)."
+
+REFERENCE           PRENDRE_CE_SABRE_TOUT_DE_SUITE_MEME_EN_J
+LANG_ENGLISH        "Take this saber (right away, even in game)."
+
+REFERENCE           PREPARATION
+LANG_ENGLISH        "PREPARATION"
+
+REFERENCE           PRET_ANNULER
+LANG_ENGLISH        "READY  (cancel)"
+
+REFERENCE           PRET_PAS_PRET
+LANG_ENGLISH        "READY / NOT READY"
+
+REFERENCE           PROCHAINE_MISSION
+LANG_ENGLISH        "NEXT MISSION"
+
+REFERENCE           PROFONDEUR
+LANG_ENGLISH        "Depth"
+
+REFERENCE           PROFONDEUR_DU_RELIEF
+LANG_ENGLISH        "Depth of the relief."
+
+REFERENCE           PSEUDO
+LANG_ENGLISH        "Name:"
+
+REFERENCE           PSEUDO_JOUEURS_MAX_TOUCHE_POUR_RELEVER_U
+LANG_ENGLISH        "Name, max players, revive key, downed players..."
+
+REFERENCE           PSEUDO_TOUCHE_POUR_RELEVER_CAMERA_CHAMP
+LANG_ENGLISH        "Name, revive key, camera, field of view."
+
+REFERENCE           PSEUDO_TOUCHE_POUR_RELEVER_JOUEURS_A_TER
+LANG_ENGLISH        "Name, revive key, downed players, max players..."
+
+REFERENCE           QUART
+LANG_ENGLISH        "Quarter"
+
+REFERENCE           QUITTER
+LANG_ENGLISH        "QUIT"
+
+REFERENCE           QUITTER_CETTE_PARTIE_RETOUR_AU_MENU_PRIN
+LANG_ENGLISH        "Leave this game (back to the main menu)."
+
+REFERENCE           QUITTER_LA_PARTIE
+LANG_ENGLISH        "LEAVE THE GAME"
+
+REFERENCE           QUITTER_LE_JEU
+LANG_ENGLISH        "Quit the game."
+
+REFERENCE           QUI_EST_LA_QUI_EST_PRET_L_HOTE_Y_LANCE_O
+LANG_ENGLISH        "Who is here, who is ready; the host starts or loads the game there."
+
+REFERENCE           RAGDOLL_DES_CORPS
+LANG_ENGLISH        "Body ragdoll:"
+
+REFERENCE           RAIS_DE_LUMIERE_IL_FAUT_QUE_LE_SOLEIL_SO
+LANG_ENGLISH        "Rays of light. The sun has to be in view, so mostly when looking up."
+
+REFERENCE           RAMENER_LES_INVITES
+LANG_ENGLISH        "BRING THE GUESTS"
+
+REFERENCE           RAYON
+LANG_ENGLISH        "Radius:"
+
+REFERENCE           RAYONS
+LANG_ENGLISH        "Rays:"
+
+REFERENCE           RAYONS_CREPUSCULAIRES
+LANG_ENGLISH        "LIGHT SHAFTS"
+
+REFERENCE           RAYONS_DANS_LA_PENOMBRE_SEULEMENT_2_PART
+LANG_ENGLISH        "Rays in the penumbra only (2 everywhere else). The sun is turned off in MODERN RENDERING."
+
+REFERENCE           RAYONS_DU_SOLEIL
+LANG_ENGLISH        "Sun shafts:"
+
+REFERENCE           RAYONS_PAR_PIXEL_OMBRES_DOUCES_EXACTES_O
+LANG_ENGLISH        "Rays per pixel: exact soft shadows, true occlusion, shadowed lights, reflections, materials. Needs modern rendering on."
+
+REFERENCE           RAYONS_SEULS
+LANG_ENGLISH        "Shafts only"
+
+REFERENCE           RAY_TRACING
+LANG_ENGLISH        "RAY TRACING"
+
+REFERENCE           RAY_TRACING_1F2C9E
+LANG_ENGLISH        "Ray tracing:"
+
+REFERENCE           REAPPARITION
+LANG_ENGLISH        "Respawn:"
+
+REFERENCE           RECHARGEMENT_AUTO
+LANG_ENGLISH        "Auto reload:"
+
+REFERENCE           RECHARGER_LE_DERNIER_POINT_DE_CONTROLE
+LANG_ENGLISH        "RELOAD THE LAST CHECKPOINT"
+
+REFERENCE           RECHERCHER_A_NOUVEAU_LES_PARTIES_DU_RESE
+LANG_ENGLISH        "Search the local network for games again."
+
+REFERENCE           REFLETS
+LANG_ENGLISH        "Reflections:"
+
+REFERENCE           REGLAGES_DE_LA_PARTIE_NE_COMPTENT_QUE_PO
+LANG_ENGLISH        "Game settings: only count for whoever hosts."
+
+REFERENCE           REJOINDRE
+LANG_ENGLISH        "JOIN"
+
+REFERENCE           REJOINDRE_LA_PARTIE_D_UN_AMI_RESEAU_LOCA
+LANG_ENGLISH        "Join a friend's game (local network or Internet address)."
+
+REFERENCE           REJOINDRE_LA_PARTIE_SELECTIONNEE
+LANG_ENGLISH        "Join the selected game."
+
+REFERENCE           REJOINDRE_L_HOTE
+LANG_ENGLISH        "GO TO THE HOST"
+
+REFERENCE           REJOINDRE_UNE_PARTIE
+LANG_ENGLISH        "JOIN A GAME"
+
+REFERENCE           RELEVER_TOUCHE
+LANG_ENGLISH        "Revive (key):"
+
+REFERENCE           RELIEF_DES_TEXTURES
+LANG_ENGLISH        "Texture relief:"
+
+REFERENCE           RENDU_MODERNE
+LANG_ENGLISH        "MODERN RENDERING"
+
+REFERENCE           RENDU_MODERNE_9490FA
+LANG_ENGLISH        "Modern rendering:"
+
+REFERENCE           REPARTIR_TES_POINTS_DE_FORCE
+LANG_ENGLISH        "Spend your Force points."
+
+REFERENCE           REPARTIR_TES_POINTS_DE_FORCE_INVITES
+LANG_ENGLISH        "Spend your Force points (guests)."
+
+REFERENCE           REPRENDRE_LA_COULEUR_BLEU_DU_JEU
+LANG_ENGLISH        "Use the game's blue colour."
+
+REFERENCE           REPRENDRE_LA_COULEUR_JAUNE_DU_JEU
+LANG_ENGLISH        "Use the game's yellow colour."
+
+REFERENCE           REPRENDRE_LA_COULEUR_ORANGE_DU_JEU
+LANG_ENGLISH        "Use the game's orange colour."
+
+REFERENCE           REPRENDRE_LA_COULEUR_ROUGE_DU_JEU
+LANG_ENGLISH        "Use the game's red colour."
+
+REFERENCE           REPRENDRE_LA_COULEUR_VERT_DU_JEU
+LANG_ENGLISH        "Use the game's green colour."
+
+REFERENCE           REPRENDRE_LA_COULEUR_VIOLET_DU_JEU
+LANG_ENGLISH        "Use the game's purple colour."
+
+REFERENCE           REPRENDRE_UNE_PARTIE_SAUVEGARDEE
+LANG_ENGLISH        "Resume a saved game."
+
+REFERENCE           REPRENDRE_UNE_SAUVEGARDE_CHACUN_RETROUVE
+LANG_ENGLISH        "Resume a saved game (everyone gets their character back)."
+
+REFERENCE           REPREND_A_LA_DERNIERE_SAUVEGARDE_AUTOMAT
+LANG_ENGLISH        "Resume from the last autosave (or the last loaded game)."
+
+REFERENCE           RESOLUTION_DE_LA_PASSE_TRACEE_QUART_4_FO
+LANG_ENGLISH        "Resolution of the traced pass. Quarter = 4 times fewer rays (image smoothed afterwards), Full = 4 times heavier."
+
+REFERENCE           RETARD_DE_LA_CAMERA_DES_CINEMATIQUES_CHE
+LANG_ENGLISH        "Cutscene camera delay for guests (against network stutter)."
+
+REFERENCE           RETOUR
+LANG_ENGLISH        "BACK"
+
+REFERENCE           RETOUR_AU_JEU
+LANG_ENGLISH        "BACK TO THE GAME"
+
+REFERENCE           RETOUR_AU_MENU_PRINCIPAL
+LANG_ENGLISH        "Back to the main menu."
+
+REFERENCE           RETOUR_E25BB8
+LANG_ENGLISH        "Back."
+
+REFERENCE           REVENIR_AU_MENU
+LANG_ENGLISH        "Back to the menu."
+
+REFERENCE           REVENIR_AU_SALON
+LANG_ENGLISH        "Back to the lobby."
+
+REFERENCE           REVENIR_SANS_CHANGER_DE_MANCHE
+LANG_ENGLISH        "Go back without changing the hilt."
+
+REFERENCE           REVENIR_SANS_CHANGER_LA_COULEUR
+LANG_ENGLISH        "Go back without changing the colour."
+
+REFERENCE           REVENIR_SANS_RIEN_CHANGER
+LANG_ENGLISH        "Go back without changing anything."
+
+REFERENCE           REVOIR_TON_PERSONNAGE_AVANT_LE_DEPART
+LANG_ENGLISH        "Review your character before leaving."
+
+REFERENCE           ROUGE
+LANG_ENGLISH        "RED"
+
+REFERENCE           RVB_DU_SABRE_GAUCHE
+LANG_ENGLISH        "LEFT SABER RGB"
+
+REFERENCE           SABRE_LASER
+LANG_ENGLISH        "LIGHTSABER"
+
+REFERENCE           SABRE_SIMPLE
+LANG_ENGLISH        "SINGLE SABER"
+
+REFERENCE           SALON_COOPERATIF
+LANG_ENGLISH        "CO-OP LOBBY"
+
+REFERENCE           SALON_JOUEURS
+LANG_ENGLISH        "LOBBY / PLAYERS"
+
+REFERENCE           SERRE_16
+LANG_ENGLISH        "Tight (16)"
+
+REFERENCE           SE_CONNECTER_A_CETTE_ADRESSE
+LANG_ENGLISH        "Connect to this address."
+
+REFERENCE           SUIVANT
+LANG_ENGLISH        "NEXT"
+
+REFERENCE           SUIVANT_LA_CARTE_DES_MISSIONS_S_OUVRE_QU
+LANG_ENGLISH        "NEXT: the mission map opens once everyone has continued."
+
+REFERENCE           SUR_LES_SURFACES_BRILLANTES_DU_DECOR_MET
+LANG_ENGLISH        "On shiny surfaces of the scenery (metal, polished floors)."
+
+REFERENCE           SYNC_RAGDOLL
+LANG_ENGLISH        "Ragdoll sync:"
+
+REFERENCE           TELEPORTER_TOUS_LES_INVITES_A_COTE_DE_TO
+LANG_ENGLISH        "Teleport every guest next to you."
+
+REFERENCE           TEMPS_A_TERRE
+LANG_ENGLISH        "Time down:"
+
+REFERENCE           TEMPS_DE_MAINTIEN_DE_LA_TOUCHE
+LANG_ENGLISH        "How long the key must be held."
+
+REFERENCE           TES_ARMES_ET_TES_POUVOIRS_TE_SUIVENT_D_U
+LANG_ENGLISH        "Your weapons and powers follow you from one mission to the next."
+
+REFERENCE           TIRS_ENTRE_JOUEURS
+LANG_ENGLISH        "Friendly fire:"
+
+REFERENCE           TON_NOM_VU_PAR_LES_AUTRES_JOUEURS_SALON
+LANG_ENGLISH        "Your name, as the other players see it (lobby, messages)."
+
+REFERENCE           TOUCHE_A_MAINTENIR_PRES_D_UN_COEQUIPIER
+LANG_ENGLISH        "Key to hold next to a downed teammate to revive them (G by default)."
+
+REFERENCE           TOUS_A_TERRE_LE_DERNIER_POINT_DE_CONTROL
+LANG_ENGLISH        "Everyone down: the last checkpoint reloads by itself after this delay."
+
+REFERENCE           TOUS_LES_JOUEURS_SONT_A_TERRE
+LANG_ENGLISH        "ALL PLAYERS ARE DOWN"
+
+REFERENCE           TOUS_LES_MANCHES_INSTALLES_MODS_COMPRIS
+LANG_ENGLISH        "Every installed hilt, mods included."
+
+REFERENCE           TRANCHER_HOTE
+LANG_ENGLISH        "DECIDE (HOST)"
+
+REFERENCE           TRANSFERT_DES_MODS_EN_COURS_TES_SKINS_VE
+LANG_ENGLISH        "Transferring mods (your skins to them, theirs to you)..."
+
+REFERENCE           TRES_DOUCE
+LANG_ENGLISH        "Very soft"
+
+REFERENCE           TRES_FORTE
+LANG_ENGLISH        "Very strong"
+
+REFERENCE           TRES_LARGE_96
+LANG_ENGLISH        "Very wide (96)"
+
+REFERENCE           TRICHE_CONSOLE
+LANG_ENGLISH        "Cheats (console):"
+
+REFERENCE           TU_ARRIVES_DANS_LE_SALON_DE_L_HOTE_TON_P
+LANG_ENGLISH        "You arrive in the host's lobby; your character is created when the host starts the game."
+
+REFERENCE           TU_ES_CONNECTE_A_L_HOTE
+LANG_ENGLISH        "You are connected to the host."
+
+REFERENCE           TU_ES_MARQUE_PRET_CLIQUE_POUR_ANNULER
+LANG_ENGLISH        "You are marked ready; click to cancel."
+
+REFERENCE           TU_HEBERGES_ATTENDS_TES_AMIS_PUIS_LANCE
+LANG_ENGLISH        "You are hosting. Wait for your friends, then start or resume the game:"
+
+REFERENCE           TU_HEBERGES_CETTE_PARTIE
+LANG_ENGLISH        "You are hosting this game."
+
+REFERENCE           TYPE_DE_SABRE
+LANG_ENGLISH        "SABER TYPE"
+
+REFERENCE           TYPE_DE_SABRE_MANCHE_ET_COULEUR_DE_LAME
+LANG_ENGLISH        "Saber type, hilt and blade colour - at any time."
+
+REFERENCE           TYPE_DE_SABRE_MANCHE_ET_COULEUR_D_213504
+LANG_ENGLISH        "Saber type, hilt and blade colour."
+
+REFERENCE           UNE_MISSION_DEJA_JOUEE_N_APPARAIT_PAS_DA
+LANG_ENGLISH        "A mission already played does not appear in the list."
+
+REFERENCE           UNE_SEULE_LAME
+LANG_ENGLISH        "A single blade."
+
+REFERENCE           UN_COUP_MORTEL_MET_A_TERRE_UN_COEQUIPIER
+LANG_ENGLISH        "A fatal blow puts you down: a teammate revives you with the G key (options)."
+
+REFERENCE           UN_COUP_MORTEL_MET_A_TERRE_UN_COE_DCA50A
+LANG_ENGLISH        "A fatal blow puts you down (a teammate revives you) instead of killing. No: respawn right away."
+
+REFERENCE           UN_REFLET_TRACE_SUR_LES_VITRES_ET_LES_SU
+LANG_ENGLISH        "A traced reflection on windows and glass surfaces."
+
+REFERENCE           UN_SABRE_DANS_CHAQUE_MAIN
+LANG_ENGLISH        "A saber in each hand."
+
+REFERENCE           UN_SEUL_MANCHE_UNE_LAME_A_CHAQUE_BOUT
+LANG_ENGLISH        "One hilt, a blade at each end."
+
+REFERENCE           VALEUR_DE_REFERENCE_EN_4_3_SUR_UN_ECRAN
+LANG_ENGLISH        "Reference value for 4:3: on a wide screen it widens by itself, nothing to compensate."
+
+REFERENCE           VALIDER
+LANG_ENGLISH        "CONFIRM"
+
+REFERENCE           VARIANTE
+LANG_ENGLISH        "VARIANT"
+
+REFERENCE           VERRE
+LANG_ENGLISH        "Glass:"
+
+REFERENCE           VERT
+LANG_ENGLISH        "GREEN"
+
+REFERENCE           VIDEO_SON_JEU
+LANG_ENGLISH        "Video, sound, game."
+
+REFERENCE           VIOLET
+LANG_ENGLISH        "PURPLE"
+
+REFERENCE           VITESSE_D_ENVOI_DE_TES_PK3_AUX_INVITES_A
+LANG_ENGLISH        "How fast your pk3 files are sent to guests. Beyond a few MB/s the game's network caps itself."
+
+REFERENCE           VOTER
+LANG_ENGLISH        "VOTE"
+
+REFERENCE           VOTER_POUR_LA_MISSION_SELECTIONNEE_DOUBL
+LANG_ENGLISH        "Vote for the selected mission (double-click works too)."
+
+ENDMARKER
+

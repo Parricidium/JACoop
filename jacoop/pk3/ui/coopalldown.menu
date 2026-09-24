@@ -1,0 +1,229 @@
+// JACoop - tous les joueurs sont a terre : l'hote choisit (ou le compte a rebours
+// recharge le dernier point de controle tout seul) ; les invites attendent.
+// Ouverts par le jeu (commande serveur coopmenu), le texte vient de ui_coopAllDownText.
+{
+	menuDef
+	{
+		name					"coopAllDownHost"
+		fullScreen				0
+		rect					0 0 640 480
+		visible					1
+		focusColor				1 1 1 1
+		ignoreescape			1
+		descX					320
+		descY					424
+		descScale				1
+		descColor				1 1 1 .75
+		descAlignment			ITEM_ALIGN_CENTER
+
+		itemDef
+		{
+			name				band
+			style				WINDOW_STYLE_FILLED
+			rect				0 150 640 200
+			backcolor			0 0 0 .8
+			visible				1
+			decoration
+		}
+
+		itemDef
+		{
+			name				title
+			style				WINDOW_STYLE_EMPTY
+			rect				0 160 640 30
+			text				"@JACOOP_TOUS_LES_JOUEURS_SONT_A_TERRE"
+			font				3
+			textscale			1.1
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			320
+			forecolor			1 .25 .2 1
+			visible				1
+			decoration
+		}
+
+		itemDef
+		{
+			name				sub
+			style				WINDOW_STYLE_EMPTY
+			rect				0 196 640 20
+			text				"@JACOOP_L_EQUIPE_A_ETE_VAINCUE"
+			font				2
+			textscale			0.9
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			320
+			forecolor			1 1 1 .82
+			visible				1
+			decoration
+		}
+
+		itemDef
+		{
+			name				countdown
+			style				WINDOW_STYLE_EMPTY
+			rect				0 222 640 20
+			cvar				"ui_coopAllDownText"
+			font				2
+			textscale			0.9
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			320
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+
+		itemDef
+		{
+			name				reloadButton
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				120 262 400 24
+			text				"@JACOOP_RECHARGER_LE_DERNIER_POINT_DE_CONTROLE"
+			descText			"@JACOOP_REPREND_A_LA_DERNIERE_SAUVEGARDE_AUTOMAT"
+			font				3
+			textscale			0.9
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			200
+			forecolor			1 1 1 1
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		coopReloadCheckpoint
+			}
+		}
+
+		itemDef
+		{
+			name				loadButton
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				120 292 400 24
+			text				"@JACOOP_CHARGER_UNE_SAUVEGARDE"
+			descText			"@JACOOP_CHOISIR_UNE_AUTRE_SAUVEGARDE_LE_COMPTE_A"
+			font				3
+			textscale			0.9
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			200
+			forecolor			1 1 1 1
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				close			all ;
+				open			ingameloadMenu
+			}
+		}
+
+		itemDef
+		{
+			name				leaveButton
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				120 322 400 24
+			text				"@JACOOP_QUITTER_LA_PARTIE"
+			descText			"@JACOOP_RETOUR_AU_MENU_PRINCIPAL"
+			font				3
+			textscale			0.9
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			200
+			forecolor			1 1 1 1
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		coopLeave
+			}
+		}
+	}
+
+	menuDef
+	{
+		name					"coopAllDownClient"
+		fullScreen				0
+		rect					0 0 640 480
+		visible					1
+		focusColor				1 1 1 1
+		ignoreescape			1
+		descX					320
+		descY					424
+		descScale				1
+		descColor				1 1 1 .75
+		descAlignment			ITEM_ALIGN_CENTER
+
+		itemDef
+		{
+			name				band
+			style				WINDOW_STYLE_FILLED
+			rect				0 150 640 170
+			backcolor			0 0 0 .8
+			visible				1
+			decoration
+		}
+
+		itemDef
+		{
+			name				title
+			style				WINDOW_STYLE_EMPTY
+			rect				0 160 640 30
+			text				"@JACOOP_TOUS_LES_JOUEURS_SONT_A_TERRE"
+			font				3
+			textscale			1.1
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			320
+			forecolor			1 .25 .2 1
+			visible				1
+			decoration
+		}
+
+		itemDef
+		{
+			name				sub
+			style				WINDOW_STYLE_EMPTY
+			rect				0 196 640 20
+			text				"@JACOOP_EN_ATTENTE_DE_L_HOTE"
+			font				2
+			textscale			0.9
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			320
+			forecolor			1 1 1 .82
+			visible				1
+			decoration
+		}
+
+		itemDef
+		{
+			name				countdown
+			style				WINDOW_STYLE_EMPTY
+			rect				0 222 640 20
+			cvar				"ui_coopAllDownText"
+			font				2
+			textscale			0.9
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			320
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+
+		itemDef
+		{
+			name				leaveButton
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				120 272 400 24
+			text				"@JACOOP_QUITTER_LA_PARTIE"
+			descText			"@JACOOP_RETOUR_AU_MENU_PRINCIPAL"
+			font				3
+			textscale			0.9
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			200
+			forecolor			1 1 1 1
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		coopLeave
+			}
+		}
+	}
+}

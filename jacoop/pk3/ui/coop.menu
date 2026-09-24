@@ -1,0 +1,449 @@
+// JACoop - COOPERATION (sous-menu du menu principal) et REJOINDRE UNE PARTIE.
+// Genere par dist/gen_coop_menus.py : ne pas editer a la main.
+{
+	menuDef
+	{
+		name					"coopMenu"
+		fullScreen				1
+		rect					0 0 640 480
+		visible					1
+		focusColor				0 0 0 1
+		focusBackColor			1 1 1 1
+		descX					320
+		descY					440
+		descScale				1
+		descColor				1 1 1 .75
+		descAlignment			ITEM_ALIGN_CENTER
+		onOpen
+		{
+			setfocus			hostButton
+		}
+		onESC
+		{
+			play				"sound/interface/menuroam.wav" ;
+			close				all ;
+			open				mainMenu
+		}
+
+		// --- decor ------------------------------------------------------
+		itemDef
+		{
+			name				background
+			group				grp_background
+			style				WINDOW_STYLE_SHADER
+			rect				0 0 640 480
+			background			"gfx/jacoop/panel_bg"
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				starwars
+			group				grp_background
+			style				WINDOW_STYLE_SHADER
+			rect				150 6 340 89
+			background			"gfx/menus/jediacademy"
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				button_glow
+			group				mods
+			style				WINDOW_STYLE_FILLED
+			rect				0 0 0 0
+			backcolor			1 1 1 1
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				hostButton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 160 220 26
+			text				"@JACOOP_HEBERGER"
+			descText			"@JACOOP_OUVRE_LE_SALON_TES_AMIS_TE_REJOIGNENT_PU"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 157 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		coopCreate
+			}
+		}
+		itemDef
+		{
+			name				joinButton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 200 220 26
+			text				"@JACOOP_REJOINDRE"
+			descText			"@JACOOP_REJOINDRE_LA_PARTIE_D_UN_AMI_RESEAU_LOCA"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 197 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				close			all ;
+				open			coopJoinMenu
+			}
+		}
+		itemDef
+		{
+			name				optionsButton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 240 220 26
+			text				"@JACOOP_OPTIONS_COOPERATION"
+			descText			"@JACOOP_PSEUDO_JOUEURS_MAX_TOUCHE_POUR_RELEVER_U"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 237 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				setcvar			ui_coopOptionsFrom main ;
+				close			all ;
+				open			coopOptionsMenu
+			}
+		}
+		itemDef
+		{
+			name				backButton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 296 220 26
+			text				"@JACOOP_RETOUR"
+			descText			"@JACOOP_RETOUR_AU_MENU_PRINCIPAL"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 293 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				close			all ;
+				open			mainMenu
+			}
+		}
+	}
+
+	menuDef
+	{
+		name					"coopJoinMenu"
+		fullScreen				1
+		rect					0 0 640 480
+		visible					1
+		focusColor				1 1 1 1
+		descX					320
+		descY					440
+		descScale				1
+		descColor				1 1 1 .75
+		descAlignment			ITEM_ALIGN_CENTER
+		onOpen
+		{
+			uiScript			coopRefresh ;
+			setfocus			serverList
+		}
+		onESC
+		{
+			play				"sound/interface/menuroam.wav" ;
+			close				all ;
+			open				coopMenu
+		}
+
+		// --- decor ------------------------------------------------------
+		itemDef
+		{
+			name				background
+			group				grp_background
+			style				WINDOW_STYLE_SHADER
+			rect				0 0 640 480
+			background			"gfx/jacoop/panel_bg"
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				button_glow
+			group				mods
+			style				WINDOW_STYLE_FILLED
+			rect				0 0 0 0
+			backcolor			1 1 1 1
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				title
+			style				WINDOW_STYLE_EMPTY
+			rect				0 28 640 30
+			text				"@JACOOP_REJOINDRE_UNE_PARTIE"
+			font				3
+			textscale			1.2
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			320
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				lanLabel
+			style				WINDOW_STYLE_EMPTY
+			rect				60 80 400 20
+			text				"@JACOOP_PARTIES_SUR_LE_RESEAU_LOCAL"
+			font				3
+			textscale			0.8
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				serverList
+			type				ITEM_TYPE_LISTBOX
+			style				WINDOW_STYLE_FILLED
+			rect				60 104 400 150
+			feeder				0x18
+			elementwidth		400
+			elementheight		18
+			elementtype			LISTBOX_TEXT
+			textscale			0.65
+			forecolor			1 1 1 .82
+			backcolor			0 0 0 .45
+			outlinecolor		.6 .5 .3 .5
+			border				1
+			bordercolor			.45 .38 .25 1
+			visible				1
+			doubleClick
+			{
+				uiScript		coopJoin
+			}
+		}
+		itemDef
+		{
+			name				refreshButton
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				480 104 130 24
+			text				"@JACOOP_ACTUALISER"
+			descText			"@JACOOP_RECHERCHER_A_NOUVEAU_LES_PARTIES_DU_RESE"
+			font				3
+			textscale			0.9
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		coopRefresh
+			}
+		}
+		itemDef
+		{
+			name				joinButton
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				480 134 130 24
+			text				"@JACOOP_REJOINDRE"
+			descText			"@JACOOP_REJOINDRE_LA_PARTIE_SELECTIONNEE"
+			font				3
+			textscale			0.9
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		coopJoin
+			}
+		}
+		itemDef
+		{
+			name				hint
+			style				WINDOW_STYLE_EMPTY
+			rect				60 258 400 16
+			text				"@JACOOP_DOUBLE_CLIC_SUR_UNE_PARTIE_POUR_LA_REJOI"
+			font				3
+			textscale			0.55
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 .6
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				directLabel
+			style				WINDOW_STYLE_EMPTY
+			rect				60 300 400 20
+			text				"@JACOOP_ADRESSE_DIRECTE_IP_PORT"
+			font				3
+			textscale			0.8
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				addressField
+			type				ITEM_TYPE_EDITFIELD
+			style				WINDOW_STYLE_EMPTY
+			rect				60 324 320 20
+			text				"@JACOOP_ADRESSE"
+			descText			"@JACOOP_L_ADRESSE_DE_L_HOTE_PAR_EXEMPLE_192_168"
+			cvar				"ui_coopAddress"
+			maxChars			48
+			maxPaintChars		30
+			font				3
+			textscale			0.75
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 .82
+			visible				1
+		}
+		itemDef
+		{
+			name				connectButton
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				400 322 150 24
+			text				"@JACOOP_CONNEXION"
+			descText			"@JACOOP_SE_CONNECTER_A_CETTE_ADRESSE"
+			font				3
+			textscale			0.9
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		coopConnect
+			}
+		}
+		itemDef
+		{
+			name				hint2
+			style				WINDOW_STYLE_EMPTY
+			rect				60 350 520 16
+			text				"@JACOOP_EXEMPLE_192_168_1_10_29070_LE_PORT_PAR_D"
+			font				3
+			textscale			0.55
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 .6
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				hint3
+			style				WINDOW_STYLE_EMPTY
+			rect				60 380 520 16
+			text				"@JACOOP_TU_ARRIVES_DANS_LE_SALON_DE_L_HOTE_TON_P"
+			font				3
+			textscale			0.55
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 .6
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				backButton
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				480 440 130 24
+			text				"@JACOOP_RETOUR"
+			descText			"@JACOOP_RETOUR_E25BB8"
+			font				3
+			textscale			0.9
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			130
+			forecolor			1 1 1 1
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				close			all ;
+				open			coopMenu
+			}
+		}
+	}
+}

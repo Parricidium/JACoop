@@ -1,0 +1,298 @@
+// JACoop : menu principal refait (style Arx Fatalis) — fond fixe gfx/jacoop/menu_bg.jpg
+// plus de video, boutons en colonne a gauche. Le joueur remplace ce fond et le logo
+// sans repacker le pk3 : voir UI_CoopSkinShader (ui_shared.cpp) et README.txt, section
+// "Affichage" (JACoop/base/gfx/jacoop/fond_principal.jpg et logo.png).
+// Les autres menus sont ceux du jeu, rhabilles par dist/skin_menus.py (couleurs) et
+// dist/pk3/shaders/jacoop_ui.shader (fond, cadres, boites).
+//----------------------------------------------------------------------------------------------
+{
+	assetGlobalDef
+	{
+		smallFont				"aurabesh" 	18
+		mediumFont				"ergoec" 	18
+		bigFont					"anewhope" 	20
+		smallFont				"arialnb" 	14
+
+		cursor					"cursor"
+		itemFocusSound				"sound/interface/menuroam.wav"
+		itemFocusForce				"fffx/interface/menuroam"
+
+		fadeClamp				1.0						// sets the fadeup alpha
+		fadeCycle				1						// how often fade happens in milliseconds
+		fadeAmount				0.1						// amount to adjust alpha per cycle
+		precacheSound
+		{
+			"sound/interface/choose_color.wav"
+			"sound/interface/choose_head.wav"
+			"sound/interface/choose_torso.wav"
+			"sound/interface/choose_saber.wav"
+			"sound/interface/choose_hilt.wav"
+			"sound/interface/choose_blade.wav"
+			"sound/interface/transition.wav"
+			"sound/interface/esc.wav"
+			"sound/interface/sub_select.wav"
+		}
+		focuscolor				1 1 1 1
+		shadowColor				0.1 0.1 0.1 0.0				// shadow color
+  	}
+
+	menuDef
+	{
+		name					"mainMenu"
+		fullScreen				1
+		rect					0 0 640 480
+		visible					1
+		focusColor				0 0 0 1
+		focusBackColor			1 1 1 1
+		descX					320
+		descY					440
+		descScale				1
+		descColor				1 1 1 .75
+		descAlignment				ITEM_ALIGN_CENTER
+		onOpen
+		{
+			setfocus			newgamebutton
+		}
+		onESC
+		{
+			play				"sound/interface/menuroam.wav" ;
+			close				mainMenu ;
+			open				quitMenu ;
+		}
+
+		// --- decor ------------------------------------------------------
+		itemDef
+		{
+			name				background
+			group				grp_background
+			style				WINDOW_STYLE_SHADER
+			rect				0 0 640 480
+			background			"gfx/jacoop/menu_bg"
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				starwars
+			group				grp_background
+			style				WINDOW_STYLE_SHADER
+			rect				150 6 340 89
+			background			"gfx/menus/jediacademy"
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				button_glow
+			group				mods
+			style				WINDOW_STYLE_FILLED
+			rect				0 0 0 0
+			backcolor			1 1 1 1
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+
+		// --- boutons, en colonne ---------------------------------------
+		itemDef
+		{
+			name				newgamebutton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 160 220 26
+			text				"@JACOOP_NOUVELLE_PARTIE"
+			descText			"@JACOOP_COMMENCER_LA_CAMPAGNE_EN_SOLO"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 157 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				close			all ;
+				open			newgamefirstMenu
+			}
+		}
+		itemDef
+		{
+			name				loadgamebutton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 200 220 26
+			text				"@JACOOP_CHARGER"
+			descText			"@JACOOP_REPRENDRE_UNE_PARTIE_SAUVEGARDEE"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 197 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				close			all ;
+				open			loadgameMenu
+			}
+		}
+		itemDef
+		{
+			name				coopbutton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 240 220 26
+			text				"@JACOOP_COOPERATION"
+			descText			"@JACOOP_JOUER_LA_CAMPAGNE_A_PLUSIEURS_CREER_OU_R"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 237 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				close			all ;
+				open			coopMenu
+			}
+		}
+		itemDef
+		{
+			name				controlsbutton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 280 220 26
+			text				"@JACOOP_CONTROLES"
+			descText			"@JACOOP_CONFIGURER_LES_COMMANDES"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 277 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				close			all ;
+				open			controlsMenu ;
+			}
+		}
+		itemDef
+		{
+			name				setupbutton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 320 220 26
+			text				"@JACOOP_OPTIONS"
+			descText			"@JACOOP_VIDEO_SON_JEU"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 317 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				close			all ;
+				open			setupMenu ;
+			}
+		}
+		itemDef
+		{
+			name				exitgamebutton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 376 220 26
+			text				"@JACOOP_QUITTER"
+			descText			"@JACOOP_QUITTER_LE_JEU"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 373 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/weapons/saber/saberoff.mp3";
+				close			all ;
+				open			quitMenu
+			}
+		}
+	}
+}

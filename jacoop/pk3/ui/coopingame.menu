@@ -1,0 +1,548 @@
+// JACoop - menu COOPERATION en jeu (touche F6 : bind F6 "uimenu coopMenu"), colonne comme le
+// menu principal. sv_running 1 = hote (ou solo), 0 = invite ; ui_coopCanHost = solo pas encore ouvert.
+// Genere par dist/gen_coop_menus.py : ne pas editer a la main.
+{
+	menuDef
+	{
+		name					"coopMenu"
+		fullScreen				1
+		rect					0 0 640 480
+		visible					1
+		focusColor				0 0 0 1
+		focusBackColor			1 1 1 1
+		descX					320
+		descY					440
+		descScale				1
+		descColor				1 1 1 .75
+		descAlignment			ITEM_ALIGN_CENTER
+		onOpen
+		{
+			uiScript			coopLobbyOpen ;
+			setfocus			lobbyButton
+		}
+		onESC
+		{
+			play				"sound/interface/menuroam.wav" ;
+			uiScript			closeingame
+		}
+
+		// --- decor ------------------------------------------------------
+		itemDef
+		{
+			name				background
+			group				grp_background
+			style				WINDOW_STYLE_SHADER
+			rect				0 0 640 480
+			background			"gfx/jacoop/panel_bg"
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				button_glow
+			group				mods
+			style				WINDOW_STYLE_FILLED
+			rect				0 0 0 0
+			backcolor			1 1 1 1
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				title
+			style				WINDOW_STYLE_EMPTY
+			rect				0 28 640 30
+			text				"@JACOOP_COOPERATION"
+			font				3
+			textscale			1.2
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			320
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				lobbyButton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 90 220 26
+			text				"@JACOOP_SALON_JOUEURS"
+			descText			"@JACOOP_QUI_EST_LA_QUI_EST_PRET_L_HOTE_Y_LANCE_O"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 87 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				close			all ;
+				open			coopLobby
+			}
+		}
+		itemDef
+		{
+			name				saberButton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 162 220 26
+			text				"@JACOOP_SABRE_LASER"
+			descText			"@JACOOP_TYPE_DE_SABRE_MANCHE_ET_COULEUR_DE_LAME"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 159 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				setcvar			ui_coopForceFrom game ;
+				close			all ;
+				open			coopSaberPick
+			}
+		}
+		itemDef
+		{
+			name				skinsButton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 126 220 26
+			text				"@JACOOP_PERSONNAGE"
+			descText			"@JACOOP_CHANGER_DE_MODELE_OU_DE_SKIN_TOUT_DE_SUI"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 123 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				setcvar			ui_coopForceFrom game ;
+				close			all ;
+				open			coopSkins
+			}
+		}
+		itemDef
+		{
+			name				forceButton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 198 220 26
+			text				"@JACOOP_POINTS_DE_FORCE"
+			descText			"@JACOOP_REPARTIR_TES_POINTS_DE_FORCE_INVITES"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			cvarTest			"sv_running"
+			hideCvar			{ "1" }
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 195 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				setcvar			ui_coopForceFrom game ;
+				close			all ;
+				open			coopForceSelect
+			}
+		}
+		itemDef
+		{
+			name				tpButton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 234 220 26
+			text				"@JACOOP_REJOINDRE_L_HOTE"
+			descText			"@JACOOP_ETRE_TELEPORTE_A_COTE_DE_L_HOTE_BLOQUE_D"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			cvarTest			"sv_running"
+			hideCvar			{ "1" }
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 231 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		coopTeleport
+			}
+		}
+		itemDef
+		{
+			name				gatherButton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 198 220 26
+			text				"@JACOOP_RAMENER_LES_INVITES"
+			descText			"@JACOOP_TELEPORTER_TOUS_LES_INVITES_A_COTE_DE_TO"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			cvarTest			"sv_running"
+			showCvar			{ "1" }
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 195 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		coopGather
+			}
+		}
+		itemDef
+		{
+			name				hostTpButton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 234 220 26
+			text				"@JACOOP_ALLER_VERS_L_INVITE"
+			descText			"@JACOOP_ETRE_TELEPORTE_A_COTE_DE_L_INVITE_LE_PLU"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			cvarTest			"sv_running"
+			showCvar			{ "1" }
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 231 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		coopTeleport
+			}
+		}
+		itemDef
+		{
+			name				hostButton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 270 220 26
+			text				"@JACOOP_OUVRIR_AUX_AMIS"
+			descText			"@JACOOP_OUVRIR_CETTE_PARTIE_SOLO_AUX_AMIS_ILS_AP"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			cvarTest			"ui_coopCanHost"
+			showCvar			{ "1" }
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 267 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		coopHost
+			}
+		}
+		itemDef
+		{
+			name				optionsButton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 306 220 26
+			text				"@JACOOP_OPTIONS_COOPERATION"
+			descText			"@JACOOP_PSEUDO_TOUCHE_POUR_RELEVER_JOUEURS_A_TER"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 303 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				setcvar			ui_coopOptionsFrom game ;
+				close			all ;
+				open			coopOptionsMenu
+			}
+		}
+		itemDef
+		{
+			name				npcButton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 342 220 26
+			text				"@JACOOP_PNJ"
+			descText			"@JACOOP_FAIRE_APPARAITRE_UN_PERSONNAGE_DEVANT_TO"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			cvarTest			"sv_running"
+			showCvar			{ "1" }
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 339 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				setcvar			ui_coopForceFrom game ;
+				close			all ;
+				open			coopNpcMenu
+			}
+		}
+		itemDef
+		{
+			name				resumeButton
+			group				column
+			style				WINDOW_STYLE_EMPTY
+			type				ITEM_TYPE_BUTTON
+			rect				50 378 220 26
+			text				"@JACOOP_RETOUR_AU_JEU"
+			descText			"@JACOOP_FERMER_CE_MENU_F6_LE_ROUVRE"
+			font				3
+			textscale			1.0
+			textaligny			0
+			textalign			ITEM_ALIGN_LEFT
+			textstyle			1
+			textalignx			8
+			forecolor			1 1 1 1
+			visible				1
+			mouseEnter
+			{
+				show			button_glow
+				setitemrect		button_glow	30 375 260 32
+			}
+			mouseExit
+			{
+				hide			button_glow
+			}
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		closeingame
+			}
+		}
+		itemDef
+		{
+			name				playersLabel
+			style				WINDOW_STYLE_EMPTY
+			rect				320 90 290 16
+			text				"@JACOOP_JOUEURS"
+			font				3
+			textscale			0.7
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				playerList
+			type				ITEM_TYPE_LISTBOX
+			style				WINDOW_STYLE_FILLED
+			rect				320 110 290 110
+			feeder				0x19
+			elementwidth		290
+			elementheight		18
+			elementtype			LISTBOX_TEXT
+			textscale			0.6
+			forecolor			1 1 1 .82
+			backcolor			0 0 0 .45
+			outlinecolor		.6 .5 .3 .5
+			border				1
+			bordercolor			.45 .38 .25 1
+			visible				1
+		}
+		itemDef
+		{
+			name				stateHost
+			style				WINDOW_STYLE_EMPTY
+			rect				320 228 290 16
+			text				"@JACOOP_TU_HEBERGES_CETTE_PARTIE"
+			font				3
+			textscale			0.55
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 .6
+			cvarTest			"sv_running"
+			showCvar			{ "1" }
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				stateJoin
+			style				WINDOW_STYLE_EMPTY
+			rect				320 228 290 16
+			text				"@JACOOP_TU_ES_CONNECTE_A_L_HOTE"
+			font				3
+			textscale			0.55
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 .6
+			cvarTest			"sv_running"
+			hideCvar			{ "1" }
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				hint1
+			style				WINDOW_STYLE_EMPTY
+			rect				320 300 290 16
+			text				"@JACOOP_ECHAP_MENU_DU_JEU_SAUVEGARDER_CHARGER"
+			font				3
+			textscale			0.55
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 .6
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				hint2
+			style				WINDOW_STYLE_EMPTY
+			rect				320 316 290 16
+			text				"@JACOOP_OPTIONS_QUITTER_UN_COEQUIPIER_A_TERRE"
+			font				3
+			textscale			0.55
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 .6
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				hint3
+			style				WINDOW_STYLE_EMPTY
+			rect				320 332 290 16
+			text				"@JACOOP_APPROCHE_TOI_ET_MAINTIENS_LA_TOUCHE_G"
+			font				3
+			textscale			0.55
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 .6
+			visible				1
+			decoration
+		}
+	}
+}

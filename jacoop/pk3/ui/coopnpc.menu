@@ -1,0 +1,216 @@
+// JACoop - PNJ : faire apparaitre un personnage devant soi (hote). Ouvert depuis le
+// menu F6. Genere par dist/gen_coop_menus.py : ne pas editer a la main.
+{
+	menuDef
+	{
+		name					"coopNpcMenu"
+		fullScreen				1
+		rect					0 0 640 480
+		visible					1
+		focusColor				1 1 1 1
+		descX					320
+		descY					424
+		descScale				1
+		descColor				1 1 1 .75
+		descAlignment			ITEM_ALIGN_CENTER
+		onOpen
+		{
+			uiScript			coopNpcsInit
+		}
+		onESC
+		{
+			play				"sound/interface/menuroam.wav" ;
+			uiScript			coopForceBack
+		}
+
+		// --- decor ------------------------------------------------------
+		itemDef
+		{
+			name				background
+			group				grp_background
+			style				WINDOW_STYLE_SHADER
+			rect				0 0 640 480
+			background			"gfx/jacoop/panel_bg"
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				button_glow
+			group				mods
+			style				WINDOW_STYLE_FILLED
+			rect				0 0 0 0
+			backcolor			1 1 1 1
+			forecolor			1 1 1 1
+			visible				0
+			decoration
+		}
+		itemDef
+		{
+			name				title
+			style				WINDOW_STYLE_EMPTY
+			rect				0 28 640 30
+			text				"@JACOOP_PNJ"
+			font				3
+			textscale			1.2
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			320
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				countLabel
+			style				WINDOW_STYLE_EMPTY
+			rect				30 62 300 16
+			cvar				"ui_coopNpcCount"
+			font				3
+			textscale			0.6
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 .6
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				npcList
+			type				ITEM_TYPE_LISTBOX
+			style				WINDOW_STYLE_FILLED
+			rect				30 82 300 300
+			feeder				0x1e
+			elementwidth		300
+			elementheight		16
+			elementtype			LISTBOX_TEXT
+			textscale			0.65
+			forecolor			1 1 1 .82
+			backcolor			0 0 0 .45
+			outlinecolor		.6 .5 .3 .5
+			border				1
+			bordercolor			.45 .38 .25 1
+			visible				1
+		}
+		itemDef
+		{
+			name				nameLabel
+			style				WINDOW_STYLE_EMPTY
+			rect				350 62 260 20
+			cvar				"ui_coopNpcName"
+			font				3
+			textscale			0.8
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				infoLabel
+			style				WINDOW_STYLE_EMPTY
+			rect				350 84 260 16
+			cvar				"ui_coopNpcInfo"
+			font				3
+			textscale			0.55
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 .6
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				npcModel
+			group				models
+			type				ITEM_TYPE_MODEL
+			rect				380 100 230 300
+			model_g2anim		"BOTH_STAND1"
+			asset_model			"models/players/stormtrooper/model.glm"
+			model_angle			180
+			model_g2mins		-20 -15 -10
+			model_g2maxs		20 15 45
+			model_fovx			40
+			model_fovy			40
+			isCharacter			1
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				cheats
+			type				ITEM_TYPE_MULTI
+			style				WINDOW_STYLE_EMPTY
+			rect				30 390 300 20
+			text				"@JACOOP_TRICHE_CONSOLE"
+			descText			"@JACOOP_AUTORISE_LES_COMMANDES_DE_TRICHE_POUR_TO"
+			cvar				"helpUsObi"
+			cvarFloatList		{ "@JACOOP_NON" 0 "@JACOOP_OUI" 1 }
+			font				3
+			textscale			0.75
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 .82
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+		itemDef
+		{
+			name				hint
+			style				WINDOW_STYLE_EMPTY
+			rect				30 412 600 16
+			text				"@JACOOP_LE_PNJ_APPARAIT_DEVANT_L_HOTE_LES_INVITE"
+			font				3
+			textscale			0.5
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 .6
+			visible				1
+			decoration
+		}
+		itemDef
+		{
+			name				backButton
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				30 440 160 24
+			text				"@JACOOP_RETOUR"
+			descText			"@JACOOP_REVENIR_AU_MENU"
+			font				3
+			textscale			0.9
+			textalign			ITEM_ALIGN_LEFT
+			textalignx			0
+			forecolor			1 1 1 1
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		coopForceBack
+			}
+		}
+		itemDef
+		{
+			name				spawnButton
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_EMPTY
+			rect				430 440 180 24
+			text				"@JACOOP_FAIRE_APPARAITRE"
+			descText			"@JACOOP_FAIRE_APPARAITRE_CE_PNJ_DEVANT_TOI"
+			font				3
+			textscale			0.9
+			textalign			ITEM_ALIGN_RIGHT
+			textalignx			180
+			forecolor			1 1 1 1
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav" ;
+				uiScript		coopNpcSpawn
+			}
+		}
+	}
+}

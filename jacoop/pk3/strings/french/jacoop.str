@@ -1,0 +1,1367 @@
+// JACoop - textes des menus (genere par dist/localize_menus.py, ne pas editer)
+VERSION             "1"
+CONFIG              "W:\bin\stringed.cfg"
+FILENOTES           "JACoop menus"
+
+REFERENCE           100_MO_S
+LANG_ENGLISH        "100 MB/s"
+LANG_FRENCH         "100 Mo/s"
+
+REFERENCE           10_MO_S
+LANG_ENGLISH        "10 MB/s"
+LANG_FRENCH         "10 Mo/s"
+
+REFERENCE           1_MO_S
+LANG_ENGLISH        "1 MB/s"
+LANG_FRENCH         "1 Mo/s"
+
+REFERENCE           256_KO_S
+LANG_ENGLISH        "256 KB/s"
+LANG_FRENCH         "256 Ko/s"
+
+REFERENCE           25_MO_S
+LANG_ENGLISH        "25 MB/s"
+LANG_FRENCH         "25 Mo/s"
+
+REFERENCE           2_MO_S
+LANG_ENGLISH        "2 MB/s"
+LANG_FRENCH         "2 Mo/s"
+
+REFERENCE           50_MO_S
+LANG_ENGLISH        "50 MB/s"
+LANG_FRENCH         "50 Mo/s"
+
+REFERENCE           512_KO_S
+LANG_ENGLISH        "512 KB/s"
+LANG_FRENCH         "512 Ko/s"
+
+REFERENCE           5_MO_S
+LANG_ENGLISH        "5 MB/s"
+LANG_FRENCH         "5 Mo/s"
+
+REFERENCE           80_NORMAL
+LANG_ENGLISH        "80 (normal)"
+LANG_FRENCH         "80 (normal)"
+
+REFERENCE           ACTIVE
+LANG_ENGLISH        "On"
+LANG_FRENCH         "Active"
+
+REFERENCE           ACTUALISER
+LANG_ENGLISH        "REFRESH"
+LANG_FRENCH         "ACTUALISER"
+
+REFERENCE           ADRESSE
+LANG_ENGLISH        "Address:"
+LANG_FRENCH         "Adresse :"
+
+REFERENCE           ADRESSE_DIRECTE_IP_PORT
+LANG_ENGLISH        "DIRECT ADDRESS (IP:PORT)"
+LANG_FRENCH         "ADRESSE DIRECTE (IP:PORT)"
+
+REFERENCE           AFFICHER
+LANG_ENGLISH        "Show:"
+LANG_FRENCH         "Afficher :"
+
+REFERENCE           ALLER_VERS_L_INVITE
+LANG_ENGLISH        "GO TO THE GUEST"
+LANG_FRENCH         "ALLER VERS L INVITE"
+
+REFERENCE           ANNULER
+LANG_ENGLISH        "CANCEL"
+LANG_FRENCH         "ANNULER"
+
+REFERENCE           APERCU
+LANG_ENGLISH        "PREVIEW"
+LANG_FRENCH         "APERCU"
+
+REFERENCE           APPLIQUER
+LANG_ENGLISH        "APPLY"
+LANG_FRENCH         "APPLIQUER"
+
+REFERENCE           APPROCHE_TOI_ET_MAINTIENS_LA_TOUCHE_G
+LANG_ENGLISH        "get close and hold the G key."
+LANG_FRENCH         "approche-toi et maintiens la touche G."
+
+REFERENCE           ARMES
+LANG_ENGLISH        "WEAPONS"
+LANG_FRENCH         "ARMES"
+
+REFERENCE           ASSOMBRIT_LES_CREUX_ET_LES_RECOINS_SE_VO
+LANG_ENGLISH        "Darkens hollows and corners. Mostly visible indoors."
+LANG_FRENCH         "Assombrit les creux et les recoins. Se voit surtout en interieur."
+
+REFERENCE           AUCUN
+LANG_ENGLISH        "None"
+LANG_FRENCH         "Aucun"
+
+REFERENCE           AUTORISE_LES_COMMANDES_DE_TRICHE_POUR_TO
+LANG_ENGLISH        "Allows cheat commands for everyone. SPAWN turns it on by itself."
+LANG_FRENCH         "Autorise les commandes de triche pour tout le monde. APPARAITRE l active tout seul."
+
+REFERENCE           AU_DELA_DE_LA_CARTE_D_OMBRE_JUSQU_OU_UNE
+LANG_ENGLISH        "Beyond the shadow map: how far a screen-space shadow can reach."
+LANG_FRENCH         "Au-dela de la carte d ombre : jusqu ou une ombre en espace ecran peut s etendre."
+
+REFERENCE           A_QUEL_POINT_LE_REFLET_SE_VOIT_DECOR_VER
+LANG_ENGLISH        "How visible the reflection is (scenery, glass, water)."
+LANG_FRENCH         "A quel point le reflet se voit (decor, verre, eau)."
+
+REFERENCE           A_QUEL_POINT_UNE_OMBRE_ASSOMBRIT
+LANG_ENGLISH        "How much a shadow darkens."
+LANG_FRENCH         "A quel point une ombre assombrit."
+
+REFERENCE           BLEU
+LANG_ENGLISH        "BLUE"
+LANG_FRENCH         "BLEU"
+
+REFERENCE           BUREAU_NATIF
+LANG_ENGLISH        "Desktop (native)"
+LANG_FRENCH         "Bureau (natif)"
+
+REFERENCE           CETTE_ETAPE_DE_LA_CAMPAGNE_N_OFFRE_PAS_D
+LANG_ENGLISH        "This part of the campaign offers no choice: wait for the host."
+LANG_FRENCH         "Cette etape de la campagne n offre pas de choix : attends l hote."
+
+REFERENCE           CHACUN_GARDE_SES_ARMES_SES_POUVOIRS_ET_S
+LANG_ENGLISH        "Everyone keeps their weapons, powers and progress."
+LANG_FRENCH         "Chacun garde ses armes, ses pouvoirs et sa progression."
+
+REFERENCE           CHACUN_VOTE_LA_MAJORITE_L_EMPORTE_L_HOTE
+LANG_ENGLISH        "Everyone votes: the majority wins, the host decides a tie."
+LANG_FRENCH         "Chacun vote : la majorite l emporte, l hote tranche en cas d egalite."
+
+REFERENCE           CHAMP_DE_VISION
+LANG_ENGLISH        "Field of view:"
+LANG_FRENCH         "Champ de vision :"
+
+REFERENCE           CHANGER_DE_MODELE_OU_DE_SKIN_TOUT_DE_SUI
+LANG_ENGLISH        "Change model or skin right away, even in game."
+LANG_FRENCH         "Changer de modele ou de skin, tout de suite, meme en jeu."
+
+REFERENCE           CHAQUE_JOUEUR_GARDE_SA_PROGRESSION_AVEC
+LANG_ENGLISH        "Every player keeps their progress with the host's save."
+LANG_FRENCH         "Chaque joueur garde sa progression avec la sauvegarde de l hote."
+
+REFERENCE           CHAQUE_RAYON_COUTE_AUTANT_QUE_LE_SOLEIL
+LANG_ENGLISH        "Each ray costs as much as the sun: 2 are enough (the image is smoothed). 8 at full resolution halves the frame rate."
+LANG_FRENCH         "Chaque rayon coute autant que le soleil : 2 suffisent (l image est lissee). 8 en pleine finesse divise les images par seconde par deux."
+
+REFERENCE           CHARGER
+LANG_ENGLISH        "LOAD"
+LANG_FRENCH         "CHARGER"
+
+REFERENCE           CHARGER_UNE_SAUVEGARDE
+LANG_ENGLISH        "LOAD A SAVED GAME"
+LANG_FRENCH         "CHARGER UNE SAUVEGARDE"
+
+REFERENCE           CHOISIR_DEUX_ARMES_ET_UN_EXPLOSIF_POUR_L
+LANG_ENGLISH        "Choose two weapons and an explosive for the mission."
+LANG_FRENCH         "Choisir deux armes et un explosif pour la mission."
+
+REFERENCE           CHOISIR_LA_COULEUR_DE_LA_LAME_AU_POINT_P
+LANG_ENGLISH        "Choose the blade colour precisely."
+LANG_FRENCH         "Choisir la couleur de la lame au point pres."
+
+REFERENCE           CHOISIR_LE_MANCHE
+LANG_ENGLISH        "CHOOSE THE HILT"
+LANG_FRENCH         "CHOISIR LE MANCHE"
+
+REFERENCE           CHOISIR_TON_ESPECE_TON_APPARENCE_ET_TON
+LANG_ENGLISH        "Choose your species, your looks and your saber."
+LANG_FRENCH         "Choisir ton espece, ton apparence et ton sabre."
+
+REFERENCE           CHOISIR_UNE_AUTRE_SAUVEGARDE_LE_COMPTE_A
+LANG_ENGLISH        "Pick another saved game (the countdown keeps running)."
+LANG_FRENCH         "Choisir une autre sauvegarde (le compte a rebours continue)."
+
+REFERENCE           CHOISIR_UN_MODELE_OU_UN_SKIN_INSTALLE
+LANG_ENGLISH        "Choose an installed model or skin."
+LANG_FRENCH         "Choisir un modele ou un skin installe."
+
+REFERENCE           COMMENCER
+LANG_ENGLISH        "START"
+LANG_FRENCH         "COMMENCER"
+
+REFERENCE           COMMENCER_HOTE
+LANG_ENGLISH        "START (HOST)"
+LANG_FRENCH         "COMMENCER (HOTE)"
+
+REFERENCE           COMMENCER_LA_CAMPAGNE_EN_SOLO
+LANG_ENGLISH        "Start the single-player campaign."
+LANG_FRENCH         "Commencer la campagne en solo."
+
+REFERENCE           COMPOSANTE_BLEUE_DE_LA_LAME_0_255
+LANG_ENGLISH        "Blue component of the blade (0-255)."
+LANG_FRENCH         "Composante bleue de la lame (0-255)."
+
+REFERENCE           COMPOSANTE_ROUGE_DE_LA_LAME_0_255
+LANG_ENGLISH        "Red component of the blade (0-255)."
+LANG_FRENCH         "Composante rouge de la lame (0-255)."
+
+REFERENCE           COMPOSANTE_VERTE_DE_LA_LAME_0_255
+LANG_ENGLISH        "Green component of the blade (0-255)."
+LANG_FRENCH         "Composante verte de la lame (0-255)."
+
+REFERENCE           CONFIGURER_LES_COMMANDES
+LANG_ENGLISH        "Set up the controls."
+LANG_FRENCH         "Configurer les commandes."
+
+REFERENCE           CONNEXION
+LANG_ENGLISH        "CONNECT"
+LANG_FRENCH         "CONNEXION"
+
+REFERENCE           CONTINUER_CHARGER
+LANG_ENGLISH        "CONTINUE (LOAD)"
+LANG_FRENCH         "CONTINUER (CHARGER)"
+
+REFERENCE           CONTROLES
+LANG_ENGLISH        "CONTROLS"
+LANG_FRENCH         "CONTROLES"
+
+REFERENCE           COOPERATION
+LANG_ENGLISH        "CO-OP"
+LANG_FRENCH         "COOPERATION"
+
+REFERENCE           COULEURS_DU_JEU
+LANG_ENGLISH        "GAME COLOURS"
+LANG_FRENCH         "COULEURS DU JEU"
+
+REFERENCE           COULEUR_DE_LAME
+LANG_ENGLISH        "BLADE COLOUR"
+LANG_FRENCH         "COULEUR DE LAME"
+
+REFERENCE           COULEUR_DE_LA_LAME_GAUCHE
+LANG_ENGLISH        "LEFT BLADE COLOUR"
+LANG_FRENCH         "COULEUR DE LA LAME GAUCHE"
+
+REFERENCE           COULEUR_EXACTE_DE_LA_LAME_EN_ROUGE_VERT
+LANG_ENGLISH        "Exact blade colour, in red / green / blue."
+LANG_FRENCH         "Couleur exacte de la lame, en rouge / vert / bleu."
+
+REFERENCE           COULEUR_EXACTE_DE_LA_SECONDE_LAME
+LANG_ENGLISH        "Exact colour of the second blade."
+LANG_FRENCH         "Couleur exacte de la seconde lame."
+
+REFERENCE           COULEUR_EXACTE_RVB
+LANG_ENGLISH        "EXACT COLOUR (RGB)"
+LANG_FRENCH         "COULEUR EXACTE (RVB)"
+
+REFERENCE           COURTE_160
+LANG_ENGLISH        "Short (160)"
+LANG_FRENCH         "Courte (160)"
+
+REFERENCE           COURTE_48
+LANG_ENGLISH        "Short (48)"
+LANG_FRENCH         "Courte (48)"
+
+REFERENCE           CREER_MON_PERSONNAGE
+LANG_ENGLISH        "CREATE MY CHARACTER"
+LANG_FRENCH         "CREER MON PERSONNAGE"
+
+REFERENCE           DEBIT_D_ENVOI
+LANG_ENGLISH        "Upload rate:"
+LANG_FRENCH         "Debit d envoi :"
+
+REFERENCE           DELAI_AVANT_DE_REVENIR_A_COTE_D_UN_COEQU
+LANG_ENGLISH        "Delay before coming back next to a teammate who is standing."
+LANG_FRENCH         "Delai avant de revenir a cote d un coequipier debout."
+
+REFERENCE           DELAI_POUR_VENIR_RELEVER_UN_COEQUIPIER_A
+LANG_ENGLISH        "How long to reach a downed teammate before they die."
+LANG_FRENCH         "Delai pour venir relever un coequipier avant qu il meure."
+
+REFERENCE           DEMARRER_SANS_ATTENDRE_LES_PERSONNAGES_R
+LANG_ENGLISH        "Start without waiting for the remaining characters."
+LANG_FRENCH         "Demarrer sans attendre les personnages restants."
+
+REFERENCE           DEPENSER_TON_POINT_DE_FORCE_AVANT_DE_PAR
+LANG_ENGLISH        "Spend your Force point before leaving."
+LANG_FRENCH         "Depenser ton point de Force avant de partir."
+
+REFERENCE           DES_LA_MORT
+LANG_ENGLISH        "On death"
+LANG_FRENCH         "Des la mort"
+
+REFERENCE           DEUX_SABRES
+LANG_ENGLISH        "DUAL SABERS"
+LANG_FRENCH         "DEUX SABRES"
+
+REFERENCE           DIFFICULTE_ET_PERSONNAGE_PUIS_LES_INVITE
+LANG_ENGLISH        "Difficulty and character, then the guests create theirs."
+LANG_FRENCH         "Difficulte et personnage, puis les invites creent le leur."
+
+REFERENCE           DIRE_A_L_HOTE_QUE_TU_ES_PRET
+LANG_ENGLISH        "Tell the host you are ready."
+LANG_FRENCH         "Dire a l hote que tu es pret."
+
+REFERENCE           DISCRETE
+LANG_ENGLISH        "Subtle"
+LANG_FRENCH         "Discrete"
+
+REFERENCE           DISTANCE_DE_RECHERCHE_EN_UNITES_DU_JEU_U
+LANG_ENGLISH        "Search distance, in game units (a player is 64 tall)."
+LANG_FRENCH         "Distance de recherche, en unites du jeu (un joueur en fait 64 de haut)."
+
+REFERENCE           DOUBLE_CLIC_SUR_UNE_PARTIE_POUR_LA_REJOI
+LANG_ENGLISH        "Double-click a game to join it."
+LANG_FRENCH         "Double-clic sur une partie pour la rejoindre."
+
+REFERENCE           DOUBLE_LAME
+LANG_ENGLISH        "SABERSTAFF"
+LANG_FRENCH         "DOUBLE LAME"
+
+REFERENCE           DOUCE
+LANG_ENGLISH        "Soft"
+LANG_FRENCH         "Douce"
+
+REFERENCE           DOUCEUR
+LANG_ENGLISH        "Softness:"
+LANG_FRENCH         "Douceur :"
+
+REFERENCE           DUREE_POUR_RELEVER
+LANG_ENGLISH        "Revive time:"
+LANG_FRENCH         "Duree pour relever :"
+
+REFERENCE           EAU
+LANG_ENGLISH        "Water:"
+LANG_FRENCH         "Eau :"
+
+REFERENCE           ECHAP_FERME_CE_SALON_F6_LE_ROUVRE
+LANG_ENGLISH        "Escape closes this lobby, F6 opens it again."
+LANG_FRENCH         "Echap ferme ce salon, F6 le rouvre."
+
+REFERENCE           ECHAP_MENU_DU_JEU_SAUVEGARDER_CHARGER
+LANG_ENGLISH        "Escape: game menu (save, load,"
+LANG_FRENCH         "Echap : menu du jeu (sauvegarder, charger,"
+
+REFERENCE           ELLE_EST_GARDEE_DANS_LES_SAUVEGARDES_COM
+LANG_ENGLISH        "It is kept in saved games like the game's six colours."
+LANG_FRENCH         "Elle est gardee dans les sauvegardes comme les six couleurs du jeu."
+
+REFERENCE           ENVOIE_LA_POSE_DES_CORPS_AUX_INVITES_20
+LANG_ENGLISH        "Sends the pose of bodies to guests (20 times a second, ~250 bytes per body): the same for everyone."
+LANG_FRENCH         "Envoie la pose des corps aux invites (20 fois par seconde, ~250 octets par corps) : la meme chez tous."
+
+REFERENCE           EN_ATTENTE_DE_L_HOTE
+LANG_ENGLISH        "Waiting for the host..."
+LANG_FRENCH         "En attente de l'hote..."
+
+REFERENCE           ESPECE_APPARENCE_SABRE_LA_PARTIE_DEMARRE
+LANG_ENGLISH        "Species, looks, saber: the game starts once everyone has confirmed."
+LANG_FRENCH         "Espece, apparence, sabre : la partie demarre quand tous ont valide."
+
+REFERENCE           ETEINT_LE_JEU_DESSINE_EXACTEMENT_COMME_A
+LANG_ENGLISH        "Off, the game draws exactly as before: no buffer created, no shader compiled. Local only."
+LANG_FRENCH         "Eteint, le jeu dessine exactement comme avant : aucun tampon cree, aucun shader compile. Purement local."
+
+REFERENCE           ETRE_TELEPORTE_A_COTE_DE_L_HOTE_BLOQUE_D
+LANG_ENGLISH        "Teleport next to the host (stuck behind a door...)."
+LANG_FRENCH         "Etre teleporte a cote de l hote (bloque derriere une porte...)."
+
+REFERENCE           ETRE_TELEPORTE_A_COTE_DE_L_INVITE_LE_PLU
+LANG_ENGLISH        "Teleport next to the nearest guest."
+LANG_FRENCH         "Etre teleporte a cote de l invite le plus proche."
+
+REFERENCE           EXEMPLE_192_168_1_10_29070_LE_PORT_PAR_D
+LANG_ENGLISH        "Example: 192.168.1.10:29070 - the default port is 29070."
+LANG_FRENCH         "Exemple : 192.168.1.10:29070 - le port par defaut est 29070."
+
+REFERENCE           FAIRE_APPARAITRE
+LANG_ENGLISH        "SPAWN"
+LANG_FRENCH         "FAIRE APPARAITRE"
+
+REFERENCE           FAIRE_APPARAITRE_CE_PNJ_DEVANT_TOI
+LANG_ENGLISH        "Spawn this NPC in front of you."
+LANG_FRENCH         "Faire apparaitre ce PNJ devant toi."
+
+REFERENCE           FAIRE_APPARAITRE_UN_PERSONNAGE_DEVANT_TO
+LANG_ENGLISH        "Spawn a character in front of you (host)."
+LANG_FRENCH         "Faire apparaitre un personnage devant toi (hote)."
+
+REFERENCE           FERMER
+LANG_ENGLISH        "CLOSE"
+LANG_FRENCH         "FERMER"
+
+REFERENCE           FERMER_CE_MENU_F6_LE_ROUVRE
+LANG_ENGLISH        "Close this menu (F6 opens it again)."
+LANG_FRENCH         "Fermer ce menu (F6 le rouvre)."
+
+REFERENCE           FERMER_LE_SALON_F6_LE_ROUVRE
+LANG_ENGLISH        "Close the lobby (F6 opens it again)."
+LANG_FRENCH         "Fermer le salon (F6 le rouvre)."
+
+REFERENCE           FINESSE
+LANG_ENGLISH        "Resolution:"
+LANG_FRENCH         "Finesse :"
+
+REFERENCE           FORCE_DES_LUMIERES_TRACEES
+LANG_ENGLISH        "Strength of the traced lights."
+LANG_FRENCH         "Force des lumieres tracees."
+
+REFERENCE           FORCE_DES_OMBRES
+LANG_ENGLISH        "Shadow strength:"
+LANG_FRENCH         "Force des ombres :"
+
+REFERENCE           FORCE_DES_RAYONS
+LANG_ENGLISH        "Shaft strength:"
+LANG_FRENCH         "Force des rayons :"
+
+REFERENCE           FORCE_DES_REFLETS
+LANG_ENGLISH        "Reflection strength:"
+LANG_FRENCH         "Force des reflets :"
+
+REFERENCE           FORCE_DE_L_ASSOMBRISSEMENT
+LANG_ENGLISH        "How strong the darkening is."
+LANG_FRENCH         "Force de l assombrissement."
+
+REFERENCE           FORCE_DU_RELIEF
+LANG_ENGLISH        "Relief strength:"
+LANG_FRENCH         "Force du relief :"
+
+REFERENCE           FORT
+LANG_ENGLISH        "Strong"
+LANG_FRENCH         "Fort"
+
+REFERENCE           FORTE
+LANG_ENGLISH        "Strong"
+LANG_FRENCH         "Forte"
+
+REFERENCE           GARDER_CETTE_COULEUR
+LANG_ENGLISH        "Keep this colour."
+LANG_FRENCH         "Garder cette couleur."
+
+REFERENCE           GARDER_CE_MANCHE
+LANG_ENGLISH        "Keep this hilt."
+LANG_FRENCH         "Garder ce manche."
+
+REFERENCE           HEBERGER
+LANG_ENGLISH        "HOST"
+LANG_FRENCH         "HEBERGER"
+
+REFERENCE           HOTE
+LANG_ENGLISH        "HOST"
+LANG_FRENCH         "HOTE"
+
+REFERENCE           HOTE_COMPTER_LES_VOIX_TOUT_DE_SUITE
+LANG_ENGLISH        "Host: count the votes now."
+LANG_FRENCH         "Hote : compter les voix tout de suite."
+
+REFERENCE           HOTE_LANCER_LA_MISSION_TOUT_DE_SUITE
+LANG_ENGLISH        "Host: start the mission right away."
+LANG_FRENCH         "Hote : lancer la mission tout de suite."
+
+REFERENCE           HOTE_PASSER_A_LA_SUITE_SANS_ATTENDRE_LES
+LANG_ENGLISH        "Host: move on without waiting for the others."
+LANG_FRENCH         "Hote : passer a la suite sans attendre les autres."
+
+REFERENCE           ILLIMITE
+LANG_ENGLISH        "Unlimited"
+LANG_FRENCH         "Illimite"
+
+REFERENCE           IMMEDIAT
+LANG_ENGLISH        "Immediate"
+LANG_FRENCH         "Immediat"
+
+REFERENCE           INTENSITE
+LANG_ENGLISH        "Intensity:"
+LANG_FRENCH         "Intensite :"
+
+REFERENCE           INTENSITE_DES_RAIS
+LANG_ENGLISH        "Intensity of the rays."
+LANG_FRENCH         "Intensite des rais."
+
+REFERENCE           JAMAIS
+LANG_ENGLISH        "Never"
+LANG_FRENCH         "Jamais"
+
+REFERENCE           JAUNE
+LANG_ENGLISH        "YELLOW"
+LANG_FRENCH         "JAUNE"
+
+REFERENCE           JE_SUIS_PRET
+LANG_ENGLISH        "I'M READY"
+LANG_FRENCH         "JE SUIS PRET"
+
+REFERENCE           JOUER_LA_CAMPAGNE_A_PLUSIEURS_CREER_OU_R
+LANG_ENGLISH        "Play the campaign together: host or join a game."
+LANG_FRENCH         "Jouer la campagne a plusieurs : creer ou rejoindre une partie."
+
+REFERENCE           JOUEUR
+LANG_ENGLISH        "PLAYER"
+LANG_FRENCH         "JOUEUR"
+
+REFERENCE           JOUEURS
+LANG_ENGLISH        "PLAYERS"
+LANG_FRENCH         "JOUEURS"
+
+REFERENCE           JOUEURS_A_TERRE
+LANG_ENGLISH        "Downed players:"
+LANG_FRENCH         "Joueurs a terre :"
+
+REFERENCE           JOUEURS_A_TERRE_JOUEURS_MAX_PSEUDO
+LANG_ENGLISH        "Downed players, max players, name..."
+LANG_FRENCH         "Joueurs a terre, joueurs max, pseudo..."
+
+REFERENCE           JOUEURS_MAX
+LANG_ENGLISH        "Max players:"
+LANG_FRENCH         "Joueurs max :"
+
+REFERENCE           JUSQU_OU_UN_OBSTACLE_ASSOMBRIT_EN_UNITES
+LANG_ENGLISH        "How far an obstacle darkens, in game units."
+LANG_FRENCH         "Jusqu ou un obstacle assombrit, en unites du jeu."
+
+REFERENCE           J_AI_LU_LE_DEBRIEFING
+LANG_ENGLISH        "I have read the debriefing."
+LANG_FRENCH         "J ai lu le debriefing."
+
+REFERENCE           LAMES_DE_SABRE_AVEC_LEUR_COULEUR_TIRS_EX
+LANG_ENGLISH        "Saber blades (with their colour), shots, explosions, lava pools: per-pixel lighting with cast shadows."
+LANG_FRENCH         "Lames de sabre (avec leur couleur), tirs, explosions, nappes de lave : eclairage par pixel avec ombre portee."
+
+REFERENCE           LANCEMENT
+LANG_ENGLISH        "Start:"
+LANG_FRENCH         "Lancement :"
+
+REFERENCE           LARGEUR_DE_LA_PENOMBRE
+LANG_ENGLISH        "Width of the penumbra."
+LANG_FRENCH         "Largeur de la penombre."
+
+REFERENCE           LARGE_48
+LANG_ENGLISH        "Wide (48)"
+LANG_FRENCH         "Large (48)"
+
+REFERENCE           LAVE
+LANG_ENGLISH        "Lava:"
+LANG_FRENCH         "Lave :"
+
+REFERENCE           LA_COULEUR_VOYAGE_AVEC_TON_PERSONNAGE_LE
+LANG_ENGLISH        "The colour travels with your character: other players see the same one."
+LANG_FRENCH         "La couleur voyage avec ton personnage : les autres joueurs voient la meme."
+
+REFERENCE           LA_LAVE_ONDULE_PULSE_ET_ECLAIRE_ALENTOUR
+LANG_ENGLISH        "Lava ripples, pulses and lights its surroundings (traced lights)."
+LANG_FRENCH         "La lave ondule, pulse et eclaire alentour (lumieres tracees)."
+
+REFERENCE           LA_MISSION_DEMARRE_QUAND_TOUT_LE_MONDE_E
+LANG_ENGLISH        "The mission starts when everyone is ready."
+LANG_FRENCH         "La mission demarre quand tout le monde est pret."
+
+REFERENCE           LEGER
+LANG_ENGLISH        "Light"
+LANG_FRENCH         "Leger"
+
+REFERENCE           LEGERE
+LANG_ENGLISH        "Light"
+LANG_FRENCH         "Legere"
+
+REFERENCE           LES_AUTRES_JOUEURS_VOIENT_CE_MANCHE_S_IL
+LANG_ENGLISH        "Other players see this hilt if they have the same pk3 as you."
+LANG_FRENCH         "Les autres joueurs voient ce manche s ils ont le meme pk3 que toi."
+
+REFERENCE           LES_AUTRES_JOUEURS_VOIENT_CE_MODELE_S_IL
+LANG_ENGLISH        "Other players see this model if they have the same pk3 (the host sends theirs in the lobby)."
+LANG_FRENCH         "Les autres joueurs voient ce modele s ils ont le meme pk3 (l hote envoie les siens dans le salon)."
+
+REFERENCE           LES_AUTRES_JOUEURS_VOIENT_TON_SABRE_S_IL
+LANG_ENGLISH        "Other players see your saber if they have the same pk3 (it is sent to them in the lobby)."
+LANG_FRENCH         "Les autres joueurs voient ton sabre s ils ont le meme pk3 (il leur est envoye dans le salon)."
+
+REFERENCE           LES_INVITES_CREENT_LEUR_PERSONNAGE_LA_PA
+LANG_ENGLISH        "The guests are creating their characters... the game starts once everyone has confirmed."
+LANG_FRENCH         "Les invites creent leur personnage... la partie demarre quand tous ont valide."
+
+REFERENCE           LES_JOUEURS_PEUVENT_SE_BLESSER_ET_SE_TUE
+LANG_ENGLISH        "Players can hurt and kill each other."
+LANG_FRENCH         "Les joueurs peuvent se blesser et se tuer entre eux."
+
+REFERENCE           LES_PERSONNAGES_PORTES_ET_ASCENSEURS_PRO
+LANG_ENGLISH        "Characters, doors and lifts cast and receive shadows."
+LANG_FRENCH         "Les personnages, portes et ascenseurs projettent et recoivent les ombres."
+
+REFERENCE           LES_PNJ_MORTS_TOMBENT_EN_PHYSIQUE_QUAND
+LANG_ENGLISH        "Dead NPCs fall with physics when pushed, pulled or sent flying; On death: at every death."
+LANG_FRENCH         "Les PNJ morts tombent en physique quand on les pousse, tire ou qu ils volent ; Des la mort : a chaque mort."
+
+REFERENCE           LES_SKINS_DE_L_HOTE_ARRIVENT_TU_SERAS_MA
+LANG_ENGLISH        "The host's skins are on their way: you will be marked ready automatically."
+LANG_FRENCH         "Les skins de l hote arrivent : tu seras marque pret automatiquement."
+
+REFERENCE           LE_DECOR_EST_DESSINE_DEPUIS_LE_SOLEIL_UN
+LANG_ENGLISH        "The scenery is drawn from the sun: a wall outside the view casts too, the shadow no longer moves with your gaze."
+LANG_FRENCH         "Le decor est dessine depuis le soleil : un mur hors du cadre projette aussi, l ombre ne bouge plus avec le regard."
+
+REFERENCE           LE_DECOR_PROJETTE_SON_OMBRE_AUCUNE_CARTE
+LANG_ENGLISH        "The scenery casts its shadow. No map of the game declares a sun: the engine's is used."
+LANG_FRENCH         "Le decor projette son ombre. Aucune carte du jeu ne declare de soleil : celui du moteur sert."
+
+REFERENCE           LE_JEU
+LANG_ENGLISH        "The game"
+LANG_FRENCH         "Le jeu"
+
+REFERENCE           LE_MANCHE_DE_LA_SECONDE_LAME
+LANG_ENGLISH        "The hilt of the second blade."
+LANG_FRENCH         "Le manche de la seconde lame."
+
+REFERENCE           LE_PNJ_APPARAIT_DEVANT_L_HOTE_LES_INVITE
+LANG_ENGLISH        "The NPC appears in front of the host. Guests see it like any other character in the level."
+LANG_FRENCH         "Le PNJ apparait devant l hote. Les invites le voient comme n importe quel personnage du niveau."
+
+REFERENCE           LISSAGE_CAMERA
+LANG_ENGLISH        "Camera smoothing:"
+LANG_FRENCH         "Lissage camera :"
+
+REFERENCE           LONGUE_192
+LANG_ENGLISH        "Long (192)"
+LANG_FRENCH         "Longue (192)"
+
+REFERENCE           LONGUE_640
+LANG_ENGLISH        "Long (640)"
+LANG_FRENCH         "Longue (640)"
+
+REFERENCE           LUMIERES_ET_REFLETS
+LANG_ENGLISH        "LIGHTS AND REFLECTIONS"
+LANG_FRENCH         "LUMIERES ET REFLETS"
+
+REFERENCE           LUMIERES_TRACEES
+LANG_ENGLISH        "Traced lights:"
+LANG_FRENCH         "Lumieres tracees :"
+
+REFERENCE           L_ADRESSE_DE_L_HOTE_PAR_EXEMPLE_192_168
+LANG_ENGLISH        "The host's address, for example 192.168.1.10:29070."
+LANG_FRENCH         "L adresse de l hote, par exemple 192.168.1.10:29070."
+
+REFERENCE           L_EQUIPE_A_ETE_VAINCUE
+LANG_ENGLISH        "The team has been defeated."
+LANG_FRENCH         "L'equipe a ete vaincue."
+
+REFERENCE           L_HOTE_A_LANCE_LA_PARTIE_CREE_TON_PERSON
+LANG_ENGLISH        "The host has started the game: create your character."
+LANG_FRENCH         "L hote a lance la partie : cree ton personnage."
+
+REFERENCE           L_HOTE_LANCE_LA_PARTIE_TU_PEUX_TE_DECLAR
+LANG_ENGLISH        "The host starts the game. You can declare yourself ready, or prepare your character:"
+LANG_FRENCH         "L hote lance la partie. Tu peux te declarer pret, ou preparer ton personnage :"
+
+REFERENCE           L_HOTE_PEUT_LANCER_LA_MISSION_SANS_ATTEN
+LANG_ENGLISH        "The host can start the mission without waiting for latecomers."
+LANG_FRENCH         "L hote peut lancer la mission sans attendre les retardataires."
+
+REFERENCE           MAIN_DROITE
+LANG_ENGLISH        "RIGHT HAND"
+LANG_FRENCH         "MAIN DROITE"
+
+REFERENCE           MAIN_GAUCHE
+LANG_ENGLISH        "LEFT HAND"
+LANG_FRENCH         "MAIN GAUCHE"
+
+REFERENCE           MANCHE
+LANG_ENGLISH        "HILT"
+LANG_FRENCH         "MANCHE"
+
+REFERENCE           MANCHE_DE_LA_MAIN_GAUCHE
+LANG_ENGLISH        "LEFT HAND HILT"
+LANG_FRENCH         "MANCHE DE LA MAIN GAUCHE"
+
+REFERENCE           MARQUEE
+LANG_ENGLISH        "Marked"
+LANG_FRENCH         "Marquee"
+
+REFERENCE           MATIERES_DU_DECOR
+LANG_ENGLISH        "SCENERY MATERIALS"
+LANG_FRENCH         "MATIERES DU DECOR"
+
+REFERENCE           MISSIONS_DISPONIBLES
+LANG_ENGLISH        "AVAILABLE MISSIONS"
+LANG_FRENCH         "MISSIONS DISPONIBLES"
+
+REFERENCE           MISSION_TERMINEE
+LANG_ENGLISH        "MISSION COMPLETE"
+LANG_FRENCH         "MISSION TERMINEE"
+
+REFERENCE           MODELE
+LANG_ENGLISH        "MODEL"
+LANG_FRENCH         "MODELE"
+
+REFERENCE           MOITIE
+LANG_ENGLISH        "Half"
+LANG_FRENCH         "Moitie"
+
+REFERENCE           NETTE
+LANG_ENGLISH        "Sharp"
+LANG_FRENCH         "Nette"
+
+REFERENCE           NOMBRE_DE_PLACES_DANS_LA_PARTIE
+LANG_ENGLISH        "Number of slots in the game."
+LANG_FRENCH         "Nombre de places dans la partie."
+
+REFERENCE           NON
+LANG_ENGLISH        "No"
+LANG_FRENCH         "Non"
+
+REFERENCE           NORMALE
+LANG_ENGLISH        "Normal"
+LANG_FRENCH         "Normale"
+
+REFERENCE           NORMALE_320
+LANG_ENGLISH        "Normal (320)"
+LANG_FRENCH         "Normale (320)"
+
+REFERENCE           NORMALE_96
+LANG_ENGLISH        "Normal (96)"
+LANG_FRENCH         "Normale (96)"
+
+REFERENCE           NORMAL_28
+LANG_ENGLISH        "Normal (28)"
+LANG_FRENCH         "Normal (28)"
+
+REFERENCE           NORMAL_MAPS_TIREES_DES_TEXTURES_DU_DECOR
+LANG_ENGLISH        "Normal maps derived from the scenery textures (not characters): the relief catches the sun and the lights."
+LANG_FRENCH         "Normal maps tirees des textures du decor (pas les personnages) : le relief accroche le soleil et les lumieres."
+
+REFERENCE           NOUVELLE_PARTIE
+LANG_ENGLISH        "NEW GAME"
+LANG_FRENCH         "NOUVELLE PARTIE"
+
+REFERENCE           NOUVELLE_PARTIE_ATTEND_QUE_CHAQUE_INVITE
+LANG_ENGLISH        "NEW GAME waits until every guest has confirmed their character."
+LANG_FRENCH         "NOUVELLE PARTIE attend que chaque invite ait valide son personnage."
+
+REFERENCE           NOUVELLE_PARTIE_ET_CONTINUER_REVIENNENT
+LANG_ENGLISH        "NEW GAME and CONTINUE come back once everyone has finished downloading."
+LANG_FRENCH         "NOUVELLE PARTIE et CONTINUER reviennent quand chacun a fini de telecharger."
+
+REFERENCE           OCCLUSION_AMBIANTE
+LANG_ENGLISH        "AMBIENT OCCLUSION"
+LANG_FRENCH         "OCCLUSION AMBIANTE"
+
+REFERENCE           OCCLUSION_AMBIANTE_EB2DEA
+LANG_ENGLISH        "Ambient occlusion:"
+LANG_FRENCH         "Occlusion ambiante :"
+
+REFERENCE           OCCLUSION_SEULE
+LANG_ENGLISH        "Occlusion only"
+LANG_FRENCH         "Occlusion seule"
+
+REFERENCE           OCCLUSION_TRACEE
+LANG_ENGLISH        "TRACED OCCLUSION"
+LANG_FRENCH         "OCCLUSION TRACEE"
+
+REFERENCE           OMBRES_DU_SOLEIL
+LANG_ENGLISH        "SUN SHADOWS"
+LANG_FRENCH         "OMBRES DU SOLEIL"
+
+REFERENCE           OMBRES_DU_SOLEIL_ED2C95
+LANG_ENGLISH        "Sun shadows:"
+LANG_FRENCH         "Ombres du soleil :"
+
+REFERENCE           OMBRES_DU_SOLEIL_OCCLUSION_AMBIANTE_RAYO
+LANG_ENGLISH        "Sun shadows, ambient occlusion, light shafts. Everything is off by default."
+LANG_FRENCH         "Ombres du soleil, occlusion ambiante, rayons. Tout est eteint par defaut."
+
+REFERENCE           OMBRES_HORS_CHAMP
+LANG_ENGLISH        "Off-screen shadows:"
+LANG_FRENCH         "Ombres hors champ :"
+
+REFERENCE           OMBRES_OCCLUSION_LUMIERES_ET_REFLETS_CAL
+LANG_ENGLISH        "Shadows, occlusion, lights and reflections computed with rays (GL 4.3)."
+LANG_FRENCH         "Ombres, occlusion, lumieres et reflets calcules par rayons (GL 4.3)."
+
+REFERENCE           OMBRE_SEULE
+LANG_ENGLISH        "Shadow only"
+LANG_FRENCH         "Ombre seule"
+
+REFERENCE           ONDULATIONS_REFRACTION_DE_CE_QUI_EST_DES
+LANG_ENGLISH        "Ripples, refraction of what lies below, traced reflection on top, sun glint."
+LANG_FRENCH         "Ondulations, refraction de ce qui est dessous, reflet trace dessus, eclat du soleil."
+
+REFERENCE           OPTIONS
+LANG_ENGLISH        "OPTIONS"
+LANG_FRENCH         "OPTIONS"
+
+REFERENCE           OPTIONS_COOPERATION
+LANG_ENGLISH        "CO-OP OPTIONS"
+LANG_FRENCH         "OPTIONS COOPERATION"
+
+REFERENCE           OPTIONS_QUITTER_UN_COEQUIPIER_A_TERRE
+LANG_ENGLISH        "options, quit). A teammate is down:"
+LANG_FRENCH         "options, quitter). Un coequipier a terre :"
+
+REFERENCE           ORANGE
+LANG_ENGLISH        "ORANGE"
+LANG_FRENCH         "ORANGE"
+
+REFERENCE           ORIGINE
+LANG_ENGLISH        "Original"
+LANG_FRENCH         "Origine"
+
+REFERENCE           OUI
+LANG_ENGLISH        "Yes"
+LANG_FRENCH         "Oui"
+
+REFERENCE           OUI_RELEVER
+LANG_ENGLISH        "Yes (revive)"
+LANG_FRENCH         "Oui (relever)"
+
+REFERENCE           OUVRE_LE_SALON_TES_AMIS_TE_REJOIGNENT_PU
+LANG_ENGLISH        "Opens the lobby: your friends join you, then NEW GAME or CONTINUE."
+LANG_FRENCH         "Ouvre le salon : tes amis te rejoignent, puis NOUVELLE PARTIE ou CONTINUER."
+
+REFERENCE           OUVRIR_AUX_AMIS
+LANG_ENGLISH        "OPEN TO FRIENDS"
+LANG_FRENCH         "OUVRIR AUX AMIS"
+
+REFERENCE           OUVRIR_CETTE_PARTIE_SOLO_AUX_AMIS_ILS_AP
+LANG_ENGLISH        "Open this single-player game to friends: they appear next to you."
+LANG_FRENCH         "Ouvrir cette partie solo aux amis : ils apparaissent a cote de toi."
+
+REFERENCE           PARTIES_SUR_LE_RESEAU_LOCAL
+LANG_ENGLISH        "GAMES ON THE LOCAL NETWORK"
+LANG_FRENCH         "PARTIES SUR LE RESEAU LOCAL"
+
+REFERENCE           PASSER_HOTE
+LANG_ENGLISH        "SKIP (HOST)"
+LANG_FRENCH         "PASSER (HOTE)"
+
+REFERENCE           PERSONNAGE
+LANG_ENGLISH        "CHARACTER"
+LANG_FRENCH         "PERSONNAGE"
+
+REFERENCE           PERSONNAGE_MODIFIER
+LANG_ENGLISH        "CHARACTER (edit)"
+LANG_FRENCH         "PERSONNAGE (modifier)"
+
+REFERENCE           PERSONNAGE_SKIN
+LANG_ENGLISH        "CHARACTER / SKIN"
+LANG_FRENCH         "PERSONNAGE / SKIN"
+
+REFERENCE           PERSONNAGE_VALIDE_EN_ATTENTE_DES_AUTRES
+LANG_ENGLISH        "Character confirmed - waiting for the other players and the host."
+LANG_FRENCH         "Personnage valide - en attente des autres joueurs et de l hote."
+
+REFERENCE           PERSOS_ET_PORTES
+LANG_ENGLISH        "Characters and doors:"
+LANG_FRENCH         "Persos et portes :"
+
+REFERENCE           PERSOS_VALIDES
+LANG_ENGLISH        "Characters confirmed"
+LANG_FRENCH         "Persos valides"
+
+REFERENCE           PLEINE
+LANG_ENGLISH        "Full"
+LANG_FRENCH         "Pleine"
+
+REFERENCE           PNJ
+LANG_ENGLISH        "NPC"
+LANG_FRENCH         "PNJ"
+
+REFERENCE           POINTS_DE_FORCE
+LANG_ENGLISH        "FORCE POINTS"
+LANG_FRENCH         "POINTS DE FORCE"
+
+REFERENCE           PORTEE
+LANG_ENGLISH        "Range:"
+LANG_FRENCH         "Portee :"
+
+REFERENCE           PORTEE_HORS_CARTE
+LANG_ENGLISH        "Range beyond map:"
+LANG_FRENCH         "Portee hors carte :"
+
+REFERENCE           PORTRAIT
+LANG_ENGLISH        "PORTRAIT"
+LANG_FRENCH         "PORTRAIT"
+
+REFERENCE           POUR_JUGER_UN_EFFET_ISOLEMENT_A_REMETTRE
+LANG_ENGLISH        "To judge one effect on its own. Set it back to The game to play."
+LANG_FRENCH         "Pour juger un effet isolement. A remettre sur Le jeu pour jouer."
+
+REFERENCE           POUVOIRS_DE_FORCE
+LANG_ENGLISH        "FORCE POWERS"
+LANG_FRENCH         "POUVOIRS DE FORCE"
+
+REFERENCE           PRENDRE_CE_MODELE_TOUT_DE_SUITE_MEME_EN
+LANG_ENGLISH        "Take this model (right away, even in game)."
+LANG_FRENCH         "Prendre ce modele (tout de suite, meme en jeu)."
+
+REFERENCE           PRENDRE_CE_SABRE_TOUT_DE_SUITE_MEME_EN_J
+LANG_ENGLISH        "Take this saber (right away, even in game)."
+LANG_FRENCH         "Prendre ce sabre (tout de suite, meme en jeu)."
+
+REFERENCE           PREPARATION
+LANG_ENGLISH        "PREPARATION"
+LANG_FRENCH         "PREPARATION"
+
+REFERENCE           PRET_ANNULER
+LANG_ENGLISH        "READY  (cancel)"
+LANG_FRENCH         "PRET  (annuler)"
+
+REFERENCE           PRET_PAS_PRET
+LANG_ENGLISH        "READY / NOT READY"
+LANG_FRENCH         "PRET / PAS PRET"
+
+REFERENCE           PROCHAINE_MISSION
+LANG_ENGLISH        "NEXT MISSION"
+LANG_FRENCH         "PROCHAINE MISSION"
+
+REFERENCE           PROFONDEUR
+LANG_ENGLISH        "Depth"
+LANG_FRENCH         "Profondeur"
+
+REFERENCE           PROFONDEUR_DU_RELIEF
+LANG_ENGLISH        "Depth of the relief."
+LANG_FRENCH         "Profondeur du relief."
+
+REFERENCE           PSEUDO
+LANG_ENGLISH        "Name:"
+LANG_FRENCH         "Pseudo :"
+
+REFERENCE           PSEUDO_JOUEURS_MAX_TOUCHE_POUR_RELEVER_U
+LANG_ENGLISH        "Name, max players, revive key, downed players..."
+LANG_FRENCH         "Pseudo, joueurs max, touche pour relever un coequipier, joueurs a terre..."
+
+REFERENCE           PSEUDO_TOUCHE_POUR_RELEVER_CAMERA_CHAMP
+LANG_ENGLISH        "Name, revive key, camera, field of view."
+LANG_FRENCH         "Pseudo, touche pour relever, camera, champ de vision."
+
+REFERENCE           PSEUDO_TOUCHE_POUR_RELEVER_JOUEURS_A_TER
+LANG_ENGLISH        "Name, revive key, downed players, max players..."
+LANG_FRENCH         "Pseudo, touche pour relever, joueurs a terre, joueurs max..."
+
+REFERENCE           QUART
+LANG_ENGLISH        "Quarter"
+LANG_FRENCH         "Quart"
+
+REFERENCE           QUITTER
+LANG_ENGLISH        "QUIT"
+LANG_FRENCH         "QUITTER"
+
+REFERENCE           QUITTER_CETTE_PARTIE_RETOUR_AU_MENU_PRIN
+LANG_ENGLISH        "Leave this game (back to the main menu)."
+LANG_FRENCH         "Quitter cette partie (retour au menu principal)."
+
+REFERENCE           QUITTER_LA_PARTIE
+LANG_ENGLISH        "LEAVE THE GAME"
+LANG_FRENCH         "QUITTER LA PARTIE"
+
+REFERENCE           QUITTER_LE_JEU
+LANG_ENGLISH        "Quit the game."
+LANG_FRENCH         "Quitter le jeu."
+
+REFERENCE           QUI_EST_LA_QUI_EST_PRET_L_HOTE_Y_LANCE_O
+LANG_ENGLISH        "Who is here, who is ready; the host starts or loads the game there."
+LANG_FRENCH         "Qui est la, qui est pret ; l hote y lance ou charge la partie."
+
+REFERENCE           RAGDOLL_DES_CORPS
+LANG_ENGLISH        "Body ragdoll:"
+LANG_FRENCH         "Ragdoll des corps :"
+
+REFERENCE           RAIS_DE_LUMIERE_IL_FAUT_QUE_LE_SOLEIL_SO
+LANG_ENGLISH        "Rays of light. The sun has to be in view, so mostly when looking up."
+LANG_FRENCH         "Rais de lumiere. Il faut que le soleil soit dans le cadre, donc surtout en levant les yeux."
+
+REFERENCE           RAMENER_LES_INVITES
+LANG_ENGLISH        "BRING THE GUESTS"
+LANG_FRENCH         "RAMENER LES INVITES"
+
+REFERENCE           RAYON
+LANG_ENGLISH        "Radius:"
+LANG_FRENCH         "Rayon :"
+
+REFERENCE           RAYONS
+LANG_ENGLISH        "Rays:"
+LANG_FRENCH         "Rayons :"
+
+REFERENCE           RAYONS_CREPUSCULAIRES
+LANG_ENGLISH        "LIGHT SHAFTS"
+LANG_FRENCH         "RAYONS CREPUSCULAIRES"
+
+REFERENCE           RAYONS_DANS_LA_PENOMBRE_SEULEMENT_2_PART
+LANG_ENGLISH        "Rays in the penumbra only (2 everywhere else). The sun is turned off in MODERN RENDERING."
+LANG_FRENCH         "Rayons dans la penombre seulement (2 partout ailleurs). Le soleil se coupe dans RENDU MODERNE."
+
+REFERENCE           RAYONS_DU_SOLEIL
+LANG_ENGLISH        "Sun shafts:"
+LANG_FRENCH         "Rayons du soleil :"
+
+REFERENCE           RAYONS_PAR_PIXEL_OMBRES_DOUCES_EXACTES_O
+LANG_ENGLISH        "Rays per pixel: exact soft shadows, true occlusion, shadowed lights, reflections, materials. Needs modern rendering on."
+LANG_FRENCH         "Rayons par pixel : ombres douces exactes, occlusion vraie, lumieres avec ombre, reflets, matieres. Il faut le rendu moderne actif."
+
+REFERENCE           RAYONS_SEULS
+LANG_ENGLISH        "Shafts only"
+LANG_FRENCH         "Rayons seuls"
+
+REFERENCE           RAY_TRACING
+LANG_ENGLISH        "RAY TRACING"
+LANG_FRENCH         "RAY TRACING"
+
+REFERENCE           RAY_TRACING_1F2C9E
+LANG_ENGLISH        "Ray tracing:"
+LANG_FRENCH         "Ray tracing :"
+
+REFERENCE           REAPPARITION
+LANG_ENGLISH        "Respawn:"
+LANG_FRENCH         "Reapparition :"
+
+REFERENCE           RECHARGEMENT_AUTO
+LANG_ENGLISH        "Auto reload:"
+LANG_FRENCH         "Rechargement auto :"
+
+REFERENCE           RECHARGER_LE_DERNIER_POINT_DE_CONTROLE
+LANG_ENGLISH        "RELOAD THE LAST CHECKPOINT"
+LANG_FRENCH         "RECHARGER LE DERNIER POINT DE CONTROLE"
+
+REFERENCE           RECHERCHER_A_NOUVEAU_LES_PARTIES_DU_RESE
+LANG_ENGLISH        "Search the local network for games again."
+LANG_FRENCH         "Rechercher a nouveau les parties du reseau local."
+
+REFERENCE           REFLETS
+LANG_ENGLISH        "Reflections:"
+LANG_FRENCH         "Reflets :"
+
+REFERENCE           REGLAGES_DE_LA_PARTIE_NE_COMPTENT_QUE_PO
+LANG_ENGLISH        "Game settings: only count for whoever hosts."
+LANG_FRENCH         "Reglages de la partie : ne comptent que pour celui qui heberge."
+
+REFERENCE           REJOINDRE
+LANG_ENGLISH        "JOIN"
+LANG_FRENCH         "REJOINDRE"
+
+REFERENCE           REJOINDRE_LA_PARTIE_D_UN_AMI_RESEAU_LOCA
+LANG_ENGLISH        "Join a friend's game (local network or Internet address)."
+LANG_FRENCH         "Rejoindre la partie d un ami (reseau local ou adresse Internet)."
+
+REFERENCE           REJOINDRE_LA_PARTIE_SELECTIONNEE
+LANG_ENGLISH        "Join the selected game."
+LANG_FRENCH         "Rejoindre la partie selectionnee."
+
+REFERENCE           REJOINDRE_L_HOTE
+LANG_ENGLISH        "GO TO THE HOST"
+LANG_FRENCH         "REJOINDRE L HOTE"
+
+REFERENCE           REJOINDRE_UNE_PARTIE
+LANG_ENGLISH        "JOIN A GAME"
+LANG_FRENCH         "REJOINDRE UNE PARTIE"
+
+REFERENCE           RELEVER_TOUCHE
+LANG_ENGLISH        "Revive (key):"
+LANG_FRENCH         "Relever (touche) :"
+
+REFERENCE           RELIEF_DES_TEXTURES
+LANG_ENGLISH        "Texture relief:"
+LANG_FRENCH         "Relief des textures :"
+
+REFERENCE           RENDU_MODERNE
+LANG_ENGLISH        "MODERN RENDERING"
+LANG_FRENCH         "RENDU MODERNE"
+
+REFERENCE           RENDU_MODERNE_9490FA
+LANG_ENGLISH        "Modern rendering:"
+LANG_FRENCH         "Rendu moderne :"
+
+REFERENCE           REPARTIR_TES_POINTS_DE_FORCE
+LANG_ENGLISH        "Spend your Force points."
+LANG_FRENCH         "Repartir tes points de Force."
+
+REFERENCE           REPARTIR_TES_POINTS_DE_FORCE_INVITES
+LANG_ENGLISH        "Spend your Force points (guests)."
+LANG_FRENCH         "Repartir tes points de Force (invites)."
+
+REFERENCE           REPRENDRE_LA_COULEUR_BLEU_DU_JEU
+LANG_ENGLISH        "Use the game's blue colour."
+LANG_FRENCH         "Reprendre la couleur bleu du jeu."
+
+REFERENCE           REPRENDRE_LA_COULEUR_JAUNE_DU_JEU
+LANG_ENGLISH        "Use the game's yellow colour."
+LANG_FRENCH         "Reprendre la couleur jaune du jeu."
+
+REFERENCE           REPRENDRE_LA_COULEUR_ORANGE_DU_JEU
+LANG_ENGLISH        "Use the game's orange colour."
+LANG_FRENCH         "Reprendre la couleur orange du jeu."
+
+REFERENCE           REPRENDRE_LA_COULEUR_ROUGE_DU_JEU
+LANG_ENGLISH        "Use the game's red colour."
+LANG_FRENCH         "Reprendre la couleur rouge du jeu."
+
+REFERENCE           REPRENDRE_LA_COULEUR_VERT_DU_JEU
+LANG_ENGLISH        "Use the game's green colour."
+LANG_FRENCH         "Reprendre la couleur vert du jeu."
+
+REFERENCE           REPRENDRE_LA_COULEUR_VIOLET_DU_JEU
+LANG_ENGLISH        "Use the game's purple colour."
+LANG_FRENCH         "Reprendre la couleur violet du jeu."
+
+REFERENCE           REPRENDRE_UNE_PARTIE_SAUVEGARDEE
+LANG_ENGLISH        "Resume a saved game."
+LANG_FRENCH         "Reprendre une partie sauvegardee."
+
+REFERENCE           REPRENDRE_UNE_SAUVEGARDE_CHACUN_RETROUVE
+LANG_ENGLISH        "Resume a saved game (everyone gets their character back)."
+LANG_FRENCH         "Reprendre une sauvegarde (chacun retrouve son personnage)."
+
+REFERENCE           REPREND_A_LA_DERNIERE_SAUVEGARDE_AUTOMAT
+LANG_ENGLISH        "Resume from the last autosave (or the last loaded game)."
+LANG_FRENCH         "Reprend a la derniere sauvegarde automatique (ou a la derniere partie chargee)."
+
+REFERENCE           RESOLUTION_DE_LA_PASSE_TRACEE_QUART_4_FO
+LANG_ENGLISH        "Resolution of the traced pass. Quarter = 4 times fewer rays (image smoothed afterwards), Full = 4 times heavier."
+LANG_FRENCH         "Resolution de la passe tracee. Quart = 4 fois moins de rayons (image lissee ensuite), Pleine = 4 fois plus lourd."
+
+REFERENCE           RETARD_DE_LA_CAMERA_DES_CINEMATIQUES_CHE
+LANG_ENGLISH        "Cutscene camera delay for guests (against network stutter)."
+LANG_FRENCH         "Retard de la camera des cinematiques chez les invites (contre les a-coups reseau)."
+
+REFERENCE           RETOUR
+LANG_ENGLISH        "BACK"
+LANG_FRENCH         "RETOUR"
+
+REFERENCE           RETOUR_AU_JEU
+LANG_ENGLISH        "BACK TO THE GAME"
+LANG_FRENCH         "RETOUR AU JEU"
+
+REFERENCE           RETOUR_AU_MENU_PRINCIPAL
+LANG_ENGLISH        "Back to the main menu."
+LANG_FRENCH         "Retour au menu principal."
+
+REFERENCE           RETOUR_E25BB8
+LANG_ENGLISH        "Back."
+LANG_FRENCH         "Retour."
+
+REFERENCE           REVENIR_AU_MENU
+LANG_ENGLISH        "Back to the menu."
+LANG_FRENCH         "Revenir au menu."
+
+REFERENCE           REVENIR_AU_SALON
+LANG_ENGLISH        "Back to the lobby."
+LANG_FRENCH         "Revenir au salon."
+
+REFERENCE           REVENIR_SANS_CHANGER_DE_MANCHE
+LANG_ENGLISH        "Go back without changing the hilt."
+LANG_FRENCH         "Revenir sans changer de manche."
+
+REFERENCE           REVENIR_SANS_CHANGER_LA_COULEUR
+LANG_ENGLISH        "Go back without changing the colour."
+LANG_FRENCH         "Revenir sans changer la couleur."
+
+REFERENCE           REVENIR_SANS_RIEN_CHANGER
+LANG_ENGLISH        "Go back without changing anything."
+LANG_FRENCH         "Revenir sans rien changer."
+
+REFERENCE           REVOIR_TON_PERSONNAGE_AVANT_LE_DEPART
+LANG_ENGLISH        "Review your character before leaving."
+LANG_FRENCH         "Revoir ton personnage avant le depart."
+
+REFERENCE           ROUGE
+LANG_ENGLISH        "RED"
+LANG_FRENCH         "ROUGE"
+
+REFERENCE           RVB_DU_SABRE_GAUCHE
+LANG_ENGLISH        "LEFT SABER RGB"
+LANG_FRENCH         "RVB DU SABRE GAUCHE"
+
+REFERENCE           SABRE_LASER
+LANG_ENGLISH        "LIGHTSABER"
+LANG_FRENCH         "SABRE LASER"
+
+REFERENCE           SABRE_SIMPLE
+LANG_ENGLISH        "SINGLE SABER"
+LANG_FRENCH         "SABRE SIMPLE"
+
+REFERENCE           SALON_COOPERATIF
+LANG_ENGLISH        "CO-OP LOBBY"
+LANG_FRENCH         "SALON COOPERATIF"
+
+REFERENCE           SALON_JOUEURS
+LANG_ENGLISH        "LOBBY / PLAYERS"
+LANG_FRENCH         "SALON / JOUEURS"
+
+REFERENCE           SERRE_16
+LANG_ENGLISH        "Tight (16)"
+LANG_FRENCH         "Serre (16)"
+
+REFERENCE           SE_CONNECTER_A_CETTE_ADRESSE
+LANG_ENGLISH        "Connect to this address."
+LANG_FRENCH         "Se connecter a cette adresse."
+
+REFERENCE           SUIVANT
+LANG_ENGLISH        "NEXT"
+LANG_FRENCH         "SUIVANT"
+
+REFERENCE           SUIVANT_LA_CARTE_DES_MISSIONS_S_OUVRE_QU
+LANG_ENGLISH        "NEXT: the mission map opens once everyone has continued."
+LANG_FRENCH         "SUIVANT : la carte des missions s ouvre quand tout le monde a continue."
+
+REFERENCE           SUR_LES_SURFACES_BRILLANTES_DU_DECOR_MET
+LANG_ENGLISH        "On shiny surfaces of the scenery (metal, polished floors)."
+LANG_FRENCH         "Sur les surfaces brillantes du decor (metal, sols polis)."
+
+REFERENCE           SYNC_RAGDOLL
+LANG_ENGLISH        "Ragdoll sync:"
+LANG_FRENCH         "Sync ragdoll :"
+
+REFERENCE           TELEPORTER_TOUS_LES_INVITES_A_COTE_DE_TO
+LANG_ENGLISH        "Teleport every guest next to you."
+LANG_FRENCH         "Teleporter tous les invites a cote de toi."
+
+REFERENCE           TEMPS_A_TERRE
+LANG_ENGLISH        "Time down:"
+LANG_FRENCH         "Temps a terre :"
+
+REFERENCE           TEMPS_DE_MAINTIEN_DE_LA_TOUCHE
+LANG_ENGLISH        "How long the key must be held."
+LANG_FRENCH         "Temps de maintien de la touche."
+
+REFERENCE           TES_ARMES_ET_TES_POUVOIRS_TE_SUIVENT_D_U
+LANG_ENGLISH        "Your weapons and powers follow you from one mission to the next."
+LANG_FRENCH         "Tes armes et tes pouvoirs te suivent d une mission a l autre."
+
+REFERENCE           TIRS_ENTRE_JOUEURS
+LANG_ENGLISH        "Friendly fire:"
+LANG_FRENCH         "Tirs entre joueurs :"
+
+REFERENCE           TON_NOM_VU_PAR_LES_AUTRES_JOUEURS_SALON
+LANG_ENGLISH        "Your name, as the other players see it (lobby, messages)."
+LANG_FRENCH         "Ton nom, vu par les autres joueurs (salon, messages)."
+
+REFERENCE           TOUCHE_A_MAINTENIR_PRES_D_UN_COEQUIPIER
+LANG_ENGLISH        "Key to hold next to a downed teammate to revive them (G by default)."
+LANG_FRENCH         "Touche a maintenir pres d un coequipier a terre pour le relever (G par defaut)."
+
+REFERENCE           TOUS_A_TERRE_LE_DERNIER_POINT_DE_CONTROL
+LANG_ENGLISH        "Everyone down: the last checkpoint reloads by itself after this delay."
+LANG_FRENCH         "Tous a terre : le dernier point de controle est recharge tout seul apres ce delai."
+
+REFERENCE           TOUS_LES_JOUEURS_SONT_A_TERRE
+LANG_ENGLISH        "ALL PLAYERS ARE DOWN"
+LANG_FRENCH         "TOUS LES JOUEURS SONT A TERRE"
+
+REFERENCE           TOUS_LES_MANCHES_INSTALLES_MODS_COMPRIS
+LANG_ENGLISH        "Every installed hilt, mods included."
+LANG_FRENCH         "Tous les manches installes, mods compris."
+
+REFERENCE           TRANCHER_HOTE
+LANG_ENGLISH        "DECIDE (HOST)"
+LANG_FRENCH         "TRANCHER (HOTE)"
+
+REFERENCE           TRANSFERT_DES_MODS_EN_COURS_TES_SKINS_VE
+LANG_ENGLISH        "Transferring mods (your skins to them, theirs to you)..."
+LANG_FRENCH         "Transfert des mods en cours (tes skins vers eux, les leurs vers toi)..."
+
+REFERENCE           TRES_DOUCE
+LANG_ENGLISH        "Very soft"
+LANG_FRENCH         "Tres douce"
+
+REFERENCE           TRES_FORTE
+LANG_ENGLISH        "Very strong"
+LANG_FRENCH         "Tres forte"
+
+REFERENCE           TRES_LARGE_96
+LANG_ENGLISH        "Very wide (96)"
+LANG_FRENCH         "Tres large (96)"
+
+REFERENCE           TRICHE_CONSOLE
+LANG_ENGLISH        "Cheats (console):"
+LANG_FRENCH         "Triche (console) :"
+
+REFERENCE           TU_ARRIVES_DANS_LE_SALON_DE_L_HOTE_TON_P
+LANG_ENGLISH        "You arrive in the host's lobby; your character is created when the host starts the game."
+LANG_FRENCH         "Tu arrives dans le salon de l hote ; ton personnage se cree quand il lance la partie."
+
+REFERENCE           TU_ES_CONNECTE_A_L_HOTE
+LANG_ENGLISH        "You are connected to the host."
+LANG_FRENCH         "Tu es connecte a l hote."
+
+REFERENCE           TU_ES_MARQUE_PRET_CLIQUE_POUR_ANNULER
+LANG_ENGLISH        "You are marked ready; click to cancel."
+LANG_FRENCH         "Tu es marque pret ; clique pour annuler."
+
+REFERENCE           TU_HEBERGES_ATTENDS_TES_AMIS_PUIS_LANCE
+LANG_ENGLISH        "You are hosting. Wait for your friends, then start or resume the game:"
+LANG_FRENCH         "Tu heberges. Attends tes amis, puis lance ou reprends la partie :"
+
+REFERENCE           TU_HEBERGES_CETTE_PARTIE
+LANG_ENGLISH        "You are hosting this game."
+LANG_FRENCH         "Tu heberges cette partie."
+
+REFERENCE           TYPE_DE_SABRE
+LANG_ENGLISH        "SABER TYPE"
+LANG_FRENCH         "TYPE DE SABRE"
+
+REFERENCE           TYPE_DE_SABRE_MANCHE_ET_COULEUR_DE_LAME
+LANG_ENGLISH        "Saber type, hilt and blade colour - at any time."
+LANG_FRENCH         "Type de sabre, manche et couleur de lame - a tout moment."
+
+REFERENCE           TYPE_DE_SABRE_MANCHE_ET_COULEUR_D_213504
+LANG_ENGLISH        "Saber type, hilt and blade colour."
+LANG_FRENCH         "Type de sabre, manche et couleur de lame."
+
+REFERENCE           UNE_MISSION_DEJA_JOUEE_N_APPARAIT_PAS_DA
+LANG_ENGLISH        "A mission already played does not appear in the list."
+LANG_FRENCH         "Une mission deja jouee n apparait pas dans la liste."
+
+REFERENCE           UNE_SEULE_LAME
+LANG_ENGLISH        "A single blade."
+LANG_FRENCH         "Une seule lame."
+
+REFERENCE           UN_COUP_MORTEL_MET_A_TERRE_UN_COEQUIPIER
+LANG_ENGLISH        "A fatal blow puts you down: a teammate revives you with the G key (options)."
+LANG_FRENCH         "Un coup mortel met a terre : un coequipier releve avec la touche G (options)."
+
+REFERENCE           UN_COUP_MORTEL_MET_A_TERRE_UN_COE_DCA50A
+LANG_ENGLISH        "A fatal blow puts you down (a teammate revives you) instead of killing. No: respawn right away."
+LANG_FRENCH         "Un coup mortel met a terre (un coequipier releve) au lieu de tuer. Non : reapparition directe."
+
+REFERENCE           UN_REFLET_TRACE_SUR_LES_VITRES_ET_LES_SU
+LANG_ENGLISH        "A traced reflection on windows and glass surfaces."
+LANG_FRENCH         "Un reflet trace sur les vitres et les surfaces de verre."
+
+REFERENCE           UN_SABRE_DANS_CHAQUE_MAIN
+LANG_ENGLISH        "A saber in each hand."
+LANG_FRENCH         "Un sabre dans chaque main."
+
+REFERENCE           UN_SEUL_MANCHE_UNE_LAME_A_CHAQUE_BOUT
+LANG_ENGLISH        "One hilt, a blade at each end."
+LANG_FRENCH         "Un seul manche, une lame a chaque bout."
+
+REFERENCE           VALEUR_DE_REFERENCE_EN_4_3_SUR_UN_ECRAN
+LANG_ENGLISH        "Reference value for 4:3: on a wide screen it widens by itself, nothing to compensate."
+LANG_FRENCH         "Valeur de reference en 4/3 : sur un ecran large elle est elargie toute seule, tu n as rien a compenser."
+
+REFERENCE           VALIDER
+LANG_ENGLISH        "CONFIRM"
+LANG_FRENCH         "VALIDER"
+
+REFERENCE           VARIANTE
+LANG_ENGLISH        "VARIANT"
+LANG_FRENCH         "VARIANTE"
+
+REFERENCE           VERRE
+LANG_ENGLISH        "Glass:"
+LANG_FRENCH         "Verre :"
+
+REFERENCE           VERT
+LANG_ENGLISH        "GREEN"
+LANG_FRENCH         "VERT"
+
+REFERENCE           VIDEO_SON_JEU
+LANG_ENGLISH        "Video, sound, game."
+LANG_FRENCH         "Video, son, jeu."
+
+REFERENCE           VIOLET
+LANG_ENGLISH        "PURPLE"
+LANG_FRENCH         "VIOLET"
+
+REFERENCE           VITESSE_D_ENVOI_DE_TES_PK3_AUX_INVITES_A
+LANG_ENGLISH        "How fast your pk3 files are sent to guests. Beyond a few MB/s the game's network caps itself."
+LANG_FRENCH         "Vitesse d envoi de tes pk3 aux invites. Au-dela de quelques Mo/s le reseau du jeu plafonne de lui-meme."
+
+REFERENCE           VOTER
+LANG_ENGLISH        "VOTE"
+LANG_FRENCH         "VOTER"
+
+REFERENCE           VOTER_POUR_LA_MISSION_SELECTIONNEE_DOUBL
+LANG_ENGLISH        "Vote for the selected mission (double-click works too)."
+LANG_FRENCH         "Voter pour la mission selectionnee (double-clic aussi)."
+
+ENDMARKER
+
