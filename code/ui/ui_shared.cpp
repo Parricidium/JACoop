@@ -1866,17 +1866,25 @@ void Menus_CloseByName(const char *p)
 	{
 		// If there is something still in the open menu list then
 		// set it to have focus now
-		if ( openMenuCount )
+		// coop: skip the stacked menus that are no longer shown (closed since),
+		// or the focus would go to an invisible menu and nothing would answer
+		while ( openMenuCount )
 		{
 			// Subtract one from the open menu count to prepare to
 			// remove the top menu from the list
 			openMenuCount -= 1;
 
-			// Set the top menu to have focus now
-			menuStack[openMenuCount]->window.flags |= WINDOW_HASFOCUS;
+			menuDef_t *next = menuStack[openMenuCount];
 
 			// Remove the top menu from the list
 			menuStack[openMenuCount] = NULL;
+
+			if ( next && next != menu && ( next->window.flags & WINDOW_VISIBLE ) )
+			{
+				// Set the top menu to have focus now
+				next->window.flags |= WINDOW_HASFOCUS;
+				break;
+			}
 		}
 	}
 
@@ -5590,11 +5598,16 @@ menuDef_t *Menus_ActivateByName(const char *p)
 
 	if (m)
 	{
-		Menus_Activate(m);
-		if (openMenuCount < MAX_OPEN_MENUS && focus != NULL)
+		// coop: the menu we leave goes on the stack BEFORE the new one opens. Its
+		// onOpen may open a popup (the Force screen's help), and that nested call
+		// stacks the new menu; stacking the old one afterwards put it on top, so
+		// closing the popup handed the focus to a menu that was no longer shown -
+		// no focused menu, the next click went to the game.
+		if (openMenuCount < MAX_OPEN_MENUS && focus != NULL && focus != m)
 		{
 			menuStack[openMenuCount++] = focus;
 		}
+		Menus_Activate(m);
 	}
 	else
 	{	// A hack so we don't have to load all three mission menus before we know what tier we're on
