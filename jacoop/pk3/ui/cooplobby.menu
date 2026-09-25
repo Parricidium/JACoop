@@ -83,9 +83,9 @@
 			rect				60 90 520 96
 			feeder				0x19
 			elementwidth		520
-			elementheight		18
+			elementheight		13
 			elementtype			LISTBOX_TEXT
-			textscale			0.7
+			textscale			0.55
 			forecolor			1 1 1 .82
 			backcolor			0 0 0 .45
 			outlinecolor		.6 .5 .3 .5

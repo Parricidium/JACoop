@@ -2400,7 +2400,7 @@ qboolean ClientSpawn(gentity_t *ent, SavedGameJustLoaded_e eSavedGameJustLoaded 
 		// coop: ICARUS maps a script name to ONE entity (m_EntityList); a joiner
 		// named "player" stole every "affect player" from the host, so mission
 		// scripts tested the wrong player's position (yavin2: the remote room
-		// never started, its door stayed shut). Joiners are player2..player4.
+		// never started, its door stayed shut). Joiners are player2..player16.
 		ent->script_targetname = NULL;
 		G_CoopFixClientScriptName( ent );
 		if ( ent->client->NPC_class == CLASS_NONE )

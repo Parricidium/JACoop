@@ -574,14 +574,14 @@ static void SV_CoopHost_f( void ) {
 ==================
 SV_CoopLobby_f
 
-coop_lobby — host a co-op game from the menu: open the network, allow four
-players and load the lobby map with g_coopLobby set (the game then skips the
+coop_lobby — host a co-op game from the menu: open the network, allow the
+requested number of players (2..16) and load the lobby map with g_coopLobby set (the game then skips the
 map's scripts, triggers and cinematic cast, and opens the lobby menu).
 ==================
 */
 static void SV_CoopLobby_f( void ) {
 	int mp = Cmd_Argc() > 1 ? atoi( Cmd_Argv( 1 ) ) : 4;
-	if ( mp < 2 || mp > 4 ) mp = 4;
+	if ( mp < 2 || mp > MAX_CLIENTS ) mp = 4;	// coop: 2..16
 	Cvar_Set( "sv_maxclients", va( "%i", mp ) );
 	Cvar_Set( "net_enabled", "1" );
 	NET_Restart();

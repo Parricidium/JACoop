@@ -2739,7 +2739,7 @@ static qboolean UI_RunMenuScript ( const char **args )
 		// D3: co-op menu verbs. They drive the D1/D2 console commands.
 		else if ( Q_stricmp( name, "coopHost" ) == 0 )
 		{
-			// Host the current game. ui_coopMaxPlayers (2-4) is passed through.
+			// Host the current game. ui_coopMaxPlayers (2-16) is passed through.
 			const int mp = (int)trap_Cvar_VariableValue( "ui_coopMaxPlayers" );
 			ui.Cmd_ExecuteText( EXEC_APPEND, va( "coop_host %i\n", mp > 0 ? mp : 2 ) );
 		}
@@ -2777,7 +2777,7 @@ static qboolean UI_RunMenuScript ( const char **args )
 			Cvar_Set( "coop_ready", "0" );
 			Menus_CloseAll();
 			const int mp = (int)trap_Cvar_VariableValue( "ui_coopMaxPlayers" );
-			ui.Cmd_ExecuteText( EXEC_APPEND, va( "coop_lobby %i\n", mp >= 2 && mp <= 4 ? mp : 4 ) );
+			ui.Cmd_ExecuteText( EXEC_APPEND, va( "coop_lobby %i\n", mp >= 2 && mp <= MAX_CLIENTS ? mp : 4 ) );
 		}
 		else if ( Q_stricmp( name, "coopNewGame" ) == 0 )
 		{

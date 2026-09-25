@@ -732,7 +732,7 @@ opt += prow_edit('nameField', 'player', 0, 'Pseudo :', 'name', 15, 'Ton nom, vu 
                  [('80 (normal)', 80), ('90', 90), ('100', 100), ('110', 110), ('120', 120)],
                  'Valeur de reference en 4/3 : sur un ecran large elle est elargie toute seule, tu n as rien a compenser.')
 # --- HOTE
-opt += prow_multi('maxPlayers', 'host', 0, 'Joueurs max :', 'ui_coopMaxPlayers', [('2', 2), ('3', 3), ('4', 4)], 'Nombre de places dans la partie.') \
+opt += prow_multi('maxPlayers', 'host', 0, 'Joueurs max :', 'ui_coopMaxPlayers', [(str(n), n) for n in (2, 3, 4, 5, 6, 8, 10, 12, 16)], 'Nombre de places dans la partie (jusqu a 16).') \
     + prow_multi('requireReady', 'host', 1, 'Lancement :', 'g_coopRequireReady',
                  [('Persos valides', 1), ('Immediat', 0)], 'NOUVELLE PARTIE attend que chaque invite ait valide son personnage.') \
     + prow_multi('downed', 'host', 2, 'Joueurs a terre :', 'g_coopDowned', [('Oui (relever)', 1), ('Non', 0)],
@@ -868,7 +868,7 @@ ingame = '''// JACoop - menu COOPERATION en jeu (touche F6 : bind F6 "uimenu coo
                 'Faire apparaitre un personnage devant toi (hote).', cvartest='sv_running', show=['1']) \
     + colbutton('resumeButton', 378, 'RETOUR AU JEU', '				uiScript		closeingame\n', 'Fermer ce menu (F6 le rouvre).') \
     + label('playersLabel', (320, 90, 290, 16), 'JOUEURS', 0.7, GOLD) \
-    + listbox('playerList', (320, 110, 290, 110), '0x19', 18, 0.6) \
+    + listbox('playerList', (320, 110, 290, 110), '0x19', 13, 0.55) \
     + label('stateHost', (320, 228, 290, 16), 'Tu heberges cette partie.', 0.55, GREY, cvartest='sv_running', show=['1']) \
     + label('stateJoin', (320, 228, 290, 16), 'Tu es connecte a l hote.', 0.55, GREY, cvartest='sv_running', hide=['1']) \
     + label('hint1', (320, 300, 290, 16), 'Echap : menu du jeu (sauvegarder, charger,', 0.55, GREY) \
@@ -888,7 +888,7 @@ lobby = '''// JACoop - SALON COOPERATIF (hote et invites). Liste des joueurs : f
 ''' + header('coopLobby', '			uiScript			closeingame\n', '			uiScript			coopLobbyOpen\n') + decor(logo=False) \
     + title('SALON COOPERATIF') \
     + label('playersLabel', (60, 66, 300, 20), 'JOUEURS', 0.8, GOLD) \
-    + listbox('playerList', (60, 90, 520, 96), '0x19', 18, 0.7) \
+    + listbox('playerList', (60, 90, 520, 96), '0x19', 13, 0.55) \
     + label('stHost', (60, 196, 520, 20), 'Tu heberges. Attends tes amis, puis lance ou reprends la partie :', 0.6, CREAM, cvartest=ST, show=['host']) \
     + label('stHostStart', (60, 196, 520, 20), 'Les invites creent leur personnage... la partie demarre quand tous ont valide.', 0.6, CREAM, cvartest=ST, show=['hoststart']) \
     + label('stHostWait', (60, 196, 520, 20), 'Transfert des mods en cours (tes skins vers eux, les leurs vers toi)...', 0.6, '.4 1 .4 1', cvartest=ST, show=['hostwait']) \
@@ -1155,7 +1155,7 @@ debrief = '''// JACoop - FIN DE MISSION : le debriefing, vu par tout le monde en
     + label('statsLine', (90, 152, 460, 20), '', 0.75, CREAM, 'CENTER', cvar='ui_coopEndStats') \
     + label('statsHint', (90, 190, 460, 16), 'Chacun garde ses armes, ses pouvoirs et sa progression.', 0.55, GREY, 'CENTER') \
     + label('playersLabel', (170, 252, 300, 16), 'JOUEURS', 0.65, GOLD, 'CENTER') \
-    + listbox('playerList', (170, 272, 300, 84), '0x19', 18, 0.6) \
+    + listbox('playerList', (170, 272, 300, 84), '0x19', 13, 0.55) \
     + label('infoLine', (0, 368, 640, 18), '', 0.65, CREAM, 'CENTER', cvar='ui_coopEndInfo') \
     + label('hintD', (0, 396, 640, 16), 'SUIVANT : la carte des missions s ouvre quand tout le monde a continue.', 0.55, GREY, 'CENTER', cvartest=EP, show=['D']) \
     + label('hintW', (0, 396, 640, 16), 'Cette etape de la campagne n offre pas de choix : attends l hote.', 0.55, GREY, 'CENTER', cvartest=EP, show=['W']) \
@@ -1177,7 +1177,7 @@ vote = '''// JACoop - FIN DE MISSION : vote sur la prochaine mission (feeder 0x1
     + button('voteButton', (60, 232, 200, 24), 'VOTER', '\t\t\t\tuiScript\t\tcoopEndVote\n', 'Voter pour la mission selectionnee (double-clic aussi).') \
     + button('goButton', (380, 232, 200, 24), 'TRANCHER (HOTE)', '\t\t\t\tuiScript\t\tcoopEndGo\n', 'Hote : compter les voix tout de suite.', 'LEFT', cvartest='ui_coopEndHost', show=['1']) \
     + label('playersLabel', (60, 272, 520, 16), 'JOUEURS', 0.7, GOLD) \
-    + listbox('playerList', (60, 292, 520, 84), '0x19', 18, 0.6) \
+    + listbox('playerList', (60, 292, 520, 84), '0x19', 13, 0.55) \
     + label('infoLine', (0, 392, 640, 18), '', 0.65, CREAM, 'CENTER', cvar='ui_coopEndInfo') \
     + label('hint', (0, 420, 640, 16), 'Une mission deja jouee n apparait pas dans la liste.', 0.55, GREY, 'CENTER') \
     + '''\t}
@@ -1201,7 +1201,7 @@ loadout = '''// JACoop - FIN DE MISSION : equipement de chacun avant le depart, 
     + colbutton('readyButton', 244, 'PRET / PAS PRET', '\t\t\t\tuiScript\t\tcoopEndReady\n',
                 'La mission demarre quand tout le monde est pret.') \
     + label('playersLabel', (320, 150, 290, 16), 'JOUEURS', 0.7, GOLD) \
-    + listbox('playerList', (320, 170, 290, 100), '0x19', 18, 0.6) \
+    + listbox('playerList', (320, 170, 290, 100), '0x19', 13, 0.55) \
     + label('infoLine', (0, 330, 640, 18), '', 0.65, CREAM, 'CENTER', cvar='ui_coopEndInfo') \
     + label('hint1', (0, 360, 640, 16), 'Tes armes et tes pouvoirs te suivent d une mission a l autre.', 0.55, GREY, 'CENTER') \
     + label('hint2', (0, 376, 640, 16), 'L hote peut lancer la mission sans attendre les retardataires.', 0.55, GREY, 'CENTER') \

@@ -488,7 +488,8 @@ static void G_CoopUpdateLobbyList( void )
 		{	// coop: between two missions, PRET replaces the lobby's ready flag (host included)
 			ready = endReady ? 6 : 5;
 		}
-		Q_strcat( now, sizeof( now ), va( "|%s\t%i\t%s\t%s", ent->client->pers.netname, ready, G_CoopPlayerVar( ent, "g_char_model", g_char_model ), dl ) );
+		// coop: 16 players must fit the configstring (1024): names cut at 24, models at 20
+		Q_strcat( now, sizeof( now ), va( "|%.24s\t%i\t%.20s\t%s", ent->client->pers.netname, ready, G_CoopPlayerVar( ent, "g_char_model", g_char_model ), dl ) );
 	}
 	if ( strcmp( now, last ) )
 	{

@@ -207,7 +207,7 @@ PROTOCOL
 // CS_LIGHT_STYLES = CS_PLAYERS + MAX_CLIENTS renumbers every later configstring,
 // so a mismatched (stock 1-client) build must be rejected at connect rather than
 // left to silently desync.
-#define	PROTOCOL_VERSION	1050	// JACoop: distinct from stock and from jk2coop (41); 1050 = le pouvoir de Force choisi voyage dans les bits 12-15 du champ boutons
+#define	PROTOCOL_VERSION	1051	// JACoop: distinct from stock and from jk2coop (41); 1050 = le pouvoir de Force choisi voyage dans les bits 12-15 du champ boutons ; 1051 = 16 joueurs (MAX_CLIENTS renumerote les configstrings)
 
 #define	PORT_SERVER			27960
 

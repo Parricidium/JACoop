@@ -195,6 +195,7 @@ EN = {
     # --- options : HOTE
     'Joueurs max :': 'Max players:',
     'Nombre de places dans la partie.': 'Number of slots in the game.',
+    'Nombre de places dans la partie (jusqu a 16).': 'Number of slots in the game (up to 16).',
     'Lancement :': 'Start:',
     'NOUVELLE PARTIE attend que chaque invite ait valide son personnage.': 'NEW GAME waits until every guest has confirmed their character.',
     'Joueurs a terre :': 'Downed players:',

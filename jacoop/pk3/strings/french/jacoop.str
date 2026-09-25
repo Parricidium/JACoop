@@ -695,6 +695,10 @@ REFERENCE           NOMBRE_DE_PLACES_DANS_LA_PARTIE
 LANG_ENGLISH        "Number of slots in the game."
 LANG_FRENCH         "Nombre de places dans la partie."
 
+REFERENCE           NOMBRE_DE_PLACES_DANS_LA_PARTIE_JUSQU_A
+LANG_ENGLISH        "Number of slots in the game (up to 16)."
+LANG_FRENCH         "Nombre de places dans la partie (jusqu a 16)."
+
 REFERENCE           NON
 LANG_ENGLISH        "No"
 LANG_FRENCH         "Non"

@@ -300,7 +300,7 @@ static void G_CoopEndPublish( void )
 					continue;
 				}
 				count++;
-				Q_strcat( voters, sizeof( voters ), va( "%s%s", voters[0] ? ", " : "", ent->client->pers.netname ) );
+				Q_strcat( voters, sizeof( voters ), va( "%s%.12s", voters[0] ? ", " : "", ent->client->pers.netname ) );	// coop: 16 voters in one configstring
 			}
 			Q_strcat( now, sizeof( now ), va( "|%s\t%s\t%i\t%s", coopEndMissions[m].map, coopEndMissions[m].label, count, voters ) );
 		}

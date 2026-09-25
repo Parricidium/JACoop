@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>JACoop - JKHub description</title>
+<style>
+  body { background: #17181c; color: #e6e6e6; font-family: Arial, sans-serif; max-width: 900px; margin: 24px auto; padding: 0 16px; line-height: 1.5; }
+  a { color: #7fb4ff; }
+  .note { background: #2a2c33; color: #ffd27f; padding: 10px 14px; border-radius: 6px; font-size: 14px; margin-bottom: 24px; }
+</style>
+</head>
+<body>
+
+<div class="note">Select everything BELOW this box (click just under it, then Ctrl+Shift+End), Ctrl+C, and paste into the JKHub editor under the logo.</div>
+
+<p style="text-align:center;"><strong>The Jedi Academy single-player campaign in co-op, for 2 to 16 players.</strong><br>
+Built on the open-source OpenJK engine. English &amp; French.</p>
+
+<p style="text-align:center;"><a href="https://github.com/Parricidium/JACoop/releases/latest"><strong>📥 Download the latest release (GitHub)</strong></a> &nbsp;|&nbsp; <a href="https://github.com/Parricidium/JACoop">Source code</a> &nbsp;|&nbsp; <a href="https://ko-fi.com/parricidium">❤️ Support me on Ko-fi</a></p>
+
+<h2>Features</h2>
+<ul>
+<li><strong>The whole campaign in co-op</strong>: host or join (LAN or Internet). Each player has their own character, lightsaber, Force powers and progress, all kept in the host's saves.</li>
+<li><strong>Downed &amp; revive</strong>: a fatal blow puts you down, and a teammate holds <strong>G</strong> to bring you back. Falling into a pit no longer reloads the game for everyone.</li>
+<li><strong>Mission map with a vote</strong> on the next mission, a loadout screen, and cutscenes and videos shown to everyone.</li>
+<li><strong>Any character or skin</strong>, including mod skins (MP or SP), with a 3D preview, changed live even in game.</li>
+<li><strong>Lightsabers</strong>: single, staff or dual, any installed hilt (saber packs included), free RGB blade colour.</li>
+<li><strong>Mods travel by themselves</strong>: skin and saber .pk3 files are shared through the lobby, in both directions.</li>
+<li><strong>NPC spawner</strong> for the host, with a 3D preview.</li>
+<li><strong>Widescreen &amp; ultrawide</strong> (Hor+ field of view), with a new HUD in the style of <em>Jedi: Fallen Order</em>.</li>
+<li><strong>Optional ray tracing</strong> on any OpenGL 4.3 card, no RTX needed: soft shadows, sabers lighting the scene in their colour, reflections, water, lava, texture relief.</li>
+<li><strong>Ragdoll corpses</strong> when pushed or pulled with the Force, optionally synced between players.</li>
+<li><strong>English &amp; French</strong>: each player reads the messages in their own language.</li>
+</ul>
+
+<h2>Install</h2>
+<ol>
+<li>Unzip <strong>JACoop-&lt;version&gt;.zip</strong> <strong>anywhere</strong>. It is a standalone folder, and nothing is written into your game's folder.</li>
+<li>Start <strong>JACoop.exe</strong>. It finds Jedi Academy by itself (Steam or GOG).</li>
+<li>Main menu &gt; <strong>CO-OP</strong> &gt; <strong>HOST</strong> or <strong>JOIN</strong>.</li>
+</ol>
+<p>The host listens on <strong>UDP 29070</strong>. Over the Internet, forward that port on the host's router, or use a VPN such as Hamachi, ZeroTier or Radmin.<br>
+Everyone needs <strong>the same version</strong>. You need your own copy of Jedi Academy (Steam or GOG, PC).</p>
+
+<h2>Known issues</h2>
+<ul>
+<li>A guest sometimes loses their lightsaber after a Force push or pull while holding another weapon. If it happens, please send the qconsole.log of both players (in JACoop\base).</li>
+<li>A guest can get stuck in guard stance until someone hits them.</li>
+<li>A guest's saber blade once became short while they were in the lightsaber menu.</li>
+<li>A guest who joins during a level's opening cutscene can freeze it for the host: join once it's over.</li>
+<li>Ambient occlusion is heavy on some graphics cards at high resolution.</li>
+<li>A level 3 Force pull on a teammate throws them quite far.</li>
+<li>The disruptor scope ring stays an ellipse on wide screens (cosmetic).</li>
+<li>Only the host can save and load.</li>
+<li>No kick and no password for the lobby.</li>
+</ul>
+
+<h2>Credits</h2>
+<p>Engine: <a href="https://github.com/JACoders/OpenJK">OpenJK</a> (GPLv2), based on the Jedi Academy source code released by Raven Software. Some co-op groundwork is inspired by <em>jedi-outcast-coop</em> (Benehiko). Font: Titillium Web (SIL OFL).<br>
+Star Wars, Jedi Knight and Jedi Academy are trademarks of Lucasfilm / Disney. This is a fan project, not affiliated with them.</p>
+
+</body>
+</html>

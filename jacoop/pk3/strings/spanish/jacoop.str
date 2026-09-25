@@ -695,6 +695,10 @@ REFERENCE           NOMBRE_DE_PLACES_DANS_LA_PARTIE
 LANG_ENGLISH        "Number of slots in the game."
 LANG_SPANISH        "Number of slots in the game."
 
+REFERENCE           NOMBRE_DE_PLACES_DANS_LA_PARTIE_JUSQU_A
+LANG_ENGLISH        "Number of slots in the game (up to 16)."
+LANG_SPANISH        "Number of slots in the game (up to 16)."
+
 REFERENCE           NON
 LANG_ENGLISH        "No"
 LANG_SPANISH        "No"

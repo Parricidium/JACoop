@@ -123,6 +123,13 @@ void SV_DirectConnect( netadr_t from ) {
 	for ( i = 0; i < maxConnect ; i++ ) {
 		cl = &svs.clients[i];
 		if (cl->state == CS_FREE) {
+			// coop: a save written when only 4 slots were reserved for players
+			// (before 16) keeps level entities (NPCs, doors...) in slots 4..15;
+			// a guest there would overwrite one. Such a slot is skipped: an old
+			// save plays with 4 until the next level, which is laid out for 16.
+			if ( i > 0 && SV_GentityNum( i )->inuse ) {
+				continue;
+			}
 			newcl = cl;
 			break;
 		}

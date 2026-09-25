@@ -1537,6 +1537,14 @@ void ClientCommand( int clientNum ) {
 					sab->name, sab->numBlades, sab->blade[0].length, sab->blade[0].lengthMax );
 			}
 		}
+		for ( int i = 1; i < MAX_CLIENTS; i++ )
+		{	// coop: level entities that an older save left in the player slots (skipped by SV_DirectConnect)
+			const gentity_t *e = &g_entities[i];
+			if ( e->inuse && !G_CoopPlayerSlot( i ) )
+			{
+				gi.Printf( "coop_hp: slot %i pris par %s (%s)\n", i, e->classname ? e->classname : "?", e->targetname ? e->targetname : "-" );
+			}
+		}
 		for ( int i = MAX_CLIENTS; i < globals.num_entities; i++ )
 		{	// allied NPCs: their enemy tells us whether a stray player shot turned them
 			gentity_t *e = &g_entities[i];

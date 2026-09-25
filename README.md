@@ -11,7 +11,7 @@
   <a href="https://ko-fi.com/parricidium"><img src="https://img.shields.io/badge/Ko--fi-Support%20me-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Support me on Ko-fi"></a>
 </p>
 
-# JACoop — the Jedi Academy campaign in co-op, 2 to 4 players
+# JACoop — the Jedi Academy campaign in co-op, 2 to 16 players
 
 A co-op mod for **Star Wars Jedi Knight: Jedi Academy**, built on the open-source
 [OpenJK](https://github.com/JACoders/OpenJK) engine. One player hosts, the others join: everybody
@@ -69,7 +69,7 @@ language. On the first launch of a bilingual version it follows the language of 
 |---|---|
 | **HOST** | Opens the lobby; your friends join you. **NEW GAME**: pick the difficulty and your character, then each guest creates theirs and the game starts once everyone has confirmed (or **START** without waiting). **CONTINUE**: load a saved game, everyone gets their character and progress back. |
 | **JOIN** | Games on the local network, or the host's `IP:PORT` (Internet). |
-| **CO-OP OPTIONS** | Name, revive key, field of view, and the host's game settings. |
+| **CO-OP OPTIONS** | Name, revive key, field of view, and the host's game settings (max players: 2 to 16). |
 
 You can also play solo and open the game to friends at any time: **F6 > OPEN TO FRIENDS**.
 
@@ -155,6 +155,10 @@ lot (`JACoop\base\qconsole.log`, overwritten at each launch: copy it before rest
     the size limit (300 MB by default, `sv_coopTransferMaxMB` / `cl_coopTransferMaxMB`) is skipped and
     its owner shows up as a stormtrooper for the others.
 11. **No kick and no password** for the lobby (by choice for now).
+12. **A save made before 16 players (versions up to 2026.09.24l)** still loads, but its level keeps
+    some of the new player slots: up to 4 players until the next level, then 16.
+13. **16 players** was tested with 6 on one machine; beyond, the host's upload and CPU are the limit,
+    and the single-player levels (lifts, doors, cutscenes) get crowded.
 
 ## Building
 
@@ -183,7 +187,7 @@ If you enjoy it, you can [support me on Ko-fi](https://ko-fi.com/parricidium). �
 
 # Version française
 
-**JACoop** — la campagne solo de **Star Wars Jedi Knight: Jedi Academy** en coopération, de 2 à 4
+**JACoop** — la campagne solo de **Star Wars Jedi Knight: Jedi Academy** en coopération, de 2 à 16
 joueurs, sur le moteur libre [OpenJK](https://github.com/JACoders/OpenJK). Un joueur héberge, les
 autres le rejoignent : tout le monde joue la **campagne solo** ensemble, dans le même monde, chacun
 avec son personnage, son sabre laser, ses pouvoirs de Force et sa progression. Anglais et français.
@@ -221,7 +225,7 @@ autres langues. Au premier lancement d'une version bilingue, il suit la langue d
 |---|---|
 | **HEBERGER** | Ouvre le salon ; tes amis te rejoignent. **NOUVELLE PARTIE** : tu choisis la difficulté et ton personnage, puis chaque invité crée le sien et la partie démarre quand tous ont validé (ou **COMMENCER** sans attendre). **CONTINUER** : charger une sauvegarde, chacun retrouve son personnage et sa progression. |
 | **REJOINDRE** | Parties du réseau local, ou l'`IP:PORT` de l'hôte (Internet). |
-| **OPTIONS COOPERATION** | Pseudo, touche pour relever, champ de vision, et les réglages de partie de l'hôte. |
+| **OPTIONS COOPERATION** | Pseudo, touche pour relever, champ de vision, et les réglages de partie de l'hôte (joueurs max : 2 à 16). |
 
 Tu peux aussi jouer en solo et ouvrir la partie aux amis à tout moment : **F6 > OUVRIR AUX AMIS**.
 
@@ -310,6 +314,10 @@ beaucoup (`JACoop\base\qconsole.log`, écrasé à chaque lancement : le copier a
     mod au-delà de la limite (300 Mo par défaut, `sv_coopTransferMaxMB` / `cl_coopTransferMaxMB`) passe
     son tour et son porteur apparaît en stormtrooper chez les autres.
 11. **Pas d'exclusion ni de mot de passe** pour le salon (choix actuel).
+12. **Une sauvegarde faite avant les 16 joueurs (versions jusqu'à 2026.09.24l)** se charge toujours, mais
+    son niveau garde certaines des nouvelles places de joueur : 4 joueurs jusqu'au niveau suivant, puis 16.
+13. **16 joueurs** : testé à 6 sur une seule machine ; au-delà, le débit montant et le processeur de
+    l'hôte sont la limite, et les niveaux solo (ascenseurs, portes, cinématiques) deviennent encombrés.
 
 ## Compiler
 

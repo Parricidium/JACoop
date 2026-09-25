@@ -1,4 +1,4 @@
-JACoop — Jedi Academy en coopération (2 à 4 joueurs, campagne solo)
+JACoop — Jedi Academy en coopération (2 à 16 joueurs, campagne solo)
 =====================================================================
 
 Ce dossier ne contient AUCUN fichier du jeu : il faut posséder Star Wars Jedi
