@@ -1403,7 +1403,7 @@ void CG_CoopSyncEntity( centity_t *cent )
 	cent->gent->forcePushTime = cent->currentState.coopPushTime;	// push heat-haze; input lock while we are thrown
 	if ( cent->currentState.eType == ET_MOVER && ( cent->currentState.coopHealth & ( COOP_MOVER_DOOR | COOP_MOVER_STATIC ) ) )
 	{	// the crosshair scan reads classname/spawnflags (Force push/pull hint)
-		cent->gent->classname = ( cent->currentState.coopHealth & COOP_MOVER_DOOR ) ? "func_door" : "func_static";
+		cent->gent->classname = (char *)( ( cent->currentState.coopHealth & COOP_MOVER_DOOR ) ? "func_door" : "func_static" );
 		cent->gent->spawnflags = cent->currentState.coopHealth & 0xff;
 	}
 	else if ( cent->currentState.eType == ET_MOVER )
