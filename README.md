@@ -8,6 +8,7 @@
 <p align="center">
   <a href="https://github.com/Parricidium/JACoop/releases/latest"><img src="https://img.shields.io/github/v/release/Parricidium/JACoop?label=Download&style=for-the-badge" alt="Download the latest release"></a>
   <a href="LICENSE.txt"><img src="https://img.shields.io/badge/license-GPLv2-blue?style=for-the-badge" alt="GPLv2"></a>
+  <a href="https://www.nexusmods.com/starwarsjediknightjediacademy/mods/149"><img src="https://img.shields.io/badge/Nexus%20Mods-JACoop-D98F40?style=for-the-badge" alt="JACoop on Nexus Mods"></a>
   <a href="https://ko-fi.com/parricidium"><img src="https://img.shields.io/badge/Ko--fi-Support%20me-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Support me on Ko-fi"></a>
 </p>
 
@@ -44,7 +45,7 @@ ragdoll corpses, custom skins and saber hilts that travel between players by the
 
 ## Download and install
 
-1. Download `JACoop-<version>.zip` from the [releases](https://github.com/Parricidium/JACoop/releases).
+1. Download `JACoop-<version>.zip` from the [releases](https://github.com/Parricidium/JACoop/releases) or from [Nexus Mods](https://www.nexusmods.com/starwarsjediknightjediacademy/mods/149).
 2. Unzip it **anywhere** (desktop, games folder...). It is a standalone folder: nothing is written
    into the game's folder.
 3. Start `JACoop.exe`. It finds Jedi Academy by itself (Steam or GOG); otherwise it asks for the
@@ -200,7 +201,7 @@ ragdoll, skins et manches de sabre qui voyagent tout seuls entre les joueurs.
 
 ## Téléchargement et installation
 
-1. Télécharge `JACoop-<version>.zip` dans les [releases](https://github.com/Parricidium/JACoop/releases).
+1. Télécharge `JACoop-<version>.zip` dans les [releases](https://github.com/Parricidium/JACoop/releases) ou sur [Nexus Mods](https://www.nexusmods.com/starwarsjediknightjediacademy/mods/149).
 2. Décompresse-le **où tu veux** (bureau, dossier de jeux...). C'est un dossier autonome : rien n'est
    écrit dans le dossier du jeu.
 3. Lance `JACoop.exe`. Il trouve Jedi Academy tout seul (Steam ou GOG) ; sinon il demande le dossier
